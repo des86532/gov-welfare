@@ -9,7 +9,7 @@ const serif = Noto_Serif_TC({ subsets: ["latin"], weight: ["600", "700", "900"],
 
 export const metadata: Metadata = {
   title: { default: "福利指南｜台灣政府福利資格初篩", template: "%s｜福利指南" },
-  description: "用少量資料初步找出台灣中央、桃園、新北與臺北政府福利，查看資格依據並前往官方申請。",
+  description: "用少量資料初步找出台灣中央、桃園、新北、臺北與臺中政府福利，查看資格依據並前往官方申請。",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

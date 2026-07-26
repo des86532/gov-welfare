@@ -6,6 +6,7 @@ import { newTaipeiSourceClassifications } from "../data/new-taipei-source-items"
 import { sources } from "../data/sources";
 import { taipeiSourceClassifications } from "../data/taipei-source-items";
 import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
+import { taichungSourceClassifications } from "../data/taichung-source-items";
 import { buildTaoyuanReviewedPrograms, taoyuanProgramCurations } from "../data/taoyuan-programs";
 import type { AtomicRule, RuleNode } from "../lib/domain";
 
@@ -35,6 +36,13 @@ test("臺北 10 筆 Source items 全部完成現行 Authority Review", () => {
   assert.equal(new Set(taipeiSourceClassifications.map((item) => item.title)).size, 10);
   assert.equal(taipeiSourceClassifications.filter((item) => item.classification === "matchable").length, 10);
   for (const item of taipeiSourceClassifications) assert.ok(item.rationale, item.title);
+});
+
+test("臺中 10 筆 Source items 全部完成現行 Authority Review", () => {
+  assert.equal(taichungSourceClassifications.length, 10);
+  assert.equal(new Set(taichungSourceClassifications.map((item) => item.title)).size, 10);
+  assert.equal(taichungSourceClassifications.filter((item) => item.classification === "matchable").length, 10);
+  for (const item of taichungSourceClassifications) assert.ok(item.rationale, item.title);
 });
 
 test("桃園 21 筆可發布 Source items 都有 Program curation", () => {
@@ -98,10 +106,11 @@ test("所有 Evidence 都能找到 Source registry", () => {
   for (const program of programs) for (const item of program.evidence) assert.ok(ids.has(item.sourceId), `${program.title}: ${item.sourceId}`);
 });
 
-test("新北與臺北地方 Dataset 已使用 Source-specific CSV adapters", () => {
+test("新北、臺北與臺中地方 Dataset 已使用 Source-specific adapters", () => {
   const adapters = new Map(sources.map((source) => [source.id, source.adapterKey]));
   assert.equal(adapters.get("new-taipei-welfare-open-data"), "new_taipei_welfare_csv");
   assert.equal(adapters.get("taipei-social-aid-open-data"), "taipei_social_aid_csv");
+  assert.equal(adapters.get("taichung-social-aid-open-data"), "taichung_social_aid_json");
 });
 
 test("戶籍與居住地可選擇臺灣 22 縣市", () => {

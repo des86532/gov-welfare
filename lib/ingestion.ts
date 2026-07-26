@@ -2,12 +2,14 @@ import type { DraftSourceItem, RawSnapshot, SourceConfig } from "@/lib/domain";
 import { supabaseRest, type SupabaseConfig } from "@/lib/supabase-rest";
 import { newTaipeiSourceClassifications } from "@/data/new-taipei-source-items";
 import { taipeiSourceClassifications } from "@/data/taipei-source-items";
+import { taichungSourceClassifications } from "@/data/taichung-source-items";
 import { taoyuanSourceClassifications } from "@/data/taoyuan-source-items";
 
 const classificationsBySource = new Map([
   ["taoyuan-welfare-open-data", new Map(taoyuanSourceClassifications.map((item) => [item.title, item]))],
   ["new-taipei-welfare-open-data", new Map(newTaipeiSourceClassifications.map((item) => [item.title, item]))],
   ["taipei-social-aid-open-data", new Map(taipeiSourceClassifications.map((item) => [item.title, item]))],
+  ["taichung-social-aid-open-data", new Map(taichungSourceClassifications.map((item) => [item.title, item]))],
 ]);
 
 export type PersistResult = {

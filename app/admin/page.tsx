@@ -2,6 +2,7 @@ import { programs } from "@/data/programs";
 import { newTaipeiSourceClassifications } from "@/data/new-taipei-source-items";
 import { sources } from "@/data/sources";
 import { taipeiSourceClassifications } from "@/data/taipei-source-items";
+import { taichungSourceClassifications } from "@/data/taichung-source-items";
 import { taoyuanSourceClassifications } from "@/data/taoyuan-source-items";
 import { loadAdminReviewData, type ProgramVersionRow } from "@/lib/admin-review";
 import { classifySourceItemAction, publishVersionAction, rejectVersionAction, rollbackVersionAction } from "@/app/admin/actions";
@@ -66,7 +67,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     console.error("Admin Supabase review data failed", error);
   }
   const matchable = programs.filter((program) => program.coverage === "matchable").length;
-  const localClassifications = [...taoyuanSourceClassifications, ...newTaipeiSourceClassifications, ...taipeiSourceClassifications];
+  const localClassifications = [...taoyuanSourceClassifications, ...newTaipeiSourceClassifications, ...taipeiSourceClassifications, ...taichungSourceClassifications];
   const localExcluded = localClassifications.filter((item) => item.classification === "excluded").length;
   const localMatchable = localClassifications.filter((item) => item.classification === "matchable").length;
   return (
@@ -80,7 +81,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <div><span>Snapshots</span><strong>{database?.snapshots.length ?? 0}</strong><small>Immutable responses</small></div>
         <div><span>Review queue</span><strong>{(database?.pendingItems.length ?? 0) + (database?.pendingVersions.length ?? 0)}</strong><small>{database?.pendingVersions.length ?? 0} Program versions</small></div>
         <div><span>Published</span><strong>{database?.published.length ?? programs.length}</strong><small>{database?.published.filter((version) => version.coverage === "matchable").length ?? matchable} Matchable</small></div>
-        <div><span>地方已分類</span><strong>187/187</strong><small>{localMatchable} matchable · {localExcluded} excluded</small></div>
+        <div><span>地方已分類</span><strong>197/197</strong><small>{localMatchable} matchable · {localExcluded} excluded</small></div>
       </section>
 
       <section className="admin-section">

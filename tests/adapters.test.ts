@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { contentHashFor, decodeSourceText, extractMyEGovHtml, extractNewTaipeiRows, extractOfficialPage, extractTaipeiRows, extractTaoyuanRows, parseCsvRecords, validateSnapshotFormat } from "../lib/adapters";
+import { contentHashFor, decodeSourceText, extractMyEGovHtml, extractNewTaipeiRows, extractOfficialPage, extractTaichungRows, extractTaipeiRows, extractTaoyuanRows, parseCsvRecords, validateSnapshotFormat } from "../lib/adapters";
 import type { SourceConfig } from "../lib/domain";
 
 const monitoredPdf: SourceConfig = {
@@ -68,6 +68,22 @@ test("臺北 CSV 將舊年度文字標成 Review warning", () => {
   assert.equal(item.canonicalDraft.applicationUrl, "https://example.gov.tw/detail");
   assert.ok(item.warnings.includes("stale_109_year_text_detected"));
   assert.equal(item.reviewStatus, "pending");
+});
+
+test("臺中 JSON 保留未知欄位且長文字不自動產生 Rules", () => {
+  const item = extractTaichungRows(JSON.stringify([{
+    編號: "1",
+    補助名稱: "市急難救助",
+    補助序號: "最高 2 萬元",
+    身份1: "六類急難事由",
+    相關資訊連結: "https://example.taichung.gov.tw/1",
+    futureField: "保留我",
+  }]))[0];
+  assert.equal(item.title, "市急難救助");
+  assert.equal(item.canonicalDraft.eligibilityText, "六類急難事由");
+  assert.equal(item.unknownFields.futureField, "保留我");
+  assert.equal("rule" in item.canonicalDraft, false);
+  assert.ok(item.warnings.includes("long_text_eligibility_requires_review"));
 });
 
 test("MyEGov 重複申辦段落去重", () => {

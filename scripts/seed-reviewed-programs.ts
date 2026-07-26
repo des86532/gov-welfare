@@ -1,6 +1,7 @@
 import { programs } from "../data/programs";
 import { newTaipeiSourceClassifications } from "../data/new-taipei-source-items";
 import { taipeiSourceClassifications } from "../data/taipei-source-items";
+import { taichungSourceClassifications } from "../data/taichung-source-items";
 import { buildTaoyuanReviewedPrograms, type ReviewedTaoyuanItem } from "../data/taoyuan-programs";
 import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
 import { isDeepStrictEqual } from "node:util";
@@ -99,6 +100,7 @@ async function main() {
     ["taoyuan-welfare-open-data", taoyuanSourceClassifications],
     ["new-taipei-welfare-open-data", newTaipeiSourceClassifications],
     ["taipei-social-aid-open-data", taipeiSourceClassifications],
+    ["taichung-social-aid-open-data", taichungSourceClassifications],
   ]);
   const sourceItems: TaoyuanItemRow[] = [];
   for (const sourceId of manifests.keys()) {

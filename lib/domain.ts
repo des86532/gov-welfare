@@ -147,6 +147,7 @@ export type SourceConfig = {
     | "taoyuan_welfare_json"
     | "new_taipei_welfare_csv"
     | "taipei_social_aid_csv"
+    | "taichung_social_aid_json"
     | "myegov_html"
     | "official_page"
     | "document_monitor"

@@ -3,6 +3,7 @@ import { programs } from "../data/programs";
 import { sources } from "../data/sources";
 import { newTaipeiSourceClassifications } from "../data/new-taipei-source-items";
 import { taipeiSourceClassifications } from "../data/taipei-source-items";
+import { taichungSourceClassifications } from "../data/taichung-source-items";
 import { buildTaoyuanReviewedPrograms, type ReviewedTaoyuanItem } from "../data/taoyuan-programs";
 import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
 import type { Program, RuleNode } from "../lib/domain";
@@ -30,12 +31,13 @@ function atomicPaths(rule: RuleNode, path = "/rule"): string[] {
 
 async function main() {
   const config = requiredConfig();
-  const [databaseSources, snapshots, taoyuanItems, newTaipeiItems, taipeiItems, versions, drafts] = await Promise.all([
+  const [databaseSources, snapshots, taoyuanItems, newTaipeiItems, taipeiItems, taichungItems, versions, drafts] = await Promise.all([
     supabaseRest<Array<{ id: string; status: string; last_check_error: unknown }>>(config, "sources?select=id,status,last_check_error"),
     supabaseRest<Snapshot[]>(config, "source_snapshots?select=id,source_id&content_hash=not.is.null&order=observed_at.desc"),
     supabaseRest<Array<ReviewedTaoyuanItem & { classification: string | null; review_status: string }>>(config, "source_items?select=title,snapshot_id,canonical_draft,classification,review_status&source_id=eq.taoyuan-welfare-open-data"),
     supabaseRest<Array<{ title: string; snapshot_id: string; classification: string | null; review_status: string }>>(config, "source_items?select=title,snapshot_id,classification,review_status&source_id=eq.new-taipei-welfare-open-data"),
     supabaseRest<Array<{ title: string; snapshot_id: string; classification: string | null; review_status: string }>>(config, "source_items?select=title,snapshot_id,classification,review_status&source_id=eq.taipei-social-aid-open-data"),
+    supabaseRest<Array<{ title: string; snapshot_id: string; classification: string | null; review_status: string }>>(config, "source_items?select=title,snapshot_id,classification,review_status&source_id=eq.taichung-social-aid-open-data"),
     supabaseRest<Version[]>(config, "program_versions?select=status,coverage,canonical_content,field_evidence(field_path,source_id,snapshot_id,reviewed_at)&status=eq.published"),
     supabaseRest<Array<{ id: string }>>(config, "program_versions?select=id&status=eq.draft"),
   ]);
@@ -48,6 +50,8 @@ async function main() {
   const latestNewTaipeiItems = newTaipeiItems.filter((item) => item.snapshot_id === newTaipeiSnapshotId);
   const taipeiSnapshotId = latest.get("taipei-social-aid-open-data")?.id;
   const latestTaipeiItems = taipeiItems.filter((item) => item.snapshot_id === taipeiSnapshotId);
+  const taichungSnapshotId = latest.get("taichung-social-aid-open-data")?.id;
+  const latestTaichungItems = taichungItems.filter((item) => item.snapshot_id === taichungSnapshotId);
   const reviewedTaoyuanItems = latestTaoyuanItems.filter((item) => item.classification !== "excluded" && item.review_status === "published");
   const expectedPrograms = [...programs, ...buildTaoyuanReviewedPrograms(reviewedTaoyuanItems, "2026-07-27")];
   const expected = expectedPrograms.filter((program) => program.evidence.every((item) => latest.has(item.sourceId)));
@@ -77,6 +81,14 @@ async function main() {
     new Map(taipeiSourceClassifications.map((item) => [item.title, item.classification])),
     "Taipei classification drift",
   );
+  assert.equal(latestTaichungItems.length, 10, "Taichung item count");
+  assert.equal(latestTaichungItems.filter((item) => item.classification === null).length, 0, "Unclassified Taichung items");
+  assert.ok(latestTaichungItems.every((item) => item.review_status === "published"), "Unreviewed Taichung items");
+  assert.deepEqual(
+    new Map(latestTaichungItems.map((item) => [item.title, item.classification])),
+    new Map(taichungSourceClassifications.map((item) => [item.title, item.classification])),
+    "Taichung classification drift",
+  );
   assert.equal(versions.length, expected.length, "Published Program count");
   assert.equal(drafts.length, 0, "Unreviewed Program drafts");
 
@@ -103,6 +115,7 @@ async function main() {
     taoyuanItems: latestTaoyuanItems.length,
     newTaipeiItems: latestNewTaipeiItems.length,
     taipeiItems: latestTaipeiItems.length,
+    taichungItems: latestTaichungItems.length,
     publishedPrograms: versions.length,
     matchablePrograms: versions.filter((version) => version.coverage === "matchable").length,
     draftVersions: drafts.length,

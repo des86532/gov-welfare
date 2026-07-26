@@ -226,6 +226,38 @@ export function extractTaipeiRows(body: string): DraftSourceItem[] {
   });
 }
 
+const taichungFields = new Set(["編號", "補助名稱", "補助序號", "設籍條件", "居住日數是否需大於183日", "身份1", "其他條件", "應備文件", "收件洽辦單位", "聯繫電話", "分機", "相關資訊連結", "縣市別代碼", "機關代碼"]);
+
+export function extractTaichungRows(body: string): DraftSourceItem[] {
+  const parsed: unknown = JSON.parse(body.replace(/^\uFEFF/, ""));
+  if (!Array.isArray(parsed)) throw new Error("臺中 Source format changed: expected a JSON array");
+  return parsed.map((value, index) => {
+    const row = objectRecord(value);
+    if (!row || typeof row["補助名稱"] !== "string") throw new Error(`臺中 row ${index} 缺少補助名稱`);
+    const title = cleanText(row["補助名稱"]);
+    return {
+      externalId: typeof row["編號"] === "string" ? row["編號"] : `${index}:${title}`,
+      title,
+      raw: row,
+      canonicalDraft: {
+        title,
+        benefitText: typeof row["補助序號"] === "string" ? cleanText(row["補助序號"]) : null,
+        householdCondition: typeof row["設籍條件"] === "string" ? cleanText(row["設籍條件"]) : null,
+        residenceDaysText: typeof row["居住日數是否需大於183日"] === "string" ? cleanText(row["居住日數是否需大於183日"]) : null,
+        eligibilityText: typeof row["身份1"] === "string" ? cleanText(row["身份1"]) : null,
+        otherEligibilityText: typeof row["其他條件"] === "string" ? cleanText(row["其他條件"]) : null,
+        documentsText: typeof row["應備文件"] === "string" ? cleanText(row["應備文件"]) : null,
+        authority: typeof row["收件洽辦單位"] === "string" ? cleanText(row["收件洽辦單位"]) : null,
+        contactText: [row["聯繫電話"], row["分機"]].filter((item) => typeof item === "string" && item).join("#") || null,
+        applicationUrl: typeof row["相關資訊連結"] === "string" ? cleanText(row["相關資訊連結"]) : null,
+      },
+      unknownFields: Object.fromEntries(Object.entries(row).filter(([key]) => !taichungFields.has(key))),
+      reviewStatus: "pending",
+      warnings: ["long_text_eligibility_requires_review", "draft_never_auto_publish"],
+    };
+  });
+}
+
 const headingSelector = "h1, h2, h3, h4";
 
 export function extractMyEGovHtml(body: string, sourceId: string): DraftSourceItem[] {
@@ -302,6 +334,11 @@ class TaipeiCsvAdapter implements SourceAdapter {
   async extract(snapshot: RawSnapshot) { return extractTaipeiRows(snapshot.body); }
 }
 
+class TaichungJsonAdapter implements SourceAdapter {
+  fetch = fetchSnapshot;
+  async extract(snapshot: RawSnapshot) { return extractTaichungRows(snapshot.body); }
+}
+
 class MyEGovHtmlAdapter implements SourceAdapter {
   fetch = fetchSnapshot;
   async extract(snapshot: RawSnapshot) { return extractMyEGovHtml(snapshot.body, snapshot.sourceId); }
@@ -339,6 +376,7 @@ export function createAdapter(source: SourceConfig): SourceAdapter {
     case "taoyuan_welfare_json": return new TaoyuanJsonAdapter();
     case "new_taipei_welfare_csv": return new NewTaipeiCsvAdapter();
     case "taipei_social_aid_csv": return new TaipeiCsvAdapter();
+    case "taichung_social_aid_json": return new TaichungJsonAdapter();
     case "myegov_html": return new MyEGovHtmlAdapter();
     case "official_page": return new OfficialPageAdapter();
     case "document_monitor": return new DocumentMonitorAdapter();

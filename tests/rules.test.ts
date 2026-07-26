@@ -318,3 +318,76 @@ test("臺北急難救助支援市民與外縣市流落受災兩種路徑", () =>
     stranded_or_disaster_in_taipei: false,
   }, "2026-07-27").status, "ineligible");
 });
+
+test("臺中市急難救助與行旅返鄉車資只判斷可申請門檻", () => {
+  const emergency = programs.find((item) => item.slug === "taichung-municipal-emergency-assistance");
+  const traveler = programs.find((item) => item.slug === "taichung-traveler-return-fare");
+  assert.ok(emergency && traveler);
+  assert.equal(matchProgram(emergency, {
+    household_city: "taichung",
+    taichung_municipal_emergency_within_3_months: true,
+  }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(emergency, {
+    household_city: "taipei",
+    taichung_municipal_emergency_within_3_months: true,
+  }, "2026-07-27").status, "ineligible");
+  assert.equal(matchProgram(traveler, {
+    taichung_stranded_without_return_fare: true,
+    frequent_return_fare_requests_or_identity_unknown: false,
+  }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(traveler, {
+    taichung_stranded_without_return_fare: true,
+    frequent_return_fare_requests_or_identity_unknown: true,
+  }, "2026-07-27").status, "ineligible");
+});
+
+test("臺中急難紓困與食物銀行要求實際居住及指定陷困途徑", () => {
+  const relief = programs.find((item) => item.slug === "taichung-emergency-relief-program");
+  const foodBank = programs.find((item) => item.slug === "taichung-food-bank-assistance");
+  assert.ok(relief && foodBank);
+  assert.equal(matchProgram(relief, {
+    residence_city: "taichung",
+    taichung_emergency_relief_reason: true,
+  }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(foodBank, {
+    residence_city: "taichung",
+    taichung_food_bank_reason: "welfare_recipient_in_hardship",
+  }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(foodBank, {
+    residence_city: "taichung",
+    taichung_food_bank_reason: "none",
+  }, "2026-07-27").status, "ineligible");
+});
+
+test("臺中安遷與重傷救助共用災害地點及三個月門檻", () => {
+  const relocation = programs.find((item) => item.slug === "taichung-disaster-relocation-assistance");
+  const injury = programs.find((item) => item.slug === "taichung-disaster-severe-injury-assistance");
+  assert.ok(relocation && injury);
+  const disaster = { disaster_event_in_taichung_within_3_months: true };
+  assert.equal(matchProgram(relocation, { ...disaster, taichung_disaster_relocation_eligible: true }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(injury, { ...disaster, taichung_disaster_severe_injury_eligible: true }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(injury, {
+    disaster_event_in_taichung_within_3_months: false,
+    taichung_disaster_severe_injury_eligible: true,
+  }, "2026-07-27").status, "ineligible");
+});
+
+test("臺中死亡與失蹤救助各自保留事件證明條件", () => {
+  const death = programs.find((item) => item.slug === "taichung-disaster-death-assistance");
+  const missing = programs.find((item) => item.slug === "taichung-disaster-missing-assistance");
+  assert.ok(death && missing);
+  const disaster = { disaster_event_in_taichung_within_3_months: true };
+  assert.equal(matchProgram(death, { ...disaster, taichung_disaster_death_eligible: true }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(missing, { ...disaster, taichung_disaster_missing_eligible: true }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(missing, { ...disaster, taichung_disaster_missing_eligible: false }, "2026-07-27").status, "ineligible");
+});
+
+test("臺中土石流與淹水住屋救助使用不同災損門檻", () => {
+  const mudslide = programs.find((item) => item.slug === "taichung-mudslide-home-assistance");
+  const flood = programs.find((item) => item.slug === "taichung-flood-home-assistance");
+  assert.ok(mudslide && flood);
+  const disaster = { disaster_event_in_taichung_within_3_months: true };
+  assert.equal(matchProgram(mudslide, { ...disaster, taichung_mudslide_home_eligible: true }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(flood, { ...disaster, taichung_flood_home_eligible: true }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(flood, { ...disaster, taichung_flood_home_eligible: false }, "2026-07-27").status, "ineligible");
+});
