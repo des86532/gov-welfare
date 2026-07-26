@@ -10,7 +10,8 @@
 - 桃園共 5 個 `matchable`、17 個 `descriptive_only` 福利進入公開 Catalog；自然語言資格尚未結構化前不參與 Matching。
 - 戶籍與居住地可選擇臺灣全部 22 縣市，為後續地方 Coverage 保留一致 Fact values。
 - `all`、`any`、比較、日期間隔與 `true`／`false`／`unknown` Rule engine。
-- 桃園 JSON、MyEGov HTML、Official page、Document monitor 與 Manual adapters。
+- 桃園 JSON、新北／臺北 CSV、MyEGov HTML、Official page、Document monitor 與 Manual adapters。
+- 新北 151 筆與臺北 10 筆官方 Dataset 已可建立 immutable Draft；完成 Authority page 與年度 Review 前不會進入公開 Catalog。
 - Dry-run／persistent ingestion CLI、GitHub Actions Scheduled source checks。
 - Supabase PostgreSQL migration：Sources、Snapshots、Source items、Programs、Versions、Evidence、Reviews、Relationships 與 RLS。
 - Basic Auth 保護的 `/admin` Review dashboard：Source diff、Source item classification、Evidence gate、Publish、Reject、Rollback 與 Audit trail。
@@ -60,7 +61,7 @@ npm run sources:persist -- --json
 npm run data:audit
 ```
 
-Repository-reviewed Rules 可由 GitHub Actions 的 `Scheduled source checks` 手動執行，勾選 `publish_reviewed_programs` 後才會建立並發布新版；每日 Schedule 只擷取 Draft，不會自動 Publish。
+Repository-reviewed Rules 可由 GitHub Actions 的 `Scheduled source checks` 手動執行，勾選 `publish_reviewed_programs` 後才會建立並發布新版；每日 Schedule 只擷取 Draft，不會自動 Publish。單一 Source 失敗不會阻止其他已審核、Evidence Source 正常的 Program 發布，但 workflow 最後仍會保留失敗狀態供追蹤。
 
 ## Supabase
 

@@ -121,6 +121,100 @@ export function extractTaoyuanRows(body: string): DraftSourceItem[] {
   });
 }
 
+export function parseCsvRecords(body: string): Record<string, string>[] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let quoted = false;
+  for (let index = 0; index < body.length; index += 1) {
+    const character = body[index];
+    if (quoted) {
+      if (character === '"' && body[index + 1] === '"') {
+        field += '"';
+        index += 1;
+      } else if (character === '"') quoted = false;
+      else field += character;
+    } else if (character === '"' && field === "") quoted = true;
+    else if (character === ",") {
+      row.push(field);
+      field = "";
+    } else if (character === "\n") {
+      row.push(field.replace(/\r$/, ""));
+      if (row.some((value) => value !== "")) rows.push(row);
+      row = [];
+      field = "";
+    } else field += character;
+  }
+  if (quoted) throw new Error("CSV Source format changed: unterminated quoted field");
+  row.push(field.replace(/\r$/, ""));
+  if (row.some((value) => value !== "")) rows.push(row);
+  const headers = rows.shift()?.map((value) => value.replace(/^\uFEFF/, "").trim()) ?? [];
+  if (headers.length === 0 || headers.some((header) => !header) || new Set(headers).size !== headers.length) throw new Error("CSV Source format changed: invalid header");
+  return rows.map((values, index) => {
+    if (values.length !== headers.length) throw new Error(`CSV Source format changed: row ${index} has ${values.length} fields, expected ${headers.length}`);
+    return Object.fromEntries(headers.map((header, valueIndex) => [header, values[valueIndex]]));
+  });
+}
+
+const newTaipeiFields = new Set(["name", "service_desc", "cont1", "cont2", "cont3", "cont4", "cont5", "cont6", "cont7", "date_created", "last_updated", "c", "curl", "id"]);
+
+export function extractNewTaipeiRows(body: string): DraftSourceItem[] {
+  return parseCsvRecords(body).map((row, index) => {
+    if (!row.name) throw new Error(`新北 row ${index} 缺少 name`);
+    const opaqueSections = Object.fromEntries(["cont1", "cont2", "cont3", "cont4", "cont5", "cont6", "cont7"]
+      .map((key) => [key, cleanText(row[key] ?? "")])
+      .filter(([, value]) => value));
+    return {
+      externalId: row.id || row.curl || `${index}:${row.name}`,
+      title: cleanText(row.name),
+      raw: row,
+      canonicalDraft: {
+        title: cleanText(row.name),
+        summary: cleanText(row.service_desc ?? ""),
+        opaqueSections,
+        applicationUrl: cleanText(row.curl ?? "") || null,
+        createdAt: row.date_created || null,
+        resourceModifiedAt: row.last_updated || null,
+      },
+      unknownFields: Object.fromEntries(Object.entries(row).filter(([key]) => !newTaipeiFields.has(key))),
+      reviewStatus: "pending",
+      warnings: ["opaque_cont_fields_require_review", "draft_never_auto_publish"],
+    };
+  });
+}
+
+const taipeiFields = new Set(["序號", "補助名稱", "補助對象年齡下限", "補助對象年齡上限", "設籍條件", "居住日數是否需大於規定日數", "身份", "收入條件每人每月上限金額", "動產條件每人上限", "其他條件", "應備文件", "收件洽辦單位", "聯繫方式", "詳細資訊網址"]);
+
+export function extractTaipeiRows(body: string): DraftSourceItem[] {
+  return parseCsvRecords(body).map((row, index) => {
+    if (!row["補助名稱"]) throw new Error(`臺北 row ${index} 缺少補助名稱`);
+    const values = Object.values(row).join(" ");
+    return {
+      externalId: row["序號"] || `${index}:${row["補助名稱"]}`,
+      title: cleanText(row["補助名稱"]),
+      raw: row,
+      canonicalDraft: {
+        title: cleanText(row["補助名稱"]),
+        ageLowerText: cleanText(row["補助對象年齡下限"] ?? ""),
+        ageUpperText: cleanText(row["補助對象年齡上限"] ?? ""),
+        householdCondition: cleanText(row["設籍條件"] ?? ""),
+        residenceDaysText: cleanText(row["居住日數是否需大於規定日數"] ?? ""),
+        identityText: cleanText(row["身份"] ?? ""),
+        incomeLimitText: cleanText(row["收入條件每人每月上限金額"] ?? ""),
+        assetLimitText: cleanText(row["動產條件每人上限"] ?? ""),
+        otherEligibilityText: cleanText(row["其他條件"] ?? ""),
+        documentsText: cleanText(row["應備文件"] ?? ""),
+        authority: cleanText(row["收件洽辦單位"] ?? ""),
+        contactText: cleanText(row["聯繫方式"] ?? ""),
+        applicationUrl: cleanText(row["詳細資訊網址"] ?? "") || null,
+      },
+      unknownFields: Object.fromEntries(Object.entries(row).filter(([key]) => !taipeiFields.has(key))),
+      reviewStatus: "pending",
+      warnings: [...(values.includes("109年") ? ["stale_109_year_text_detected"] : []), "field_semantics_require_review", "draft_never_auto_publish"],
+    };
+  });
+}
+
 const headingSelector = "h1, h2, h3, h4";
 
 export function extractMyEGovHtml(body: string, sourceId: string): DraftSourceItem[] {
@@ -187,6 +281,16 @@ class TaoyuanJsonAdapter implements SourceAdapter {
   async extract(snapshot: RawSnapshot) { return extractTaoyuanRows(snapshot.body); }
 }
 
+class NewTaipeiCsvAdapter implements SourceAdapter {
+  fetch = fetchSnapshot;
+  async extract(snapshot: RawSnapshot) { return extractNewTaipeiRows(snapshot.body); }
+}
+
+class TaipeiCsvAdapter implements SourceAdapter {
+  fetch = fetchSnapshot;
+  async extract(snapshot: RawSnapshot) { return extractTaipeiRows(snapshot.body); }
+}
+
 class MyEGovHtmlAdapter implements SourceAdapter {
   fetch = fetchSnapshot;
   async extract(snapshot: RawSnapshot) { return extractMyEGovHtml(snapshot.body, snapshot.sourceId); }
@@ -222,6 +326,8 @@ class ManualAdapter implements SourceAdapter {
 export function createAdapter(source: SourceConfig): SourceAdapter {
   switch (source.adapterKey) {
     case "taoyuan_welfare_json": return new TaoyuanJsonAdapter();
+    case "new_taipei_welfare_csv": return new NewTaipeiCsvAdapter();
+    case "taipei_social_aid_csv": return new TaipeiCsvAdapter();
     case "myegov_html": return new MyEGovHtmlAdapter();
     case "official_page": return new OfficialPageAdapter();
     case "document_monitor": return new DocumentMonitorAdapter();

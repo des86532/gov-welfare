@@ -142,7 +142,14 @@ export type SourceConfig = {
   format: SourceFormat;
   roles: SourceRole[];
   automation: AutomationLevel;
-  adapterKey: "taoyuan_welfare_json" | "myegov_html" | "official_page" | "document_monitor" | "manual";
+  adapterKey:
+    | "taoyuan_welfare_json"
+    | "new_taipei_welfare_csv"
+    | "taipei_social_aid_csv"
+    | "myegov_html"
+    | "official_page"
+    | "document_monitor"
+    | "manual";
   checkEveryHours: number | null;
   fetchTimeoutMs?: number;
   crawlerRequired: boolean;

@@ -78,6 +78,12 @@ test("所有 Evidence 都能找到 Source registry", () => {
   for (const program of programs) for (const item of program.evidence) assert.ok(ids.has(item.sourceId), `${program.title}: ${item.sourceId}`);
 });
 
+test("新北與臺北地方 Dataset 已使用 Source-specific CSV adapters", () => {
+  const adapters = new Map(sources.map((source) => [source.id, source.adapterKey]));
+  assert.equal(adapters.get("new-taipei-welfare-open-data"), "new_taipei_welfare_csv");
+  assert.equal(adapters.get("taipei-social-aid-open-data"), "taipei_social_aid_csv");
+});
+
 test("戶籍與居住地可選擇臺灣 22 縣市", () => {
   assert.equal(taiwanCityOptions.length, 22);
   assert.equal(new Set(taiwanCityOptions.map((city) => city.value)).size, 22);
