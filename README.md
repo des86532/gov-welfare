@@ -5,9 +5,9 @@
 ## 已實作
 
 - Next.js App Router 公開網站：首頁、Category catalog、Dynamic questionnaire、Results、Program detail、資料方法頁。
-- Production 共 37 個中央／桃園 Programs：34 個 Supabase Published versions，加上 3 個受控 Seed fallback；其中 11 個可執行 Rules。
+- Production 共 37 個中央／桃園 Programs：34 個 Supabase Published versions，加上 3 個受控 Seed fallback；其中 15 個可執行 Rules。
 - 桃園 Open Data 26 筆 Source items 的完整 `matchable`／`descriptive_only`／`excluded` 分類。
-- 21 個桃園 `descriptive_only` 福利已進入公開 Catalog；資格尚未結構化前不參與 Matching。
+- 桃園共 5 個 `matchable`、17 個 `descriptive_only` 福利進入公開 Catalog；自然語言資格尚未結構化前不參與 Matching。
 - 戶籍與居住地可選擇臺灣全部 22 縣市，為後續地方 Coverage 保留一致 Fact values。
 - `all`、`any`、比較、日期間隔與 `true`／`false`／`unknown` Rule engine。
 - 桃園 JSON、MyEGov HTML、Official page、Document monitor 與 Manual adapters。
@@ -59,6 +59,8 @@ npm run sources:persist -- --json
 ```bash
 npm run data:audit
 ```
+
+Repository-reviewed Rules 可由 GitHub Actions 的 `Scheduled source checks` 手動執行，勾選 `publish_reviewed_programs` 後才會建立並發布新版；每日 Schedule 只擷取 Draft，不會自動 Publish。
 
 ## Supabase
 

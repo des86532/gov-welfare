@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: "17 1 * * *"
   workflow_dispatch:
+    inputs:
+      publish_reviewed_programs:
+        description: Publish Repository-reviewed Program updates after the Source check
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -28,6 +34,12 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npx --no-install tsx scripts/check-sources.ts --persist --json > source-report.json
+      - name: Publish Repository-reviewed Program updates
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_reviewed_programs }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx --no-install tsx scripts/seed-reviewed-programs.ts --apply --publish-reviewed-updates
       - uses: actions/upload-artifact@v4
         if: always()
         with:

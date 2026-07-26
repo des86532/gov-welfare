@@ -1,11 +1,16 @@
 import { programs } from "../data/programs";
-import { buildTaoyuanDescriptivePrograms, type ReviewedTaoyuanItem } from "../data/taoyuan-programs";
+import { buildTaoyuanReviewedPrograms, type ReviewedTaoyuanItem } from "../data/taoyuan-programs";
+import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
 import { isDeepStrictEqual } from "node:util";
 import type { Evidence, Program, RuleNode } from "../lib/domain";
 import { supabaseConfig, supabaseRest, type SupabaseConfig } from "../lib/supabase-rest";
 
 type SnapshotRow = { id: string; source_id: string };
 type VersionRow = { version: number; canonical_content: Program };
+type TaoyuanItemRow = ReviewedTaoyuanItem & {
+  id: string;
+  classification: "matchable" | "descriptive_only" | "excluded" | null;
+};
 type EvidenceRow = {
   field_path: string;
   source_id: string;
@@ -88,19 +93,36 @@ async function main() {
 
   const taoyuanSnapshotId = snapshots.get("taoyuan-welfare-open-data");
   const taoyuanItems = taoyuanSnapshotId
-    ? await supabaseRest<ReviewedTaoyuanItem[]>(config,
-      `source_items?select=title,snapshot_id,canonical_draft&source_id=eq.taoyuan-welfare-open-data&snapshot_id=eq.${taoyuanSnapshotId}&classification=eq.descriptive_only&review_status=eq.published`)
+    ? await supabaseRest<TaoyuanItemRow[]>(config,
+      `source_items?select=id,title,snapshot_id,canonical_draft,classification&source_id=eq.taoyuan-welfare-open-data&snapshot_id=eq.${taoyuanSnapshotId}&review_status=eq.published`)
     : [];
   const reviewedPrograms = taoyuanSnapshotId
-    ? buildTaoyuanDescriptivePrograms(taoyuanItems, "2026-07-27")
+    ? buildTaoyuanReviewedPrograms(taoyuanItems, "2026-07-27")
     : [];
   const allPrograms = [...programs, ...reviewedPrograms];
+  const expectedClassification = new Map(taoyuanSourceClassifications.map((item) => [item.title, item]));
+  const classificationUpdates = taoyuanItems.filter((item) => expectedClassification.get(item.title)?.classification !== item.classification);
 
   const ready = allPrograms.filter((program) => program.evidence.every((item) => snapshots.has(item.sourceId)));
   const skipped = allPrograms.filter((program) => !ready.includes(program));
   if (!apply) {
-    console.log(JSON.stringify({ dryRun: true, ready: ready.map((item) => item.slug), skipped: skipped.map((item) => item.slug) }, null, 2));
+    console.log(JSON.stringify({ dryRun: true, ready: ready.map((item) => item.slug), classificationUpdates: classificationUpdates.map((item) => item.title), skipped: skipped.map((item) => item.slug) }, null, 2));
     return;
+  }
+
+  for (const item of classificationUpdates) {
+    const expected = expectedClassification.get(item.title);
+    if (!expected) continue;
+    await supabaseRest(config, "rpc/classify_source_item", {
+      method: "POST",
+      body: JSON.stringify({
+        target_item_id: item.id,
+        target_classification: expected.classification,
+        reviewer: "Repository classification manifest",
+        rationale: expected.rationale,
+      }),
+      headers: { Prefer: "return=minimal" },
+    });
   }
 
   let created = 0;
@@ -185,7 +207,7 @@ async function main() {
       drafted += 1;
     }
   }
-  console.log(JSON.stringify({ dryRun: false, published: created, drafts: drafted, unchanged, skipped: skipped.map((item) => item.slug) }, null, 2));
+  console.log(JSON.stringify({ dryRun: false, published: created, drafts: drafted, unchanged, classificationUpdates: classificationUpdates.length, skipped: skipped.map((item) => item.slug) }, null, 2));
 }
 
 void main();

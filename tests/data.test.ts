@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { programs } from "../data/programs";
-import { taiwanCityOptions } from "../data/facts";
+import { factDefinitions, taiwanCityOptions } from "../data/facts";
 import { sources } from "../data/sources";
 import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
-import { buildTaoyuanDescriptivePrograms, taoyuanProgramCurations } from "../data/taoyuan-programs";
+import { buildTaoyuanReviewedPrograms, taoyuanProgramCurations } from "../data/taoyuan-programs";
 import type { AtomicRule, RuleNode } from "../lib/domain";
 
 function atomicRules(rule: RuleNode): AtomicRule[] {
@@ -19,13 +19,13 @@ test("桃園 26 筆 Source items 全部有分類與理由", () => {
   for (const item of taoyuanSourceClassifications) assert.ok(item.classification && item.rationale);
 });
 
-test("桃園 21 筆 descriptive Source items 都有 Program curation", () => {
-  const descriptiveTitles = taoyuanSourceClassifications
-    .filter((item) => item.classification === "descriptive_only")
+test("桃園 21 筆可發布 Source items 都有 Program curation", () => {
+  const curatedTitles = taoyuanSourceClassifications
+    .filter((item) => item.classification !== "excluded" && item.title !== "桃園市身心障礙者取得技術士證照獎勵")
     .map((item) => item.title)
     .sort();
-  assert.deepEqual(taoyuanProgramCurations.map((item) => item.title).sort(), descriptiveTitles);
-  const built = buildTaoyuanDescriptivePrograms(taoyuanProgramCurations.map((item) => ({
+  assert.deepEqual(taoyuanProgramCurations.map((item) => item.title).sort(), curatedTitles);
+  const built = buildTaoyuanReviewedPrograms(taoyuanProgramCurations.map((item) => ({
     title: item.title,
     snapshot_id: "00000000-0000-4000-8000-000000000001",
     canonical_draft: {
@@ -40,7 +40,17 @@ test("桃園 21 筆 descriptive Source items 都有 Program curation", () => {
     },
   })), "2026-07-27");
   assert.equal(built.length, 21);
-  assert.ok(built.every((program) => program.coverage === "descriptive_only" && program.evidence.length === 2));
+  assert.equal(built.filter((program) => program.coverage === "matchable").length, 4);
+  assert.equal(built.filter((program) => program.coverage === "descriptive_only").length, 17);
+  assert.ok(built.every((program) => program.evidence.length === 2));
+  const facts = new Set(factDefinitions.map((definition) => definition.key));
+  for (const program of built.filter((item) => item.coverage === "matchable")) {
+    assert.ok(program.rule, program.title);
+    for (const rule of atomicRules(program.rule)) {
+      assert.ok(rule.evidence.sourceId && rule.evidence.snapshotId && rule.evidence.locator && rule.evidence.reviewedAt, `${program.title}: ${rule.field}`);
+      assert.ok(rule.field === "age" || facts.has(rule.field), `${program.title}: missing FactDefinition ${rule.field}`);
+    }
+  }
 });
 
 test("100% Matchable atomic rules 有 Field-level evidence", () => {

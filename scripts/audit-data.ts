@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { programs } from "../data/programs";
 import { sources } from "../data/sources";
-import { buildTaoyuanDescriptivePrograms, type ReviewedTaoyuanItem } from "../data/taoyuan-programs";
+import { buildTaoyuanReviewedPrograms, type ReviewedTaoyuanItem } from "../data/taoyuan-programs";
+import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
 import type { Program, RuleNode } from "../lib/domain";
 import { supabaseConfig, supabaseRest, type SupabaseConfig } from "../lib/supabase-rest";
 
@@ -39,14 +40,19 @@ async function main() {
   for (const snapshot of snapshots) if (!latest.has(snapshot.source_id)) latest.set(snapshot.source_id, snapshot);
   const taoyuanSnapshotId = latest.get("taoyuan-welfare-open-data")?.id;
   const latestTaoyuanItems = taoyuanItems.filter((item) => item.snapshot_id === taoyuanSnapshotId);
-  const reviewedTaoyuanItems = latestTaoyuanItems.filter((item) => item.classification === "descriptive_only" && item.review_status === "published");
-  const expectedPrograms = [...programs, ...buildTaoyuanDescriptivePrograms(reviewedTaoyuanItems, "2026-07-27")];
+  const reviewedTaoyuanItems = latestTaoyuanItems.filter((item) => item.classification !== "excluded" && item.review_status === "published");
+  const expectedPrograms = [...programs, ...buildTaoyuanReviewedPrograms(reviewedTaoyuanItems, "2026-07-27")];
   const expected = expectedPrograms.filter((program) => program.evidence.every((item) => latest.has(item.sourceId)));
 
   assert.deepEqual(new Set(databaseSources.map((source) => source.id)), new Set(sources.map((source) => source.id)), "Source registry drift");
   assert.equal(databaseSources.filter((source) => source.status === "active" && source.last_check_error).length, 0, "Active Source check errors");
   assert.equal(latestTaoyuanItems.length, 26, "Taoyuan item count");
   assert.equal(latestTaoyuanItems.filter((item) => item.classification === null).length, 0, "Unclassified Taoyuan items");
+  assert.deepEqual(
+    new Map(latestTaoyuanItems.map((item) => [item.title, item.classification])),
+    new Map(taoyuanSourceClassifications.map((item) => [item.title, item.classification])),
+    "Taoyuan classification drift",
+  );
   assert.equal(versions.length, expected.length, "Published Program count");
   assert.equal(drafts.length, 0, "Unreviewed Program drafts");
 
