@@ -30,12 +30,14 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Fetch, hash, and persist immutable Drafts
+        id: source_check
+        continue-on-error: true
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npx --no-install tsx scripts/check-sources.ts --persist --json > source-report.json
       - name: Publish Repository-reviewed Program updates
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_reviewed_programs }}
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.publish_reviewed_programs }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -47,3 +49,6 @@ jobs:
           path: source-report.json
           if-no-files-found: warn
           retention-days: 30
+      - name: Preserve Source check failure status
+        if: ${{ steps.source_check.outcome == 'failure' }}
+        run: exit 1
