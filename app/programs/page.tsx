@@ -4,6 +4,7 @@ import { CATEGORY_KEYS, CATEGORY_LABELS, type CategoryKey } from "@/lib/domain";
 import { getPrograms } from "@/lib/program-store";
 
 export const metadata = { title: "方案清單" };
+export const dynamic = "force-dynamic";
 
 export default async function ProgramsPage({ searchParams }: { searchParams: Promise<{ category?: string; q?: string }> }) {
   const params = await searchParams;

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { programs as seedPrograms } from "@/data/programs";
 import { sourceById } from "@/data/sources";
 import { CATEGORY_LABELS, type RuleNode } from "@/lib/domain";
 import { getProgramBySlug } from "@/lib/program-store";
+
+export const dynamic = "force-dynamic";
 
 const coverageLabels = {
   catalog_only: "Catalog only",
@@ -30,10 +31,6 @@ function RuleTree({ rule }: { rule: RuleNode }) {
   }
   const source = sourceById.get(rule.evidence.sourceId);
   return <div className="atomic-rule"><span aria-hidden="true">✓</span><div><strong>{rule.label}</strong><small>依據：{source?.name ?? rule.evidence.sourceId} · {rule.evidence.locator}</small></div></div>;
-}
-
-export function generateStaticParams() {
-  return seedPrograms.map((program) => ({ slug: program.slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {

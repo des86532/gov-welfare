@@ -34,7 +34,7 @@ async function loadPrograms(): Promise<Program[]> {
     const versions = await supabaseRest<PublishedVersion[]>(
       publicConfig,
       "program_versions?select=canonical_content,field_evidence(source_id,snapshot_id)&status=eq.published",
-      { next: { revalidate: 900 } },
+      { cache: "no-store" },
     );
     const published = versions.flatMap((row) => isProgram(row.canonical_content)
       ? [{ program: row.canonical_content, evidence: row.field_evidence }]
@@ -48,12 +48,12 @@ async function loadPrograms(): Promise<Program[]> {
         supabaseRest<SnapshotState[]>(
           serviceConfig,
           `source_snapshots?select=id,source_id&content_hash=not.is.null&source_id=in.(${sourceIds.map(encodeURIComponent).join(",")})&order=observed_at.desc`,
-          { next: { revalidate: 900 } },
+          { cache: "no-store" },
         ),
         supabaseRest<SourceState[]>(
           serviceConfig,
           `sources?select=id,last_check_error&id=in.(${sourceIds.map(encodeURIComponent).join(",")})`,
-          { next: { revalidate: 900 } },
+          { cache: "no-store" },
         ),
       ]);
       const latestBySource = new Map<string, SnapshotState>();
