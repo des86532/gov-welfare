@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { contentHashFor, extractMyEGovHtml, extractNewTaipeiRows, extractOfficialPage, extractTaipeiRows, extractTaoyuanRows, parseCsvRecords, validateSnapshotFormat } from "../lib/adapters";
+import { contentHashFor, decodeSourceText, extractMyEGovHtml, extractNewTaipeiRows, extractOfficialPage, extractTaipeiRows, extractTaoyuanRows, parseCsvRecords, validateSnapshotFormat } from "../lib/adapters";
 import type { SourceConfig } from "../lib/domain";
 
 const monitoredPdf: SourceConfig = {
@@ -25,6 +25,10 @@ test("PDF Source 用 magic bytes 阻擋偽裝成下載檔的 HTML", () => {
     () => validateSnapshotFormat(monitoredPdf, Buffer.from("<html>redirect</html>"), "application/pdf"),
     /expected PDF/,
   );
+});
+
+test("Text Source decode 移除 PostgreSQL JSONB 不支援的 NUL", () => {
+  assert.equal(decodeSourceText(Buffer.from("資格\u0000內容", "utf8")), "資格內容");
 });
 
 test("桃園 JSON 保留未知欄位且不採用 raw Category", () => {

@@ -11,6 +11,10 @@ function cleanText(value: string): string {
   return value.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
 }
 
+export function decodeSourceText(bytes: Buffer): string {
+  return bytes.toString("utf8").replace(/\u0000/g, "");
+}
+
 export function contentHashFor(bytes: Buffer, format: SourceConfig["format"]): string {
   if (format !== "html") return createHash("sha256").update(bytes).digest("hex");
   const $ = cheerio.load(bytes.toString("utf8"));
@@ -53,7 +57,7 @@ export async function fetchSnapshot(source: SourceConfig): Promise<RawSnapshot> 
   const contentType = response.headers.get("content-type") ?? "application/octet-stream";
   validateSnapshotFormat(source, bytes, contentType);
   const isText = /json|text|html|xml|csv/i.test(contentType) || ["json", "csv", "xml", "html"].includes(source.format);
-  const textBody = isText ? bytes.toString("utf8") : "";
+  const textBody = isText ? decodeSourceText(bytes) : "";
   if (/The requested URL was rejected|Access Denied/i.test(textBody) && textBody.length < 10_000) {
     throw new Error(`${source.id}: Source blocked this runner`);
   }
