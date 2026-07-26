@@ -1,4 +1,5 @@
 import { programs } from "../data/programs";
+import { newTaipeiSourceClassifications } from "../data/new-taipei-source-items";
 import { buildTaoyuanReviewedPrograms, type ReviewedTaoyuanItem } from "../data/taoyuan-programs";
 import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
 import { isDeepStrictEqual } from "node:util";
@@ -9,7 +10,9 @@ type SnapshotRow = { id: string; source_id: string };
 type VersionRow = { version: number; canonical_content: Program };
 type TaoyuanItemRow = ReviewedTaoyuanItem & {
   id: string;
+  source_id: string;
   classification: "matchable" | "descriptive_only" | "excluded" | null;
+  review_status: string;
 };
 type EvidenceRow = {
   field_path: string;
@@ -91,28 +94,38 @@ async function main() {
   const snapshots = new Map<string, string>();
   for (const row of snapshotRows) if (!snapshots.has(row.source_id)) snapshots.set(row.source_id, row.id);
 
-  const taoyuanSnapshotId = snapshots.get("taoyuan-welfare-open-data");
-  const taoyuanItems = taoyuanSnapshotId
-    ? await supabaseRest<TaoyuanItemRow[]>(config,
-      `source_items?select=id,title,snapshot_id,canonical_draft,classification&source_id=eq.taoyuan-welfare-open-data&snapshot_id=eq.${taoyuanSnapshotId}&review_status=eq.published`)
-    : [];
-  const reviewedPrograms = taoyuanSnapshotId
-    ? buildTaoyuanReviewedPrograms(taoyuanItems, "2026-07-27")
+  const manifests = new Map([
+    ["taoyuan-welfare-open-data", taoyuanSourceClassifications],
+    ["new-taipei-welfare-open-data", newTaipeiSourceClassifications],
+  ]);
+  const sourceItems: TaoyuanItemRow[] = [];
+  for (const sourceId of manifests.keys()) {
+    const snapshotId = snapshots.get(sourceId);
+    if (!snapshotId) continue;
+    sourceItems.push(...await supabaseRest<TaoyuanItemRow[]>(config,
+      `source_items?select=id,source_id,title,snapshot_id,canonical_draft,classification,review_status&source_id=eq.${sourceId}&snapshot_id=eq.${snapshotId}`));
+  }
+  const reviewedTaoyuanItems = sourceItems.filter((item) =>
+    item.source_id === "taoyuan-welfare-open-data" && item.review_status === "published" && item.classification !== "excluded");
+  const reviewedPrograms = reviewedTaoyuanItems.length > 0
+    ? buildTaoyuanReviewedPrograms(reviewedTaoyuanItems, "2026-07-27")
     : [];
   const allPrograms = [...programs, ...reviewedPrograms];
-  const expectedClassification = new Map(taoyuanSourceClassifications.map((item) => [item.title, item]));
-  const classificationUpdates = taoyuanItems.filter((item) => expectedClassification.get(item.title)?.classification !== item.classification);
+  const classificationUpdates = sourceItems.flatMap((item) => {
+    const expected = manifests.get(item.source_id)?.find((entry) => entry.title === item.title);
+    return expected && (expected.classification !== item.classification || item.review_status !== "published")
+      ? [{ item, expected }]
+      : [];
+  });
 
   const ready = allPrograms.filter((program) => program.evidence.every((item) => snapshots.has(item.sourceId)));
   const skipped = allPrograms.filter((program) => !ready.includes(program));
   if (!apply) {
-    console.log(JSON.stringify({ dryRun: true, ready: ready.map((item) => item.slug), classificationUpdates: classificationUpdates.map((item) => item.title), skipped: skipped.map((item) => item.slug) }, null, 2));
+    console.log(JSON.stringify({ dryRun: true, ready: ready.map((item) => item.slug), classificationUpdates: classificationUpdates.map(({ item }) => item.title), skipped: skipped.map((item) => item.slug) }, null, 2));
     return;
   }
 
-  for (const item of classificationUpdates) {
-    const expected = expectedClassification.get(item.title);
-    if (!expected) continue;
+  for (const { item, expected } of classificationUpdates) {
     await supabaseRest(config, "rpc/classify_source_item", {
       method: "POST",
       body: JSON.stringify({

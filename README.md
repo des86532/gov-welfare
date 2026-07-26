@@ -5,13 +5,13 @@
 ## 已實作
 
 - Next.js App Router 公開網站：首頁、Category catalog、Dynamic questionnaire、Results、Program detail、資料方法頁。
-- Production 共 37 個中央／桃園 Programs：34 個 Supabase Published versions，加上 3 個受控 Seed fallback；其中 15 個可執行 Rules。
+- Production 共 40 個中央／桃園／新北 Programs：37 個 Supabase Published versions，加上 3 個受控 Seed fallback；其中 16 個可執行 Rules。
 - 桃園 Open Data 26 筆 Source items 的完整 `matchable`／`descriptive_only`／`excluded` 分類。
 - 桃園共 5 個 `matchable`、17 個 `descriptive_only` 福利進入公開 Catalog；自然語言資格尚未結構化前不參與 Matching。
 - 戶籍與居住地可選擇臺灣全部 22 縣市，為後續地方 Coverage 保留一致 Fact values。
 - `all`、`any`、比較、日期間隔與 `true`／`false`／`unknown` Rule engine。
 - 桃園 JSON、新北／臺北 CSV、MyEGov HTML、Official page、Document monitor 與 Manual adapters。
-- 新北 151 筆與臺北 10 筆官方 Dataset 已可建立 immutable Draft；完成 Authority page 與年度 Review 前不會進入公開 Catalog。
+- 新北 151 筆已全數分類為 1 筆 `matchable`、145 筆 `descriptive_only`、5 筆 `excluded`；首批 3 個 Programs 已補 Authority page，其餘項目仍在 Review inventory。臺北 10 筆維持 Draft。
 - Dry-run／persistent ingestion CLI、GitHub Actions Scheduled source checks。
 - Supabase PostgreSQL migration：Sources、Snapshots、Source items、Programs、Versions、Evidence、Reviews、Relationships 與 RLS。
 - Basic Auth 保護的 `/admin` Review dashboard：Source diff、Source item classification、Evidence gate、Publish、Reject、Rollback 與 Audit trail。
@@ -26,7 +26,7 @@ npm install
 npm run dev
 ```
 
-開啟 `http://localhost:3000`。沒有 Supabase credentials 時仍可操作 16 個 Repository reviewed Seed Programs；完整 37 個 Production Programs 由 Supabase Published versions 提供。
+開啟 `http://localhost:3000`。沒有 Supabase credentials 時仍可操作 19 個 Repository reviewed Seed Programs；完整 40 個 Production Programs 由 Supabase Published versions 與受控 Seed fallback 合併提供。
 
 ## 驗證
 
@@ -89,7 +89,7 @@ Repository 刻意不包含自動 Publish job。CLI 只以 Service Role 寫入 im
 ```text
 app/                         Public pages, API, Admin dashboard
 components/                  UI and client-side questionnaire
-data/                        Reviewed Programs, Facts, Sources, Taoyuan audit
+data/                        Reviewed Programs, Facts, Sources, local Source manifests
 lib/domain.ts                Canonical domain contract
 lib/rules.ts                 Three-valued eligibility engine
 lib/adapters.ts              SourceAdapter implementations

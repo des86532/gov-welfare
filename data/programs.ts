@@ -2,13 +2,13 @@ import type { Evidence, Program } from "@/lib/domain";
 
 const VERIFIED_AT = "2026-07-26";
 
-function evidence(sourceId: string, locator: string, extractedValue: string): Evidence {
+function evidence(sourceId: string, locator: string, extractedValue: string, reviewedAt = VERIFIED_AT): Evidence {
   return {
     sourceId,
-    snapshotId: `${sourceId}:seed:${VERIFIED_AT}`,
+    snapshotId: `${sourceId}:seed:${reviewedAt}`,
     locator,
     extractedValue,
-    reviewedAt: VERIFIED_AT,
+    reviewedAt,
   };
 }
 
@@ -26,6 +26,12 @@ const childcareEvidence = evidence("myegov-childcare-under-2", "申辦資格", "
 const rentEvidence = evidence("myegov-rent-115-guide", "申請資格與家庭年所得限制", "有租賃住宅事實、家庭成員無自有房屋且所得符合所在地門檻");
 const rentWindow = evidence("myegov-rent-115-guide", "受理申請期間", "115年1月1日上午9點至115年12月31日下午5點");
 const taoyuanReward = evidence("taoyuan-welfare-open-data", "$[0].eligibilityCriteria", "16至65歲、設籍桃園、持身障證明、證照生效12個月內");
+const newTaipeiChildCard = evidence("new-taipei-child-card", "服務說明／申請對象", "設籍新北市6歲以上未滿12歲，或就讀新北市公私立小學的兒童", "2026-07-27");
+const newTaipeiChildCardDataset = evidence("new-taipei-welfare-open-data", "row id=268436998 / service_desc", "提供設籍本市6歲以上未滿12歲兒童或於本市公私立小學就讀之兒童搭乘捷運票價優惠", "2026-07-27");
+const newTaipeiFreshMilk = evidence("new-taipei-fresh-milk-2026", "市政新聞／擴大對象與實施日", "115學年度2026年8月31日起擴大至國中生，每人每週可兌換1瓶鮮乳、豆漿或優酪乳", "2026-07-27");
+const newTaipeiFreshMilkDataset = evidence("new-taipei-welfare-open-data", "row id=268437687 / service_desc", "現行資料為滿2歲至12歲、學籍或戶籍在新北市，全年52週每週1瓶", "2026-07-27");
+const newTaipeiEnterovirus = evidence("new-taipei-enterovirus-vaccine", "公費接種對象", "設籍新北市、年滿2個月至6歲低收入戶或中低收入戶嬰幼兒", "2026-07-27");
+const newTaipeiEnterovirusDataset = evidence("new-taipei-welfare-open-data", "row id=268437682 / service_desc", "設籍新北市之低收入戶、中低收入戶6歲含以下嬰幼兒", "2026-07-27");
 
 export const programs: Program[] = [
   {
@@ -434,6 +440,79 @@ export const programs: Program[] = [
     documents: ["租賃契約", "金融機構帳戶資料", "身分及加碼資格文件（如適用）"],
     methods: ["線上申請", "郵寄或臨櫃（依公告）"],
     evidence: [rentEvidence, rentWindow],
+  },
+  {
+    id: "new-taipei-child-card",
+    slug: "new-taipei-child-card",
+    title: "新北市兒童卡",
+    summary: "符合設籍年齡或新北市國小學籍條件的兒童，可申請兒童卡並享大眾運輸票價優惠。",
+    category: "public_service",
+    tags: ["新北市", "兒童", "交通", "悠遊卡"],
+    benefitType: "fee_reduction",
+    benefitSummary: "臺北捷運與新北捷運含輕軌票價4折；機場捷運與高雄捷運票價5折。",
+    coverage: "matchable",
+    decisionType: "official_record_check",
+    jurisdiction: "新北市",
+    authority: "新北市政府交通局",
+    officialUrl: "https://welfare.ntpc.gov.tw/viewService/show/268436998?actionName=list4&fromOpa=1&nttype=268435468",
+    applicationUrl: "https://service.ntpc.gov.tw/eservice/DownloadForm.action?itemId=113062",
+    verifiedAt: "2026-07-27",
+    requestedFacts: ["child_age", "child_registered_in_new_taipei", "child_attends_new_taipei_elementary_school"],
+    rule: { any: [
+      { all: [
+        { field: "child_age", operator: "gte", value: 6, label: "兒童年滿 6 歲", evidence: newTaipeiChildCard },
+        { field: "child_age", operator: "lt", value: 12, label: "兒童未滿 12 歲", evidence: newTaipeiChildCard },
+        { field: "child_registered_in_new_taipei", operator: "eq", value: true, label: "兒童設籍新北市", evidence: newTaipeiChildCard },
+      ] },
+      { field: "child_attends_new_taipei_elementary_school", operator: "eq", value: true, label: "兒童就讀新北市公私立小學", evidence: newTaipeiChildCard },
+    ] },
+    caveats: ["平台只判斷基本門檻；戶籍、學籍、首次申請與補製卡費用仍由區公所查核。"],
+    documents: ["新北兒童卡申請表", "申辦人身分證明", "戶口名簿", "委託書（非法定代理人親辦時）"],
+    methods: ["新北市各區公所臨櫃申辦"],
+    evidence: [newTaipeiChildCard, newTaipeiChildCardDataset],
+  },
+  {
+    id: "new-taipei-fresh-milk-week",
+    slug: "new-taipei-fresh-milk-week",
+    title: "新北市鮮奶幸福週",
+    summary: "新北市學幼童每週可持幸福卡或兒童卡兌換一瓶指定乳品，寒暑假不中斷。",
+    category: "family",
+    tags: ["新北市", "兒童", "學生", "鮮乳"],
+    benefitType: "free_service",
+    benefitSummary: "全年每週可兌換 1 瓶指定鮮乳、豆漿或優酪乳；2026-08-31 起官方公告擴大至國中生。",
+    coverage: "descriptive_only",
+    decisionType: "official_record_check",
+    jurisdiction: "新北市",
+    authority: "新北市政府教育局",
+    officialUrl: "https://www.ntpc.gov.tw/ch/home.jsp?dataserno=53bf13b32493cbe4a6a575050aaef904&id=e8ca970cde5c00e1",
+    applicationUrl: "https://milk.ntpc.edu.tw/",
+    verifiedAt: "2026-07-27",
+    requestedFacts: [],
+    caveats: ["Open Data 與新學年度官方公告的對象範圍正在切換，因此暫不進行自動 Matching。", "實際卡別、開卡與兌換週期以教育局系統為準。"],
+    documents: ["新北幸福卡或新北兒童卡"],
+    methods: ["持卡至合作超商或超市兌換"],
+    evidence: [newTaipeiFreshMilk, newTaipeiFreshMilkDataset],
+  },
+  {
+    id: "new-taipei-enterovirus-vaccine",
+    slug: "new-taipei-enterovirus-vaccine",
+    title: "新北市公費腸病毒疫苗",
+    summary: "設籍新北市的低收入戶或中低收入戶嬰幼兒，可至29區衛生所免費接種腸病毒疫苗。",
+    category: "health",
+    tags: ["新北市", "嬰幼兒", "疫苗", "低收入戶", "中低收入戶"],
+    benefitType: "free_service",
+    benefitSummary: "符合資格的滿 2 個月至 6 歲嬰幼兒免費接種。",
+    coverage: "descriptive_only",
+    decisionType: "official_record_check",
+    jurisdiction: "新北市",
+    authority: "新北市政府衛生局",
+    officialUrl: "https://banqiao.health.ntpc.gov.tw/article/%E6%96%B0%E5%8C%97%E5%B8%82%E5%85%AC%E8%B2%BB%E8%85%B8%E7%97%85%E6%AF%92%E7%96%AB%E8%8B%97",
+    verifiedAt: "2026-07-27",
+    requestedFacts: [],
+    caveats: ["年齡下限以月齡計算，現有問卷無法精準比對，因此只顯示為可能方案。", "接種評估、疫苗供應與最終資格以衛生所認定為準。"],
+    documents: ["嬰幼兒身分證明", "健保卡", "低收入戶或中低收入戶資格證明"],
+    methods: ["至新北市 29 區衛生所接種"],
+    evidence: [newTaipeiEnterovirus, newTaipeiEnterovirusDataset],
   },
   {
     id: "taoyuan-disability-certificate-reward",

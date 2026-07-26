@@ -1,10 +1,12 @@
 import type { DraftSourceItem, RawSnapshot, SourceConfig } from "@/lib/domain";
 import { supabaseRest, type SupabaseConfig } from "@/lib/supabase-rest";
+import { newTaipeiSourceClassifications } from "@/data/new-taipei-source-items";
 import { taoyuanSourceClassifications } from "@/data/taoyuan-source-items";
 
-const taoyuanClassifications = new Map(
-  taoyuanSourceClassifications.map((item) => [item.title, item]),
-);
+const classificationsBySource = new Map([
+  ["taoyuan-welfare-open-data", new Map(taoyuanSourceClassifications.map((item) => [item.title, item]))],
+  ["new-taipei-welfare-open-data", new Map(newTaipeiSourceClassifications.map((item) => [item.title, item]))],
+]);
 
 export type PersistResult = {
   changed: boolean;
@@ -39,9 +41,7 @@ export async function syncSourceRegistry(config: SupabaseConfig, sourceConfigs: 
 }
 
 function persistedItem(source: SourceConfig, snapshotId: string, item: DraftSourceItem) {
-  const curated = source.id === "taoyuan-welfare-open-data"
-    ? taoyuanClassifications.get(item.title)
-    : undefined;
+  const curated = classificationsBySource.get(source.id)?.get(item.title);
   return {
     source_id: source.id,
     snapshot_id: snapshotId,

@@ -87,3 +87,23 @@ test("桃園弱勢幼兒留園補助接受三種官方身分類別", () => {
   assert.equal(matchProgram(program, facts, "2026-07-27").status, "review_required");
   assert.equal(matchProgram(program, { ...facts, child_support_status: "none" }, "2026-07-27").status, "ineligible");
 });
+
+test("新北兒童卡可由設籍年齡或新北小學學籍符合", () => {
+  const program = programs.find((item) => item.slug === "new-taipei-child-card");
+  assert.ok(program);
+  assert.equal(matchProgram(program, {
+    child_age: 8,
+    child_registered_in_new_taipei: true,
+    child_attends_new_taipei_elementary_school: false,
+  }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, {
+    child_age: 12,
+    child_registered_in_new_taipei: false,
+    child_attends_new_taipei_elementary_school: true,
+  }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, {
+    child_age: 12,
+    child_registered_in_new_taipei: true,
+    child_attends_new_taipei_elementary_school: false,
+  }, "2026-07-27").status, "ineligible");
+});

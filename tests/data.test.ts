@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { programs } from "../data/programs";
 import { factDefinitions, taiwanCityOptions } from "../data/facts";
+import { newTaipeiSourceClassifications } from "../data/new-taipei-source-items";
 import { sources } from "../data/sources";
 import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
 import { buildTaoyuanReviewedPrograms, taoyuanProgramCurations } from "../data/taoyuan-programs";
@@ -17,6 +18,15 @@ test("桃園 26 筆 Source items 全部有分類與理由", () => {
   assert.equal(taoyuanSourceClassifications.length, 26);
   assert.equal(new Set(taoyuanSourceClassifications.map((item) => item.title)).size, 26);
   for (const item of taoyuanSourceClassifications) assert.ok(item.classification && item.rationale);
+});
+
+test("新北 151 筆 Source items 全部有 Review 去向", () => {
+  assert.equal(newTaipeiSourceClassifications.length, 151);
+  assert.equal(new Set(newTaipeiSourceClassifications.map((item) => item.title)).size, 151);
+  assert.equal(newTaipeiSourceClassifications.filter((item) => item.classification === "matchable").length, 1);
+  assert.equal(newTaipeiSourceClassifications.filter((item) => item.classification === "descriptive_only").length, 145);
+  assert.equal(newTaipeiSourceClassifications.filter((item) => item.classification === "excluded").length, 5);
+  for (const item of newTaipeiSourceClassifications) assert.ok(item.rationale, item.title);
 });
 
 test("桃園 21 筆可發布 Source items 都有 Program curation", () => {

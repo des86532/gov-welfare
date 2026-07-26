@@ -99,6 +99,8 @@ export const factDefinitions: FactDefinition[] = [
   { key: "business_tax_registered_in_taoyuan", type: "boolean", label: "營業稅籍設於桃園市", sensitive: false, options: yesNoUnknown },
   { key: "has_child_under_2", type: "boolean", label: "家中有未滿 2 歲兒童", sensitive: true, options: yesNoUnknown },
   { key: "child_age", type: "number", label: "要申請補助的幼兒目前幾歲", sensitive: true },
+  { key: "child_registered_in_new_taipei", type: "boolean", label: "該名兒童設籍新北市", sensitive: true, options: yesNoUnknown },
+  { key: "child_attends_new_taipei_elementary_school", type: "boolean", label: "該名兒童就讀新北市公私立小學", sensitive: true, options: yesNoUnknown },
   { key: "child_registered_in_taoyuan", type: "boolean", label: "該名幼兒設籍桃園市", sensitive: true, options: yesNoUnknown },
   { key: "child_attends_taoyuan_public_or_nonprofit_kindergarten", type: "boolean", label: "該名幼兒就讀桃園市公立或非營利幼兒園", sensitive: true, options: yesNoUnknown },
   {
