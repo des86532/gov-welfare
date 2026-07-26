@@ -106,7 +106,7 @@ export type Program = {
   benefitSummary: string;
   coverage: CoverageLevel;
   decisionType: DecisionType;
-  jurisdiction: "中央" | "桃園市";
+  jurisdiction: string;
   authority: string;
   officialUrl: string;
   applicationUrl?: string;
@@ -136,7 +136,7 @@ export type SourceConfig = {
   id: string;
   name: string;
   authority: string;
-  jurisdiction: "中央" | "桃園市";
+  jurisdiction: string;
   url: string;
   publicUrl?: string;
   format: SourceFormat;

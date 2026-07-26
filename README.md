@@ -5,13 +5,15 @@
 ## 已實作
 
 - Next.js App Router 公開網站：首頁、Category catalog、Dynamic questionnaire、Results、Program detail、資料方法頁。
-- 16 個中央／桃園 reviewed Seed Programs；其中可執行 Rules 與 `descriptive_only` 方案可以共存。
+- Production 共 37 個中央／桃園 Programs：34 個 Supabase Published versions，加上 3 個受控 Seed fallback；其中 11 個可執行 Rules。
 - 桃園 Open Data 26 筆 Source items 的完整 `matchable`／`descriptive_only`／`excluded` 分類。
+- 21 個桃園 `descriptive_only` 福利已進入公開 Catalog；資格尚未結構化前不參與 Matching。
+- 戶籍與居住地可選擇臺灣全部 22 縣市，為後續地方 Coverage 保留一致 Fact values。
 - `all`、`any`、比較、日期間隔與 `true`／`false`／`unknown` Rule engine。
 - 桃園 JSON、MyEGov HTML、Official page、Document monitor 與 Manual adapters。
 - Dry-run／persistent ingestion CLI、GitHub Actions Scheduled source checks。
 - Supabase PostgreSQL migration：Sources、Snapshots、Source items、Programs、Versions、Evidence、Reviews、Relationships 與 RLS。
-- Basic Auth 保護的 `/admin` Read-only Review dashboard。
+- Basic Auth 保護的 `/admin` Review dashboard：Source diff、Source item classification、Evidence gate、Publish、Reject、Rollback 與 Audit trail。
 - 公開 Profile 僅存在 Browser memory；沒有帳號、MyData 或 `POST /api/match`。
 
 ## 本機執行
@@ -23,7 +25,7 @@ npm install
 npm run dev
 ```
 
-開啟 `http://localhost:3000`。公開 MVP 會直接讀取人工 Review 的 Seed data，因此沒有 Supabase credentials 也能完整操作。
+開啟 `http://localhost:3000`。沒有 Supabase credentials 時仍可操作 16 個 Repository reviewed Seed Programs；完整 37 個 Production Programs 由 Supabase Published versions 提供。
 
 ## 驗證
 
@@ -61,14 +63,14 @@ npm run data:audit
 ## Supabase
 
 1. 建立 Supabase project。
-2. 套用 `supabase/migrations/0001_initial.sql`。
+2. 執行 `supabase db push`，依序套用 `supabase/migrations/`。
 3. 將管理員的 `app_metadata.role` 設為 `admin`。
 4. 複製 `.env.example` 為 `.env.local` 並填入 credentials。
 5. Production 必須設定 `ADMIN_PASSWORD`；未設定時 `/admin` 會回應 503。
 
 `SUPABASE_SERVICE_ROLE_KEY` 只供 Server-side ingestion 與 Admin 使用，不得放進 Client component 或公開輸出。
 
-Repository 刻意不包含自動 Publish job。CLI 只以 Service Role 寫入 immutable `source_snapshots` 與 Draft `source_items`；初始 reviewed Seed 可由 `npm run data:seed -- --apply --publish-initial` 匯入，後續內容異動只會建立 Draft。公開網站優先讀取 Supabase Published versions，Database 無法使用時才回到 Repository 中的 reviewed Seed。
+Repository 刻意不包含自動 Publish job。CLI 只以 Service Role 寫入 immutable `source_snapshots` 與 Draft `source_items`；初始 reviewed Programs 可由 `npm run data:seed -- --apply --publish-initial` 匯入。後續內容異動只會建立 Draft，必須在 `/admin` 通過最新 Snapshot 與 Field evidence 檢查後才能 Publish。公開網站優先讀取 Supabase Published versions，Database 無法使用時才回到 Repository 中的 reviewed Seed。
 
 ## 資料與安全邊界
 
@@ -89,6 +91,7 @@ lib/domain.ts                Canonical domain contract
 lib/rules.ts                 Three-valued eligibility engine
 lib/adapters.ts              SourceAdapter implementations
 scripts/check-sources.ts     Dry-run scheduled source checker
+scripts/seed-reviewed-programs.ts  Explicit reviewed Program importer
 supabase/migrations/         PostgreSQL schema and RLS
 tests/                       Rule, Adapter, and data acceptance tests
 ```

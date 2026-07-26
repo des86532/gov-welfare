@@ -36,7 +36,7 @@ export default async function HomePage() {
         <div className="category-grid">
           {CATEGORY_KEYS.map((key, index) => {
             const count = programs.filter((program) => program.category === key).length;
-            return <Link key={key} href={`/programs?category=${key}`} className="category-tile"><span className="category-index">{String(index + 1).padStart(2, "0")}</span><strong>{CATEGORY_LABELS[key]}</strong><small>{count} 個 Seed 方案</small><span className="tile-arrow" aria-hidden="true">↗</span></Link>;
+            return <Link key={key} href={`/programs?category=${key}`} className="category-tile"><span className="category-index">{String(index + 1).padStart(2, "0")}</span><strong>{CATEGORY_LABELS[key]}</strong><small>{count} 個收錄方案</small><span className="tile-arrow" aria-hidden="true">↗</span></Link>;
           })}
         </div>
       </section>

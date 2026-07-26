@@ -5,6 +5,31 @@ const yesNoUnknown = [
   { value: "false", label: "否" },
 ];
 
+export const taiwanCityOptions = [
+  { value: "keelung", label: "基隆市" },
+  { value: "taipei", label: "臺北市" },
+  { value: "new_taipei", label: "新北市" },
+  { value: "taoyuan", label: "桃園市" },
+  { value: "hsinchu_city", label: "新竹市" },
+  { value: "hsinchu_county", label: "新竹縣" },
+  { value: "miaoli", label: "苗栗縣" },
+  { value: "taichung", label: "臺中市" },
+  { value: "changhua", label: "彰化縣" },
+  { value: "nantou", label: "南投縣" },
+  { value: "yunlin", label: "雲林縣" },
+  { value: "chiayi_city", label: "嘉義市" },
+  { value: "chiayi_county", label: "嘉義縣" },
+  { value: "tainan", label: "臺南市" },
+  { value: "kaohsiung", label: "高雄市" },
+  { value: "pingtung", label: "屏東縣" },
+  { value: "yilan", label: "宜蘭縣" },
+  { value: "hualien", label: "花蓮縣" },
+  { value: "taitung", label: "臺東縣" },
+  { value: "penghu", label: "澎湖縣" },
+  { value: "kinmen", label: "金門縣" },
+  { value: "lienchiang", label: "連江縣" },
+];
+
 export const factDefinitions: FactDefinition[] = [
   { key: "birth_date", type: "date", label: "出生日期", sensitive: true, core: true, help: "只在這個頁面用來計算年齡，不會上傳或儲存。" },
   {
@@ -38,11 +63,7 @@ export const factDefinitions: FactDefinition[] = [
     label: "戶籍縣市",
     sensitive: true,
     core: true,
-    options: [
-      { value: "taoyuan", label: "桃園市" },
-      { value: "other", label: "其他縣市" },
-      { value: "none", label: "在臺無戶籍" },
-    ],
+    options: [...taiwanCityOptions, { value: "none", label: "在臺無戶籍" }],
   },
   {
     key: "residence_city",
@@ -50,10 +71,7 @@ export const factDefinitions: FactDefinition[] = [
     label: "目前居住縣市",
     sensitive: true,
     core: true,
-    options: [
-      { value: "taoyuan", label: "桃園市" },
-      { value: "other", label: "其他縣市" },
-    ],
+    options: taiwanCityOptions,
   },
   {
     key: "employment_status",

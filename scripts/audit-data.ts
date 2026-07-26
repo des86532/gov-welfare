@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { programs } from "../data/programs";
 import { sources } from "../data/sources";
+import { buildTaoyuanDescriptivePrograms, type ReviewedTaoyuanItem } from "../data/taoyuan-programs";
 import type { Program, RuleNode } from "../lib/domain";
 import { supabaseConfig, supabaseRest, type SupabaseConfig } from "../lib/supabase-rest";
 
@@ -29,19 +30,23 @@ async function main() {
   const [databaseSources, snapshots, taoyuanItems, versions, drafts] = await Promise.all([
     supabaseRest<Array<{ id: string; status: string; last_check_error: unknown }>>(config, "sources?select=id,status,last_check_error"),
     supabaseRest<Snapshot[]>(config, "source_snapshots?select=id,source_id&content_hash=not.is.null&order=observed_at.desc"),
-    supabaseRest<Array<{ classification: string | null }>>(config, "source_items?select=classification&source_id=eq.taoyuan-welfare-open-data"),
+    supabaseRest<Array<ReviewedTaoyuanItem & { classification: string | null; review_status: string }>>(config, "source_items?select=title,snapshot_id,canonical_draft,classification,review_status&source_id=eq.taoyuan-welfare-open-data"),
     supabaseRest<Version[]>(config, "program_versions?select=status,coverage,canonical_content,field_evidence(field_path,source_id,snapshot_id,reviewed_at)&status=eq.published"),
     supabaseRest<Array<{ id: string }>>(config, "program_versions?select=id&status=eq.draft"),
   ]);
 
   const latest = new Map<string, Snapshot>();
   for (const snapshot of snapshots) if (!latest.has(snapshot.source_id)) latest.set(snapshot.source_id, snapshot);
-  const expected = programs.filter((program) => program.evidence.every((item) => latest.has(item.sourceId)));
+  const taoyuanSnapshotId = latest.get("taoyuan-welfare-open-data")?.id;
+  const latestTaoyuanItems = taoyuanItems.filter((item) => item.snapshot_id === taoyuanSnapshotId);
+  const reviewedTaoyuanItems = latestTaoyuanItems.filter((item) => item.classification === "descriptive_only" && item.review_status === "published");
+  const expectedPrograms = [...programs, ...buildTaoyuanDescriptivePrograms(reviewedTaoyuanItems, "2026-07-27")];
+  const expected = expectedPrograms.filter((program) => program.evidence.every((item) => latest.has(item.sourceId)));
 
   assert.deepEqual(new Set(databaseSources.map((source) => source.id)), new Set(sources.map((source) => source.id)), "Source registry drift");
   assert.equal(databaseSources.filter((source) => source.status === "active" && source.last_check_error).length, 0, "Active Source check errors");
-  assert.equal(taoyuanItems.length, 26, "Taoyuan item count");
-  assert.equal(taoyuanItems.filter((item) => item.classification === null).length, 0, "Unclassified Taoyuan items");
+  assert.equal(latestTaoyuanItems.length, 26, "Taoyuan item count");
+  assert.equal(latestTaoyuanItems.filter((item) => item.classification === null).length, 0, "Unclassified Taoyuan items");
   assert.equal(versions.length, expected.length, "Published Program count");
   assert.equal(drafts.length, 0, "Unreviewed Program drafts");
 
@@ -65,7 +70,7 @@ async function main() {
     sources: databaseSources.length,
     activeSources: databaseSources.filter((source) => source.status === "active").length,
     snapshots: snapshots.length,
-    taoyuanItems: taoyuanItems.length,
+    taoyuanItems: latestTaoyuanItems.length,
     publishedPrograms: versions.length,
     matchablePrograms: versions.filter((version) => version.coverage === "matchable").length,
     draftVersions: drafts.length,

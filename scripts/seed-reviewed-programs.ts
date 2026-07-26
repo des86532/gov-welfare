@@ -1,4 +1,5 @@
 import { programs } from "../data/programs";
+import { buildTaoyuanDescriptivePrograms, type ReviewedTaoyuanItem } from "../data/taoyuan-programs";
 import { isDeepStrictEqual } from "node:util";
 import type { Evidence, Program, RuleNode } from "../lib/domain";
 import { supabaseConfig, supabaseRest, type SupabaseConfig } from "../lib/supabase-rest";
@@ -85,8 +86,18 @@ async function main() {
   const snapshots = new Map<string, string>();
   for (const row of snapshotRows) if (!snapshots.has(row.source_id)) snapshots.set(row.source_id, row.id);
 
-  const ready = programs.filter((program) => program.evidence.every((item) => snapshots.has(item.sourceId)));
-  const skipped = programs.filter((program) => !ready.includes(program));
+  const taoyuanSnapshotId = snapshots.get("taoyuan-welfare-open-data");
+  const taoyuanItems = taoyuanSnapshotId
+    ? await supabaseRest<ReviewedTaoyuanItem[]>(config,
+      `source_items?select=title,snapshot_id,canonical_draft&source_id=eq.taoyuan-welfare-open-data&snapshot_id=eq.${taoyuanSnapshotId}&classification=eq.descriptive_only&review_status=eq.published`)
+    : [];
+  const reviewedPrograms = taoyuanSnapshotId
+    ? buildTaoyuanDescriptivePrograms(taoyuanItems, "2026-07-27")
+    : [];
+  const allPrograms = [...programs, ...reviewedPrograms];
+
+  const ready = allPrograms.filter((program) => program.evidence.every((item) => snapshots.has(item.sourceId)));
+  const skipped = allPrograms.filter((program) => !ready.includes(program));
   if (!apply) {
     console.log(JSON.stringify({ dryRun: true, ready: ready.map((item) => item.slug), skipped: skipped.map((item) => item.slug) }, null, 2));
     return;

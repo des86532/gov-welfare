@@ -264,6 +264,56 @@ td small { color: var(--muted); }
 .state-matchable { color: white; background: var(--jade); }
 .state-descriptive_only { background: var(--mustard); }
 .state-excluded { color: white; background: var(--muted); }
+.admin-feedback { display: flex; gap: 18px; margin: 24px 0; padding: 15px 18px; border: 1px solid; }
+.admin-feedback.success { color: var(--jade-dark); background: #e4eee7; border-color: var(--jade); }
+.admin-feedback.error { color: #8d2015; background: #f6e1dc; border-color: var(--vermillion); }
+.admin-feedback strong { min-width: 72px; font-family: ui-monospace, monospace; text-transform: uppercase; }
+.empty-review { padding: 30px; border: 1px dashed var(--line); background: rgba(255,255,255,.32); }
+.empty-review p { max-width: 720px; margin: 7px 0 0; color: var(--muted); }
+.decision-stack, .diff-stack, .rollback-list { display: grid; gap: 18px; }
+.decision-card { padding: clamp(20px, 3vw, 34px); border: 1px solid var(--ink); background: var(--paper-light); box-shadow: 7px 7px 0 rgba(23,37,31,.08); }
+.decision-card > header, .source-review-card > header { display: flex; justify-content: space-between; gap: 16px; }
+.decision-card > header div { display: flex; align-items: center; gap: 10px; }
+.decision-card > h3, .source-review-card h3 { margin: 22px 0 8px; font-family: var(--font-serif), serif; font-size: 1.55rem; }
+.decision-card > p { max-width: 780px; color: var(--muted); }
+.version-facts { display: grid; grid-template-columns: repeat(3, 1fr); margin: 24px 0; border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+.version-facts div { padding: 12px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.version-facts dt { color: var(--muted); font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; }
+.version-facts dd { margin: 5px 0 0; font-family: ui-monospace, monospace; font-size: .78rem; }
+.evidence-disclosure { margin: 22px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.evidence-disclosure > summary, .source-review-card details > summary { padding: 13px 0; cursor: pointer; font-weight: 700; }
+.evidence-ledger { display: grid; gap: 1px; padding-bottom: 14px; background: var(--line); }
+.evidence-ledger > div { display: grid; grid-template-columns: minmax(150px,.7fr) 1fr 1fr 2fr; gap: 12px; padding: 14px; background: var(--paper); }
+.evidence-ledger p, .evidence-ledger small { margin: 0; }
+.evidence-ledger span, .evidence-ledger p, .evidence-ledger small { font-size: .76rem; }
+.evidence-ledger small { color: var(--muted); }
+.review-form { display: grid; grid-template-columns: minmax(160px,.55fr) minmax(280px,1.45fr) auto; align-items: end; gap: 14px; margin-top: 20px; padding: 18px; border-left: 4px solid var(--mustard); background: #ece6d7; }
+.review-form label { display: grid; gap: 7px; color: var(--muted); font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.review-form input, .review-form select, .review-form textarea { width: 100%; padding: 10px; color: var(--ink); background: var(--paper-light); border: 1px solid var(--line); border-radius: 0; font: inherit; text-transform: none; letter-spacing: normal; }
+.review-form textarea { min-height: 68px; resize: vertical; }
+.review-actions { display: flex; gap: 8px; }
+.danger-button { color: #8d2015; border-color: var(--vermillion); background: transparent; }
+.danger-button:hover { color: white; background: var(--vermillion); }
+.source-review-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 18px; }
+.source-review-card { min-width: 0; padding: 22px; border-top: 6px solid var(--mustard); background: var(--paper-light); }
+.source-review-card > header span { color: var(--muted); font-size: .72rem; }
+.source-review-card pre, .item-diff pre { max-height: 320px; overflow: auto; padding: 15px; color: #dfe9e2; background: var(--ink); font-size: .7rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.source-review-card .review-form { grid-template-columns: 1fr; }
+.diff-card, .rollback-list > details { border: 1px solid var(--ink); background: var(--paper-light); }
+.diff-card > summary, .rollback-list > details > summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 20px; cursor: pointer; }
+.diff-card > summary span:first-child, .rollback-list summary span { display: grid; gap: 4px; }
+.diff-card > summary small, .rollback-list summary small { color: var(--muted); font-family: ui-monospace, monospace; font-size: .7rem; }
+.diff-count { padding: 4px 8px; background: var(--line); font-family: ui-monospace, monospace; font-size: .7rem; }
+.diff-count.changed { color: white; background: var(--vermillion); }
+.diff-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 13px 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: .72rem; }
+.item-diff { border-top: 1px solid var(--line); }
+.item-diff > summary { display: flex; justify-content: space-between; gap: 15px; padding: 14px 20px; cursor: pointer; }
+.item-diff > div { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1px; background: var(--line); }
+.item-diff section { min-width: 0; padding: 16px; background: var(--paper); }
+.item-diff section > strong { font-size: .72rem; text-transform: uppercase; }
+.rollback-list > details > .evidence-disclosure, .rollback-list > details > .review-form { margin-right: 20px; margin-left: 20px; }
+.rollback-list > details > .review-form { margin-bottom: 20px; }
+.wrap-cell { min-width: 260px; white-space: normal; }
 
 .site-footer { display: flex; justify-content: space-between; align-items: end; gap: 30px; padding: 32px clamp(20px, 5vw, 70px); color: rgba(255,255,255,.78); background: var(--ink); }
 .site-footer strong { color: white; font-family: var(--font-serif), serif; }
@@ -331,6 +381,11 @@ td small { color: var(--muted); }
   .about-cta .button { margin-top: 22px; }
   .metric-grid > div { border-right: 1px solid var(--ink); }
   .review-list article { grid-template-columns: 1fr; }
+  .source-review-grid, .version-facts, .item-diff > div { grid-template-columns: 1fr; }
+  .review-form { grid-template-columns: 1fr; }
+  .review-actions { align-items: stretch; flex-direction: column; }
+  .evidence-ledger > div { grid-template-columns: 1fr; }
+  .diff-card > summary, .rollback-list > details > summary { align-items: flex-start; flex-direction: column; }
   .site-footer { align-items: flex-start; flex-direction: column; }
   .site-footer > div:last-child { flex-direction: column; gap: 5px; }
 }
