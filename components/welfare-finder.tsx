@@ -7,6 +7,7 @@ import type { FactDefinition, FactValue, ProfileFacts, Program } from "@/lib/dom
 import { MATCH_STATUS_LABELS, collectRuleFields, matchProgram, type MatchStatus } from "@/lib/rules";
 
 const coreDefinitions = factDefinitions.filter((definition) => definition.core);
+const INITIAL_FOLLOWUP_COUNT = 8;
 const ranking: Record<MatchStatus, number> = {
   eligible: 0,
   review_required: 1,
@@ -92,16 +93,23 @@ function ResultCard({ program, status, facts }: { program: Program; status: Matc
 export function WelfareFinder({ programs }: { programs: Program[] }) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [facts, setFacts] = useState<ProfileFacts>({});
+  const [showAllFollowups, setShowAllFollowups] = useState(false);
 
   const coreCandidatePrograms = programs.filter((program) => {
     const status = matchProgram(program, facts).status;
     return status !== "ineligible" && status !== "closed";
   });
-  const followupKeys = [...new Set(coreCandidatePrograms.flatMap((program) => collectRuleFields(program.rule)))]
+  const candidateRuleFields = coreCandidatePrograms.map((program) => collectRuleFields(program.rule));
+  const fieldUseCount = new Map<string, number>();
+  for (const fields of candidateRuleFields) for (const field of fields) fieldUseCount.set(field, (fieldUseCount.get(field) ?? 0) + 1);
+  const followupKeys = [...new Set(candidateRuleFields.flat())]
     .filter((key) => key !== "age" && !coreDefinitions.some((definition) => definition.key === key));
+  followupKeys.sort((left, right) => (fieldUseCount.get(right) ?? 0) - (fieldUseCount.get(left) ?? 0));
   const followupDefinitions = followupKeys
     .map((key) => factDefinitionByKey.get(key))
     .filter((definition): definition is FactDefinition => Boolean(definition));
+  const visibleFollowups = showAllFollowups ? followupDefinitions : followupDefinitions.slice(0, INITIAL_FOLLOWUP_COUNT);
+  const hiddenFollowupCount = followupDefinitions.length - visibleFollowups.length;
   const matches = programs
     .map((program) => matchProgram(program, facts))
     .sort((a, b) => ranking[a.status] - ranking[b.status] || a.program.title.localeCompare(b.program.title, "zh-Hant"));
@@ -120,6 +128,7 @@ export function WelfareFinder({ programs }: { programs: Program[] }) {
 
   function reset() {
     setFacts({});
+    setShowAllFollowups(false);
     setStep(1);
   }
 
@@ -143,7 +152,7 @@ export function WelfareFinder({ programs }: { programs: Program[] }) {
           <div className="question-grid">
             {coreDefinitions.map((definition) => <Question key={definition.key} definition={definition} value={facts[definition.key]} onChange={(value) => updateFact(definition.key, value)} />)}
           </div>
-          <div className="panel-actions"><span>{Object.keys(facts).length} 項已填</span><button className="button" type="button" onClick={() => setStep(2)}>繼續補充條件 <span aria-hidden="true">→</span></button></div>
+          <div className="panel-actions"><span>{Object.keys(facts).length} 項已填</span><button className="button" type="button" onClick={() => { setShowAllFollowups(false); setStep(2); }}>繼續補充條件 <span aria-hidden="true">→</span></button></div>
         </div>
       ) : null}
 
@@ -151,11 +160,12 @@ export function WelfareFinder({ programs }: { programs: Program[] }) {
         <div className="finder-panel">
           <div className="panel-intro">
             <span className="section-number">02</span>
-            <div><p className="eyebrow">Dynamic questionnaire</p><h2>只問候選方案需要的事</h2><p>目前保留 {coreCandidatePrograms.length} 個候選方案。以下 {followupDefinitions.length} 題由它們的 Rules 動態產生。</p></div>
+            <div><p className="eyebrow">Dynamic questionnaire</p><h2>先回答最有幫助的條件</h2><p>目前保留 {coreCandidatePrograms.length} 個候選方案，共有 {followupDefinitions.length} 個可補充條件；先顯示最常影響結果的 {visibleFollowups.length} 題。</p></div>
           </div>
           <div className="question-grid followup-grid">
-            {followupDefinitions.map((definition) => <Question key={definition.key} definition={definition} value={facts[definition.key]} onChange={(value) => updateFact(definition.key, value)} />)}
+            {visibleFollowups.map((definition) => <Question key={definition.key} definition={definition} value={facts[definition.key]} onChange={(value) => updateFact(definition.key, value)} />)}
           </div>
+          {hiddenFollowupCount > 0 ? <div className="followup-disclosure"><span>可以直接查看結果；未回答的條件會保留為 unknown。</span><button className="button button-small button-ghost" type="button" onClick={() => setShowAllFollowups(true)}>展開另外 {hiddenFollowupCount} 題</button></div> : null}
           <div className="panel-actions">
             <button className="text-button" type="button" onClick={() => setStep(1)}>← 回上一步</button>
             <button className="button" type="button" onClick={() => setStep(3)}>查看 {programs.length} 個方案的結果 <span aria-hidden="true">→</span></button>
