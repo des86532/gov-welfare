@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { programs } from "../data/programs";
 import { sources } from "../data/sources";
 import { newTaipeiSourceClassifications } from "../data/new-taipei-source-items";
+import { taipeiSourceClassifications } from "../data/taipei-source-items";
 import { buildTaoyuanReviewedPrograms, type ReviewedTaoyuanItem } from "../data/taoyuan-programs";
 import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
 import type { Program, RuleNode } from "../lib/domain";
@@ -29,11 +30,12 @@ function atomicPaths(rule: RuleNode, path = "/rule"): string[] {
 
 async function main() {
   const config = requiredConfig();
-  const [databaseSources, snapshots, taoyuanItems, newTaipeiItems, versions, drafts] = await Promise.all([
+  const [databaseSources, snapshots, taoyuanItems, newTaipeiItems, taipeiItems, versions, drafts] = await Promise.all([
     supabaseRest<Array<{ id: string; status: string; last_check_error: unknown }>>(config, "sources?select=id,status,last_check_error"),
     supabaseRest<Snapshot[]>(config, "source_snapshots?select=id,source_id&content_hash=not.is.null&order=observed_at.desc"),
     supabaseRest<Array<ReviewedTaoyuanItem & { classification: string | null; review_status: string }>>(config, "source_items?select=title,snapshot_id,canonical_draft,classification,review_status&source_id=eq.taoyuan-welfare-open-data"),
     supabaseRest<Array<{ title: string; snapshot_id: string; classification: string | null; review_status: string }>>(config, "source_items?select=title,snapshot_id,classification,review_status&source_id=eq.new-taipei-welfare-open-data"),
+    supabaseRest<Array<{ title: string; snapshot_id: string; classification: string | null; review_status: string }>>(config, "source_items?select=title,snapshot_id,classification,review_status&source_id=eq.taipei-social-aid-open-data"),
     supabaseRest<Version[]>(config, "program_versions?select=status,coverage,canonical_content,field_evidence(field_path,source_id,snapshot_id,reviewed_at)&status=eq.published"),
     supabaseRest<Array<{ id: string }>>(config, "program_versions?select=id&status=eq.draft"),
   ]);
@@ -44,6 +46,8 @@ async function main() {
   const latestTaoyuanItems = taoyuanItems.filter((item) => item.snapshot_id === taoyuanSnapshotId);
   const newTaipeiSnapshotId = latest.get("new-taipei-welfare-open-data")?.id;
   const latestNewTaipeiItems = newTaipeiItems.filter((item) => item.snapshot_id === newTaipeiSnapshotId);
+  const taipeiSnapshotId = latest.get("taipei-social-aid-open-data")?.id;
+  const latestTaipeiItems = taipeiItems.filter((item) => item.snapshot_id === taipeiSnapshotId);
   const reviewedTaoyuanItems = latestTaoyuanItems.filter((item) => item.classification !== "excluded" && item.review_status === "published");
   const expectedPrograms = [...programs, ...buildTaoyuanReviewedPrograms(reviewedTaoyuanItems, "2026-07-27")];
   const expected = expectedPrograms.filter((program) => program.evidence.every((item) => latest.has(item.sourceId)));
@@ -64,6 +68,14 @@ async function main() {
     new Map(latestNewTaipeiItems.map((item) => [item.title, item.classification])),
     new Map(newTaipeiSourceClassifications.map((item) => [item.title, item.classification])),
     "New Taipei classification drift",
+  );
+  assert.equal(latestTaipeiItems.length, 10, "Taipei item count");
+  assert.equal(latestTaipeiItems.filter((item) => item.classification === null).length, 0, "Unclassified Taipei items");
+  assert.ok(latestTaipeiItems.every((item) => item.review_status === "published"), "Unreviewed Taipei items");
+  assert.deepEqual(
+    new Map(latestTaipeiItems.map((item) => [item.title, item.classification])),
+    new Map(taipeiSourceClassifications.map((item) => [item.title, item.classification])),
+    "Taipei classification drift",
   );
   assert.equal(versions.length, expected.length, "Published Program count");
   assert.equal(drafts.length, 0, "Unreviewed Program drafts");
@@ -90,6 +102,7 @@ async function main() {
     snapshots: snapshots.length,
     taoyuanItems: latestTaoyuanItems.length,
     newTaipeiItems: latestNewTaipeiItems.length,
+    taipeiItems: latestTaipeiItems.length,
     publishedPrograms: versions.length,
     matchablePrograms: versions.filter((version) => version.coverage === "matchable").length,
     draftVersions: drafts.length,

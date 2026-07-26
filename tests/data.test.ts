@@ -4,6 +4,7 @@ import { programs } from "../data/programs";
 import { factDefinitions, taiwanCityOptions } from "../data/facts";
 import { newTaipeiSourceClassifications } from "../data/new-taipei-source-items";
 import { sources } from "../data/sources";
+import { taipeiSourceClassifications } from "../data/taipei-source-items";
 import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
 import { buildTaoyuanReviewedPrograms, taoyuanProgramCurations } from "../data/taoyuan-programs";
 import type { AtomicRule, RuleNode } from "../lib/domain";
@@ -27,6 +28,13 @@ test("新北 151 筆 Source items 全部有 Review 去向", () => {
   assert.equal(newTaipeiSourceClassifications.filter((item) => item.classification === "descriptive_only").length, 140);
   assert.equal(newTaipeiSourceClassifications.filter((item) => item.classification === "excluded").length, 5);
   for (const item of newTaipeiSourceClassifications) assert.ok(item.rationale, item.title);
+});
+
+test("臺北 10 筆 Source items 全部完成現行 Authority Review", () => {
+  assert.equal(taipeiSourceClassifications.length, 10);
+  assert.equal(new Set(taipeiSourceClassifications.map((item) => item.title)).size, 10);
+  assert.equal(taipeiSourceClassifications.filter((item) => item.classification === "matchable").length, 10);
+  for (const item of taipeiSourceClassifications) assert.ok(item.rationale, item.title);
 });
 
 test("桃園 21 筆可發布 Source items 都有 Program curation", () => {
@@ -64,6 +72,7 @@ test("桃園 21 筆可發布 Source items 都有 Program curation", () => {
 });
 
 test("100% Matchable atomic rules 有 Field-level evidence", () => {
+  const facts = new Set(factDefinitions.map((definition) => definition.key));
   for (const program of programs.filter((item) => item.coverage === "matchable")) {
     assert.ok(program.rule, program.title);
     for (const rule of atomicRules(program.rule)) {
@@ -71,6 +80,7 @@ test("100% Matchable atomic rules 有 Field-level evidence", () => {
       assert.ok(rule.evidence.snapshotId, `${program.title}: snapshotId`);
       assert.ok(rule.evidence.locator, `${program.title}: locator`);
       assert.ok(rule.evidence.reviewedAt, `${program.title}: reviewedAt`);
+      assert.ok(rule.field === "age" || facts.has(rule.field), `${program.title}: missing FactDefinition ${rule.field}`);
     }
   }
 });

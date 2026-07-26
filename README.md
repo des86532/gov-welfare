@@ -5,13 +5,14 @@
 ## 已實作
 
 - Next.js App Router 公開網站：首頁、Category catalog、Dynamic questionnaire、Results、Program detail、資料方法頁。
-- Production 共 45 個中央／桃園／新北 Programs：42 個 Supabase Published versions，加上 3 個受控 Seed fallback；其中 21 個可執行 Rules。
+- Production 共 55 個中央／桃園／新北／臺北 Programs：52 個 Supabase Published versions，加上 3 個受控 Seed fallback；其中 31 個可執行 Rules。
 - 桃園 Open Data 26 筆 Source items 的完整 `matchable`／`descriptive_only`／`excluded` 分類。
 - 桃園共 5 個 `matchable`、17 個 `descriptive_only` 福利進入公開 Catalog；自然語言資格尚未結構化前不參與 Matching。
 - 戶籍與居住地可選擇臺灣全部 22 縣市，為後續地方 Coverage 保留一致 Fact values。
 - `all`、`any`、比較、日期間隔與 `true`／`false`／`unknown` Rule engine。
 - 桃園 JSON、新北／臺北 CSV、MyEGov HTML、Official page、Document monitor 與 Manual adapters。
-- 新北 151 筆已全數分類為 6 筆 `matchable`、140 筆 `descriptive_only`、5 筆 `excluded`；8 個 Programs 已補 Authority page，其中 6 個可執行 Rules。臺北 10 筆維持 Draft。
+- 新北 151 筆已全數分類為 6 筆 `matchable`、140 筆 `descriptive_only`、5 筆 `excluded`；8 個 Programs 已補 Authority page，其中 6 個可執行 Rules。
+- 臺北 10 筆已逐項用現行 Authority page 與 115 年公告複核，全部建立人工驗證 Rules；Dataset 內 109 年舊門檻只保留作 Discovery evidence。
 - Dry-run／persistent ingestion CLI、GitHub Actions Scheduled source checks。
 - Supabase PostgreSQL migration：Sources、Snapshots、Source items、Programs、Versions、Evidence、Reviews、Relationships 與 RLS。
 - Basic Auth 保護的 `/admin` Review dashboard：Source diff、Source item classification、Evidence gate、Publish、Reject、Rollback 與 Audit trail。
@@ -26,7 +27,7 @@ npm install
 npm run dev
 ```
 
-開啟 `http://localhost:3000`。沒有 Supabase credentials 時仍可操作 24 個 Repository reviewed Seed Programs；完整 45 個 Production Programs 由 Supabase Published versions 與受控 Seed fallback 合併提供。
+開啟 `http://localhost:3000`。沒有 Supabase credentials 時仍可操作 34 個 Repository reviewed Seed Programs；完整 55 個 Production Programs 由 Supabase Published versions 與受控 Seed fallback 合併提供。
 
 ## 驗證
 
@@ -55,7 +56,7 @@ npm run sources:check -- --json
 npm run sources:persist -- --json
 ```
 
-核對 Production data coverage、桃園 26/26 分類、Published evidence 與最新 Snapshot 是否一致：
+核對 Production data coverage、桃園 26/26、新北 151/151、臺北 10/10 分類、Published evidence 與最新 Snapshot 是否一致：
 
 ```bash
 npm run data:audit
@@ -81,7 +82,7 @@ Repository 刻意不包含自動 Publish job。CLI 只以 Service Role 寫入 im
 - Content hash 改變只建立 Review alert；上一個 Published version 保留。
 - `matchable` 的每個 Atomic rule 都必須有 `sourceId`、`snapshotId`、`locator` 和 Review 時間。
 - Competitive selection、Loan、專業評估與官方紀錄查核不會顯示「核准」。
-- Coverage 僅承諾中央 Seed programs 與桃園 Pilot，不宣稱完整涵蓋全臺。
+- Coverage 僅承諾中央 Seed programs，以及桃園、新北與臺北已完成 Review 的 Pilot 範圍，不宣稱完整涵蓋全臺。
 - 主管機關保有最終資格、甄選、授信及核定權。
 
 ## Repository map

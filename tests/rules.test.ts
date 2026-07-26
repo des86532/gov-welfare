@@ -183,3 +183,138 @@ test("115 年新北青年租補不允許重複住宅補貼", () => {
   assert.equal(matchProgram(program, { ...facts, receives_other_housing_subsidy: true }, "2026-07-27").status, "ineligible");
   assert.equal(matchProgram(program, facts, "2027-01-01").status, "closed");
 });
+
+test("臺北低收入戶扶助要求設籍、實住、183 日與財稅門檻", () => {
+  const program = programs.find((item) => item.slug === "taipei-low-income-living-support");
+  assert.ok(program);
+  const facts = {
+    household_city: "taipei",
+    residence_city: "taipei",
+    days_in_taiwan_last_year: 184,
+    taipei_low_income_financial_eligible: true,
+  };
+  assert.equal(matchProgram(program, facts, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...facts, days_in_taiwan_last_year: 183 }, "2026-07-27").status, "ineligible");
+  assert.equal(matchProgram(program, { ...facts, residence_city: "new_taipei" }, "2026-07-27").status, "ineligible");
+});
+
+test("臺北低收入戶就學生活補助正確處理年齡、學籍與重複補助", () => {
+  const program = programs.find((item) => item.slug === "taipei-low-income-study-living-support");
+  assert.ok(program);
+  const facts = {
+    birth_date: "2002-07-27",
+    household_city: "taipei",
+    social_assistance_status: "low_income",
+    taipei_eligible_student: true,
+    receives_similar_education_subsidy: false,
+  };
+  assert.equal(matchProgram(program, facts, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...facts, birth_date: "2001-07-27" }, "2026-07-27").status, "ineligible");
+  assert.equal(matchProgram(program, { ...facts, receives_similar_education_subsidy: true }, "2026-07-27").status, "ineligible");
+});
+
+test("臺北低收入戶學生交通補助對 18 至 24 歲要求學籍", () => {
+  const program = programs.find((item) => item.slug === "taipei-low-income-student-transport-support");
+  assert.ok(program);
+  const base = { household_city: "taipei", social_assistance_status: "low_income", receives_similar_education_subsidy: false };
+  assert.equal(matchProgram(program, { ...base, birth_date: "2010-01-01", taipei_eligible_student: false }, "2026-07-27").status, "eligible");
+  assert.equal(matchProgram(program, { ...base, birth_date: "2002-01-01", taipei_eligible_student: true }, "2026-07-27").status, "eligible");
+  assert.equal(matchProgram(program, { ...base, birth_date: "2002-01-01", taipei_eligible_student: false }, "2026-07-27").status, "ineligible");
+});
+
+test("臺北中低收入戶查定只判斷基本申請門檻", () => {
+  const program = programs.find((item) => item.slug === "taipei-mid-low-income-status");
+  assert.ok(program);
+  const facts = { birth_date: "2000-01-01", household_city: "taipei", taipei_mid_low_income_financial_eligible: true };
+  assert.equal(matchProgram(program, facts, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...facts, taipei_mid_low_income_financial_eligible: undefined }, "2026-07-27").status, "possible");
+});
+
+test("臺北身障生活補助要求無全日公費安置", () => {
+  const program = programs.find((item) => item.slug === "taipei-disability-living-support");
+  assert.ok(program);
+  const facts = {
+    household_city: "taipei",
+    residence_city: "taipei",
+    days_in_taiwan_last_year: 184,
+    is_disabled: true,
+    taipei_disability_financial_eligible: true,
+    receives_full_time_public_care: false,
+  };
+  assert.equal(matchProgram(program, facts, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...facts, receives_full_time_public_care: true }, "2026-07-27").status, "ineligible");
+});
+
+test("臺北中低收入老人津貼要求 65 歲且無拘禁排除情形", () => {
+  const program = programs.find((item) => item.slug === "taipei-senior-living-allowance");
+  assert.ok(program);
+  const facts = {
+    birth_date: "1961-07-27",
+    household_city: "taipei",
+    residence_city: "taipei",
+    days_in_taiwan_last_year: 184,
+    taipei_senior_allowance_financial_eligible: true,
+    receives_full_time_public_care: false,
+    is_incarcerated_or_detained: false,
+  };
+  assert.equal(matchProgram(program, facts, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...facts, birth_date: "1961-07-28" }, "2026-07-27").status, "ineligible");
+  assert.equal(matchProgram(program, { ...facts, is_incarcerated_or_detained: true }, "2026-07-27").status, "ineligible");
+});
+
+test("臺北營養補助需要目標身分與醫師評估", () => {
+  const program = programs.find((item) => item.slug === "taipei-nutrition-support");
+  assert.ok(program);
+  const facts = {
+    household_city: "taipei",
+    social_assistance_status: "mid_low_income",
+    taipei_nutrition_target: "infant_under_2",
+    taipei_nutrition_medical_eligible: true,
+  };
+  assert.equal(matchProgram(program, facts, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...facts, taipei_nutrition_target: "none" }, "2026-07-27").status, "ineligible");
+});
+
+test("臺北生育補助限制 60 日且不得重複領取生育獎勵金", () => {
+  const program = programs.find((item) => item.slug === "taipei-birth-support");
+  assert.ok(program);
+  const facts = {
+    household_city: "taipei",
+    social_assistance_status: "low_income",
+    taipei_birth_event_type: "registered_birth",
+    taipei_birth_event_within_60_days: true,
+    receives_taipei_birth_reward: false,
+  };
+  assert.equal(matchProgram(program, facts, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...facts, taipei_birth_event_within_60_days: false }, "2026-07-27").status, "ineligible");
+  assert.equal(matchProgram(program, { ...facts, receives_taipei_birth_reward: true }, "2026-07-27").status, "ineligible");
+});
+
+test("臺北市民醫療補助支援列冊身分與一般市民財稅兩條路徑", () => {
+  const program = programs.find((item) => item.slug === "taipei-citizen-medical-support");
+  assert.ok(program);
+  const base = { household_city: "taipei", taipei_medical_expense_eligible: true };
+  assert.equal(matchProgram(program, { ...base, social_assistance_status: "low_income", taipei_medical_financial_eligible: false }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...base, social_assistance_status: "none", taipei_medical_financial_eligible: true }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...base, social_assistance_status: "none", taipei_medical_financial_eligible: false }, "2026-07-27").status, "ineligible");
+});
+
+test("臺北急難救助支援市民與外縣市流落受災兩種路徑", () => {
+  const program = programs.find((item) => item.slug === "taipei-emergency-assistance");
+  assert.ok(program);
+  assert.equal(matchProgram(program, {
+    household_city: "taipei",
+    taipei_emergency_reason_within_3_months: true,
+    stranded_or_disaster_in_taipei: false,
+  }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, {
+    household_city: "taichung",
+    taipei_emergency_reason_within_3_months: false,
+    stranded_or_disaster_in_taipei: true,
+  }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, {
+    household_city: "taichung",
+    taipei_emergency_reason_within_3_months: true,
+    stranded_or_disaster_in_taipei: false,
+  }, "2026-07-27").status, "ineligible");
+});

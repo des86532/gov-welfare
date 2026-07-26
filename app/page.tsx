@@ -15,7 +15,7 @@ export default async function HomePage() {
     <>
       <section className="hero">
         <div className="hero-copy">
-          <p className="kicker"><span>中央福利</span><span>桃園 Pilot</span><span>來源可追溯</span></p>
+          <p className="kicker"><span>中央福利</span><span>北部三市 Pilot</span><span>來源可追溯</span></p>
           <h1>福利很多，<br /><em>不該靠運氣找到。</em></h1>
           <p className="hero-lead">回答年齡、國籍與生活狀態，初步找出你可能適用的政府福利；每一個判斷都附官方依據。</p>
           <div className="hero-actions"><Link className="button" href="/find">開始資格初篩 <span aria-hidden="true">→</span></Link><Link className="button button-ghost" href="/programs">先瀏覽全部方案</Link></div>
@@ -26,7 +26,7 @@ export default async function HomePage() {
           <dl>
             <div><dt>已收錄</dt><dd>{programs.length}<small>Programs</small></dd></div>
             <div><dt>可初篩</dt><dd>{matchableCount}<small>Reviewed Rules</small></dd></div>
-            <div><dt>地方範圍</dt><dd>桃園<small>Pilot city</small></dd></div>
+            <div><dt>地方範圍</dt><dd>3 市<small>桃園・新北・臺北</small></dd></div>
             <div><dt>資料日期</dt><dd>{reviewedAt.slice(5).replace("-", ".")}<small>{reviewedAt.slice(0, 4)} Review</small></dd></div>
           </dl>
           <p>Open Data 只作為 Draft；未經人工 Review 的 Rules 不會說你「符合」。</p>
