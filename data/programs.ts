@@ -18,10 +18,13 @@ const breastAge = evidence("mohw-screening-2025", "擴大癌症篩檢／乳癌",
 const colorectalAge = evidence("mohw-screening-2025", "擴大癌症篩檢／大腸癌", "45至74歲每2年1次；40至44歲具家族史者");
 const lungAge = evidence("mohw-screening-2025", "擴大癌症篩檢／肺癌", "具家族史或重度吸菸史之指定年齡族群每2年1次");
 const hpvAge = evidence("mohw-screening-2025", "擴大癌症篩檢／HPV", "35、45、65歲女性當年度1次");
-const wdaEmployment = evidence("wda-industrial-talent", "補助對象", "具就業保險、勞工保險或農民保險之在職勞工");
-const ydaAge = evidence("yda-overseas-dream", "計畫對象", "15至30歲青年");
-const childcareEvidence = evidence("myegov-childcare-under-2", "申辦資格", "未滿2歲、完成登記、未接受公費安置且未領公共或準公共托育補助");
-const rentEvidence = evidence("nlma-rent-115", "申請資格", "租屋、無自有住宅且所得符合所在地門檻");
+const wdaEmployment = evidence("mol-industrial-talent-rules", "補助要點第二點", "年滿15歲，具指定保險身分之在職勞工，並符合國籍或居留工作許可資格");
+const wdaLimit = evidence("wda-industrial-talent", "常見問答／3年10萬元", "自114年1月1日起，每3年最高補助10萬元");
+const ydaAge = evidence("yda-overseas-dream-115-guide", "PDF 第 1 頁／第三點", "具中華民國國籍之15歲至30歲青年");
+const ydaOverview = evidence("yda-overseas-dream", "計畫簡介", "透過海外見習、培訓與自主提案協助青年拓展國際經驗");
+const childcareEvidence = evidence("myegov-childcare-under-2", "申辦資格", "未滿2歲、完成登記、未接受公費安置且未接受公共化或準公共托育服務");
+const rentEvidence = evidence("myegov-rent-115-guide", "申請資格與家庭年所得限制", "有租賃住宅事實、家庭成員無自有房屋且所得符合所在地門檻");
+const rentWindow = evidence("nlma-rent-115", "公告事項／申請期間", "115年1月1日上午9點至115年12月31日下午5點");
 const taoyuanReward = evidence("taoyuan-welfare-open-data", "$[0].eligibilityCriteria", "16至65歲、設籍桃園、持身障證明、證照生效12個月內");
 
 export const programs: Program[] = [
@@ -269,38 +272,43 @@ export const programs: Program[] = [
     authority: "勞動部勞動力發展署",
     officialUrl: "https://thmr.wda.gov.tw/News_Content.aspx?n=1A79903405D714E4&s=6B8BBC06EF5448C2&sms=6789F97D2E2677C3",
     applicationUrl: "https://ojt.wda.gov.tw/",
-    verifiedAt: VERIFIED_AT,
     effectiveFrom: "2025-01-01",
-    requestedFacts: ["employment_status", "labor_insured"],
+    verifiedAt: "2026-07-27",
+    requestedFacts: ["birth_date", "employment_status", "labor_insured", "nationality", "training_residency_eligible"],
     rule: { all: [
+      { field: "age", operator: "gte", value: 15, label: "開訓日年滿 15 歲", evidence: wdaEmployment },
       { field: "employment_status", operator: "in", value: ["employed", "self_employed"], label: "目前為在職或自營作業者", evidence: wdaEmployment },
-      { field: "labor_insured", operator: "eq", value: true, label: "具適用的就業保險、勞保或農保身分", evidence: wdaEmployment },
+      { field: "labor_insured", operator: "eq", value: true, label: "具適用的就業保險、勞保、職災保險或農保身分", evidence: wdaEmployment },
+      { any: [
+        { field: "nationality", operator: "eq", value: "taiwan", label: "具有中華民國國籍", evidence: wdaEmployment },
+        { field: "training_residency_eligible", operator: "eq", value: true, label: "符合補助要點列出的居留與工作許可資格", evidence: wdaEmployment },
+      ] },
     ] },
     caveats: ["平台不掌握歷史使用紀錄，只能顯示方案上限，不能計算個人剩餘額度。"],
     documents: ["依在職訓練網及開課單位要求"],
     methods: ["台灣就業通在職訓練網報名"],
-    evidence: [wdaEmployment],
+    evidence: [wdaEmployment, wdaLimit],
   },
   {
     id: "central-first-job-youth",
     slug: "first-job-youth-support",
-    title: "初次尋職青年穩定就業相關措施",
-    summary: "提供符合條件的初次尋職青年尋職支持與穩定就業獎勵。",
+    title: "支援青年就業計畫（原初次尋職青年穩定就業計畫）",
+    summary: "提供符合條件的初次尋職青年尋職津貼與穩定就業獎勵。",
     category: "employment",
     tags: ["青年", "初次尋職", "就業獎勵"],
     benefitType: "cash",
-    benefitSummary: "依當期計畫、求職及就業狀態分階段核發。",
+    benefitSummary: "依求職準備與穩定就業進度分階段核發，最高 48,000 元。",
     coverage: "descriptive_only",
     decisionType: "official_record_check",
     jurisdiction: "中央",
     authority: "勞動部勞動力發展署",
-    officialUrl: "https://www.taiwanjobs.gov.tw/",
-    verifiedAt: VERIFIED_AT,
+    officialUrl: "https://youth.taiwanjobs.gov.tw/",
+    verifiedAt: "2026-07-27",
     requestedFacts: [],
-    caveats: ["需查核畢業、就業與保險紀錄；本期規則尚未完成結構化。"],
+    caveats: ["需查核年齡、在學、就業與投保紀錄；本期完整 Rules 尚未完成結構化。"],
     documents: ["依台灣就業通當期公告"],
     methods: ["台灣就業通"],
-    evidence: [evidence("wda-industrial-talent", "Seed manifest", "初次尋職青年措施待建立獨立 Authority source")],
+    evidence: [evidence("taiwanjobs-youth-employment", "計畫首頁", "尋職及就業獎勵金最高4萬8千元")],
   },
   {
     id: "central-scholarship",
@@ -336,8 +344,8 @@ export const programs: Program[] = [
     decisionType: "competitive_selection",
     jurisdiction: "中央",
     authority: "教育部青年發展署",
-    officialUrl: "https://www.yda.gov.tw/docDetail.aspx?docid=58832&pid=54&uid=30240",
-    verifiedAt: VERIFIED_AT,
+    officialUrl: "https://www.yda.gov.tw/plan.aspx?p=3058&rn=-5267",
+    verifiedAt: "2026-07-27",
     requestedFacts: ["birth_date", "nationality"],
     rule: { all: [
       { field: "age", operator: "between", value: [15, 30], label: "年齡為 15–30 歲", evidence: ydaAge },
@@ -346,7 +354,7 @@ export const programs: Program[] = [
     caveats: ["只判斷報名基本門檻；實際錄取仍須提案、審查或甄選。", "各梯次是否開放請以官方網站為準。"],
     documents: ["依年度及組別簡章"],
     methods: ["官方計畫平台線上報名"],
-    evidence: [ydaAge],
+    evidence: [ydaAge, ydaOverview],
   },
   {
     id: "central-youth-loan",
@@ -373,7 +381,7 @@ export const programs: Program[] = [
     id: "central-childcare-under-2",
     slug: "childcare-allowance-under-2",
     title: "未滿二歲育兒津貼",
-    summary: "自行照顧未滿 2 歲兒童的家庭，在未領取公共或準公共托育補助等條件下可申請。",
+    summary: "自行照顧未滿 2 歲兒童的家庭，在未使用公共化或準公共托育服務等條件下可申請。",
     category: "family",
     tags: ["育兒", "未滿二歲", "家庭"],
     benefitType: "cash",
@@ -384,13 +392,13 @@ export const programs: Program[] = [
     authority: "衛生福利部社會及家庭署",
     officialUrl: "https://www.gov.tw/News_Content_2_375315",
     applicationUrl: "https://www.gov.tw/News_Content_2_375315",
-    verifiedAt: VERIFIED_AT,
-    requestedFacts: ["has_child_under_2", "child_is_taiwanese", "child_in_public_placement", "receives_childcare_subsidy"],
+    verifiedAt: "2026-07-27",
+    requestedFacts: ["has_child_under_2", "child_is_taiwanese", "child_in_public_placement", "uses_public_childcare"],
     rule: { all: [
       { field: "has_child_under_2", operator: "eq", value: true, label: "家中有未滿 2 歲兒童", evidence: childcareEvidence },
       { field: "child_is_taiwanese", operator: "eq", value: true, label: "兒童具中華民國國籍並完成出生或初設戶籍登記", evidence: childcareEvidence },
       { field: "child_in_public_placement", operator: "eq", value: false, label: "兒童未接受政府公費安置", evidence: childcareEvidence },
-      { field: "receives_childcare_subsidy", operator: "eq", value: false, label: "同一名兒童未領公共或準公共托育補助", evidence: childcareEvidence },
+      { field: "uses_public_childcare", operator: "eq", value: false, label: "同一名兒童未接受公共化或準公共托育服務", evidence: childcareEvidence },
     ] },
     caveats: ["是否與其他給付互斥及實際核發金額，由受理機關依家庭資料認定。"],
     documents: ["申請表", "申請人及兒童身分資料", "金融機構帳戶資料"],
@@ -410,8 +418,9 @@ export const programs: Program[] = [
     decisionType: "official_record_check",
     jurisdiction: "中央",
     authority: "內政部國土管理署",
-    officialUrl: "https://www.nlma.gov.tw/ch/legislation/law%26regunu/7243",
-    verifiedAt: VERIFIED_AT,
+    officialUrl: "https://pip.moi.gov.tw/Publicize/Info/B1020?y=115",
+    applicationUrl: "https://has.nlma.gov.tw/subsidyOnline/house300e/",
+    verifiedAt: "2026-07-27",
     effectiveFrom: "2026-01-01",
     effectiveTo: "2026-12-31",
     applicationWindow: { open: "2026-01-01", close: "2026-12-31", label: "115 年 1 月 1 日至 12 月 31 日" },
@@ -424,7 +433,7 @@ export const programs: Program[] = [
     caveats: ["家庭成員範圍、住宅持有例外及所得門檻以官方系統查核為準。"],
     documents: ["租賃契約", "金融機構帳戶資料", "身分及加碼資格文件（如適用）"],
     methods: ["線上申請", "郵寄或臨櫃（依公告）"],
-    evidence: [rentEvidence],
+    evidence: [rentEvidence, rentWindow],
   },
   {
     id: "taoyuan-disability-certificate-reward",

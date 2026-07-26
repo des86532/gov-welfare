@@ -22,7 +22,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <main id="main">{children}</main>
           <footer className="site-footer">
             <div><strong>福利指南</strong><p>資格初篩，不取代主管機關認定。</p></div>
-            <div><Link href="/about">資料方法與限制</Link><span>Seed review：2026-07-26</span></div>
+            <div><Link href="/about">資料方法與限制</Link><span>Source monitoring enabled</span></div>
           </footer>
         </div>
       </body>

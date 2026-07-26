@@ -19,7 +19,7 @@ export const taoyuanSourceClassifications: TaoyuanSourceClassification[] = [
   { title: "身心障礙者就業相關手語翻譯服務", classification: "descriptive_only", rationale: "服務情境需個案確認。" },
   { title: "訴訟裁判費、律師費及裁決律師費", classification: "descriptive_only", rationale: "案件類型及必要費用由機關審查。" },
   { title: "政策性農業專案貸款利息補助", classification: "descriptive_only", rationale: "Loan 與 Interest subsidy 須授信及災損／政策資格。" },
-  { title: "身心障礙者臨時及短期照顧服務", classification: "descriptive_only", rationale: "服務需求及照顧評估不可只由問卷決定。" },
+  { title: "桃園市身心障礙者臨時及短期照顧服務", classification: "descriptive_only", rationale: "服務需求及照顧評估不可只由問卷決定。" },
   { title: "身心障礙者就業及職業重建服務", classification: "descriptive_only", rationale: "需專業職業重建評估。" },
   { title: "消費者便民服務", classification: "excluded", rationale: "一般公共服務，並非資格型福利。" },
   { title: "申請漁業天然災害救助及低利貸款", classification: "descriptive_only", rationale: "須有公告災區與實際災損認定。" },

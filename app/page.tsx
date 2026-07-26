@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { ProgramCard } from "@/components/program-card";
-import { programs } from "@/data/programs";
 import { CATEGORY_KEYS, CATEGORY_LABELS } from "@/lib/domain";
+import { getPrograms } from "@/lib/program-store";
 
 const featuredSlugs = ["cervical-cancer-screening", "industrial-talent-investment", "youth-overseas-dream-fund", "childcare-allowance-under-2"];
-const featured = featuredSlugs.map((slug) => programs.find((program) => program.slug === slug)).filter((program) => program !== undefined);
-
-export default function HomePage() {
+export default async function HomePage() {
+  const programs = await getPrograms();
+  const reviewedAt = programs.map((program) => program.verifiedAt).sort().at(-1) ?? "—";
+  const featured = featuredSlugs.map((slug) => programs.find((program) => program.slug === slug)).filter((program) => program !== undefined);
   const matchableCount = programs.filter((program) => program.coverage === "matchable").length;
   return (
     <>
@@ -24,7 +25,7 @@ export default function HomePage() {
             <div><dt>已收錄</dt><dd>{programs.length}<small>Programs</small></dd></div>
             <div><dt>可初篩</dt><dd>{matchableCount}<small>Reviewed Rules</small></dd></div>
             <div><dt>地方範圍</dt><dd>桃園<small>Pilot city</small></dd></div>
-            <div><dt>資料日期</dt><dd>07.26<small>2026 Review</small></dd></div>
+            <div><dt>資料日期</dt><dd>{reviewedAt.slice(5).replace("-", ".")}<small>{reviewedAt.slice(0, 4)} Review</small></dd></div>
           </dl>
           <p>Open Data 只作為 Draft；未經人工 Review 的 Rules 不會說你「符合」。</p>
         </div>

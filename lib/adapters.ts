@@ -7,10 +7,28 @@ export interface SourceAdapter {
   extract(snapshot: RawSnapshot): Promise<DraftSourceItem[]>;
 }
 
+function cleanText(value: string): string {
+  return value.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+}
+
+export function contentHashFor(bytes: Buffer, format: SourceConfig["format"]): string {
+  if (format !== "html") return createHash("sha256").update(bytes).digest("hex");
+  const $ = cheerio.load(bytes.toString("utf8"));
+  $("script, style, noscript, svg").remove();
+  const text = cleanText($("body").text())
+    .replace(/列印時間：?\s*\d{2,3}\/\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2}/g, "列印時間")
+    .replace(/專區瀏覽人次\s*累計\d+\s*今日\d+/g, "專區瀏覽人次")
+    .replace(/累計瀏覽人次：?[\d,]+\s*今日瀏覽人次：?[\d,]+/g, "瀏覽人次");
+  const links = [...new Set($("a[href]").map((_, element) => cleanText($(element).attr("href") ?? "")).get()
+    .filter((href) => href && !href.startsWith("#") && !href.startsWith("javascript:")))]
+    .sort();
+  return createHash("sha256").update(`${text}\n${links.join("\n")}`).digest("hex");
+}
+
 export async function fetchSnapshot(source: SourceConfig): Promise<RawSnapshot> {
   const response = await fetch(source.url, {
     headers: { "user-agent": "TaiwanWelfareNavigator/0.1 source-monitor" },
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(source.fetchTimeoutMs ?? 20_000),
   });
   if (!response.ok) throw new Error(`${source.id}: HTTP ${response.status}`);
   const bytes = Buffer.from(await response.arrayBuffer());
@@ -22,7 +40,7 @@ export async function fetchSnapshot(source: SourceConfig): Promise<RawSnapshot> 
     contentType,
     etag: response.headers.get("etag") ?? undefined,
     lastModified: response.headers.get("last-modified") ?? undefined,
-    contentHash: createHash("sha256").update(bytes).digest("hex"),
+    contentHash: contentHashFor(bytes, source.format),
     body: isText ? bytes.toString("utf8") : bytes.toString("base64"),
     status: response.status,
   };
@@ -89,14 +107,14 @@ export function extractTaoyuanRows(body: string): DraftSourceItem[] {
 
 const headingSelector = "h1, h2, h3, h4";
 
-function cleanText(value: string): string {
-  return value.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
-}
-
 export function extractMyEGovHtml(body: string, sourceId: string): DraftSourceItem[] {
   const $ = cheerio.load(body);
   $("script, style, nav, footer, header, noscript").remove();
-  const title = cleanText($("h1").first().text()) || cleanText($("title").text()) || "未命名申辦服務";
+  const title = cleanText($("meta[property='og:title']").attr("content") ?? "")
+    || cleanText($("#CCMS_Content h3").first().text())
+    || cleanText($("h1").first().text())
+    || cleanText($("title").text())
+    || "未命名申辦服務";
   const sections: Record<string, string[]> = {};
   $(headingSelector).each((_, element) => {
     const heading = cleanText($(element).text());
@@ -110,15 +128,22 @@ export function extractMyEGovHtml(body: string, sourceId: string): DraftSourceIt
     }
     if (values.length > 0) sections[heading] = [...new Set([...(sections[heading] ?? []), ...values])];
   });
-  const uniqueParagraphs = [...new Set($("main p, main li, article p, article li").map((_, element) => cleanText($(element).text())).get().filter(Boolean))];
+  $(".css-tr").each((_, row) => {
+    const heading = cleanText($(row).find(".css-th").first().text());
+    const value = cleanText($(row).find(".css-td").first().text());
+    if (heading && value) sections[heading] = [...new Set([...(sections[heading] ?? []), value])];
+  });
+  const uniqueParagraphs = [...new Set($("#CCMS_Content p, #CCMS_Content li, main p, main li, article p, article li").map((_, element) => cleanText($(element).text())).get().filter(Boolean))];
+  const warnings = ["application_channel_duplicates_deduplicated", "draft_never_auto_publish"];
+  if (Object.keys(sections).length === 0 && uniqueParagraphs.length === 0) warnings.push("content_extraction_empty");
   return [{
     externalId: sourceId,
     title,
-    raw: { html: body },
+    raw: { sourceId },
     canonicalDraft: { title, sections, paragraphs: uniqueParagraphs },
     unknownFields: {},
     reviewStatus: "pending",
-    warnings: ["application_channel_duplicates_deduplicated", "draft_never_auto_publish"],
+    warnings,
   }];
 }
 
@@ -128,14 +153,16 @@ export function extractOfficialPage(body: string, sourceId: string): DraftSource
   const title = cleanText($("h1").first().text()) || cleanText($("title").text()) || sourceId;
   const publishedText = cleanText($("time, .date, .publish-date, [class*='date']").first().text());
   const mainText = cleanText($("main, article, #content, .content").first().text() || $("body").text());
+  const warnings = ["no_automatic_rule_generation", "draft_never_auto_publish"];
+  if (!mainText || title === "undefined") warnings.push("content_extraction_empty");
   return [{
     externalId: sourceId,
     title,
-    raw: { html: body },
+    raw: { sourceId },
     canonicalDraft: { title, publishedText: publishedText || null, bodyText: mainText, links: $("a[href]").map((_, element) => $(element).attr("href")).get() },
     unknownFields: {},
     reviewStatus: "pending",
-    warnings: ["no_automatic_rule_generation", "draft_never_auto_publish"],
+    warnings,
   }];
 }
 

@@ -144,6 +144,7 @@ export type SourceConfig = {
   automation: AutomationLevel;
   adapterKey: "taoyuan_welfare_json" | "myegov_html" | "official_page" | "document_monitor" | "manual";
   checkEveryHours: number | null;
+  fetchTimeoutMs?: number;
   crawlerRequired: boolean;
   status: "active" | "blocked" | "archived";
   catalogModifiedAt?: string;

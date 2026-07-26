@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { factDefinitions, factDefinitionByKey } from "@/data/facts";
-import { programs } from "@/data/programs";
 import type { FactDefinition, FactValue, ProfileFacts, Program } from "@/lib/domain";
 import { MATCH_STATUS_LABELS, collectRuleFields, matchProgram, type MatchStatus } from "@/lib/rules";
 
@@ -90,7 +89,7 @@ function ResultCard({ program, status, facts }: { program: Program; status: Matc
   );
 }
 
-export function WelfareFinder() {
+export function WelfareFinder({ programs }: { programs: Program[] }) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [facts, setFacts] = useState<ProfileFacts>({});
 

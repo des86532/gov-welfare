@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { ProgramCard } from "@/components/program-card";
-import { programs } from "@/data/programs";
 import { CATEGORY_KEYS, CATEGORY_LABELS, type CategoryKey } from "@/lib/domain";
+import { getPrograms } from "@/lib/program-store";
 
 export const metadata = { title: "方案清單" };
 
 export default async function ProgramsPage({ searchParams }: { searchParams: Promise<{ category?: string; q?: string }> }) {
   const params = await searchParams;
+  const programs = await getPrograms();
   const category = CATEGORY_KEYS.includes(params.category as CategoryKey) ? params.category as CategoryKey : undefined;
   const query = params.q?.trim().toLocaleLowerCase("zh-Hant") ?? "";
   const visible = programs.filter((program) => {

@@ -1,8 +1,10 @@
-import { programs } from "@/data/programs";
+import { getPrograms } from "@/lib/program-store";
 
-export function GET() {
-  const published = programs.filter((program) => ["matchable", "descriptive_only"].includes(program.coverage));
-  return Response.json({ data: published, meta: { count: published.length, coverage: "central-seed+taoyuan-pilot", reviewedAt: "2026-07-26" } }, {
+export async function GET() {
+  const programs = await getPrograms();
+  const published = programs.filter((program) => !["catalog_only", "archived"].includes(program.coverage));
+  const reviewedAt = published.map((program) => program.verifiedAt).sort().at(-1) ?? null;
+  return Response.json({ data: published, meta: { count: published.length, coverage: "central-seed+taoyuan-pilot", reviewedAt } }, {
     headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" },
   });
 }

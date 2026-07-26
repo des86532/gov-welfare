@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { programBySlug, programs } from "@/data/programs";
+import { programs as seedPrograms } from "@/data/programs";
 import { sourceById } from "@/data/sources";
 import { CATEGORY_LABELS, type RuleNode } from "@/lib/domain";
+import { getProgramBySlug } from "@/lib/program-store";
 
 const coverageLabels = {
   catalog_only: "Catalog only",
@@ -32,18 +33,18 @@ function RuleTree({ rule }: { rule: RuleNode }) {
 }
 
 export function generateStaticParams() {
-  return programs.map((program) => ({ slug: program.slug }));
+  return seedPrograms.map((program) => ({ slug: program.slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const program = programBySlug.get(slug);
+  const program = await getProgramBySlug(slug);
   return program ? { title: program.title, description: program.summary } : {};
 }
 
 export default async function ProgramDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const program = programBySlug.get(slug);
+  const program = await getProgramBySlug(slug);
   if (!program) notFound();
   const sources = [...new Set(program.evidence.map((item) => item.sourceId))].map((id) => sourceById.get(id)).filter((source) => source !== undefined);
 

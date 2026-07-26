@@ -5,11 +5,11 @@
 ## 已實作
 
 - Next.js App Router 公開網站：首頁、Category catalog、Dynamic questionnaire、Results、Program detail、資料方法頁。
-- 15 個中央／桃園 reviewed Seed Programs；其中可執行 Rules 與 `descriptive_only` 方案可以共存。
+- 16 個中央／桃園 reviewed Seed Programs；其中可執行 Rules 與 `descriptive_only` 方案可以共存。
 - 桃園 Open Data 26 筆 Source items 的完整 `matchable`／`descriptive_only`／`excluded` 分類。
 - `all`、`any`、比較、日期間隔與 `true`／`false`／`unknown` Rule engine。
 - 桃園 JSON、MyEGov HTML、Official page、Document monitor 與 Manual adapters。
-- Dry-run ingestion CLI、GitHub Actions Scheduled source checks。
+- Dry-run／persistent ingestion CLI、GitHub Actions Scheduled source checks。
 - Supabase PostgreSQL migration：Sources、Snapshots、Source items、Programs、Versions、Evidence、Reviews、Relationships 與 RLS。
 - Basic Auth 保護的 `/admin` Read-only Review dashboard。
 - 公開 Profile 僅存在 Browser memory；沒有帳號、MyData 或 `POST /api/match`。
@@ -46,6 +46,18 @@ npm run sources:check -- --source taoyuan-welfare-open-data
 npm run sources:check -- --json
 ```
 
+有設定 Service Role 時，可保存 immutable Snapshot 與 Draft items；這個指令仍不會 Publish Program：
+
+```bash
+npm run sources:persist -- --json
+```
+
+核對 Production data coverage、桃園 26/26 分類、Published evidence 與最新 Snapshot 是否一致：
+
+```bash
+npm run data:audit
+```
+
 ## Supabase
 
 1. 建立 Supabase project。
@@ -54,7 +66,9 @@ npm run sources:check -- --json
 4. 複製 `.env.example` 為 `.env.local` 並填入 credentials。
 5. Production 必須設定 `ADMIN_PASSWORD`；未設定時 `/admin` 會回應 503。
 
-目前 Repository 刻意不包含自動 Publish job。下一步接上 Supabase 時，CLI 應以 Service Role 寫入 immutable `source_snapshots` 與 Draft `source_items`，再由已驗證的 Admin Server Action 執行 Review／Publish。這個邊界避免任何政府來源異動直接改變公開資格結果。
+`SUPABASE_SERVICE_ROLE_KEY` 只供 Server-side ingestion 與 Admin 使用，不得放進 Client component 或公開輸出。
+
+Repository 刻意不包含自動 Publish job。CLI 只以 Service Role 寫入 immutable `source_snapshots` 與 Draft `source_items`；初始 reviewed Seed 可由 `npm run data:seed -- --apply --publish-initial` 匯入，後續內容異動只會建立 Draft。公開網站優先讀取 Supabase Published versions，Database 無法使用時才回到 Repository 中的 reviewed Seed。
 
 ## 資料與安全邊界
 

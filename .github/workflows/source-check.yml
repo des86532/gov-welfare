@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  dry-run:
+  persist-drafts:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -23,8 +23,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Fetch, hash, and extract Drafts
-        run: npm run sources:check -- --json > source-report.json
+      - name: Fetch, hash, and persist immutable Drafts
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run sources:persist -- --json > source-report.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:

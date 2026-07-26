@@ -9,7 +9,10 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/rules.test.ts tests/adapters.test.ts tests/data.test.ts",
-    "sources:check": "tsx scripts/check-sources.ts"
+    "sources:check": "tsx scripts/check-sources.ts",
+    "sources:persist": "tsx scripts/check-sources.ts --persist",
+    "data:seed": "tsx scripts/seed-reviewed-programs.ts",
+    "data:audit": "tsx scripts/audit-data.ts"
   },
   "dependencies": {
     "cheerio": "1.2.0",
