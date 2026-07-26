@@ -114,10 +114,10 @@ export const sources: SourceConfig[] = [
   },
   {
     id: "mol-industrial-talent-rules",
-    name: "產業人才投資方案補助要點",
-    authority: "勞動部",
+    name: "產業人才投資方案補助要點修正公告",
+    authority: "勞動部勞動力發展署",
     jurisdiction: "中央",
-    url: "https://laws.mol.gov.tw/FLAW/PrintFLAWDOC01.aspx?flno=2&id=FL041561",
+    url: "https://www.wda.gov.tw/News_Content.aspx?n=67&s=17352&sms=10333",
     format: "html",
     roles: ["eligibility", "legal_basis"],
     automation: "change_detection_only",
@@ -126,6 +126,7 @@ export const sources: SourceConfig[] = [
     crawlerRequired: false,
     status: "active",
     lastVerifiedAt: "2026-07-27",
+    note: "原勞動部法規列印頁在 GitHub runner 連線逾時；改監測 WDA 正式修正公告及其當期附件連結。",
   },
   {
     id: "moe-scholarship",
