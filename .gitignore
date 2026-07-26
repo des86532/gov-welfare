@@ -4,6 +4,7 @@ out
 .env
 .env.local
 .vercel
+supabase/.temp/
 coverage
 source-report.json
 *.log
