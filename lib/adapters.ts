@@ -29,7 +29,7 @@ export function contentHashFor(bytes: Buffer, format: SourceConfig["format"]): s
 export async function fetchSnapshot(source: SourceConfig): Promise<RawSnapshot> {
   let response: Response | undefined;
   let fetchError: unknown;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       response = await fetch(source.url, {
         headers: { "user-agent": "TaiwanWelfareNavigator/0.1 source-monitor" },
@@ -38,6 +38,7 @@ export async function fetchSnapshot(source: SourceConfig): Promise<RawSnapshot> 
       break;
     } catch (error) {
       fetchError = error;
+      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 750 * (2 ** attempt)));
     }
   }
   if (!response) throw fetchError;
