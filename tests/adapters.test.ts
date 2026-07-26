@@ -1,6 +1,31 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { contentHashFor, extractMyEGovHtml, extractNewTaipeiRows, extractOfficialPage, extractTaipeiRows, extractTaoyuanRows, parseCsvRecords } from "../lib/adapters";
+import { contentHashFor, extractMyEGovHtml, extractNewTaipeiRows, extractOfficialPage, extractTaipeiRows, extractTaoyuanRows, parseCsvRecords, validateSnapshotFormat } from "../lib/adapters";
+import type { SourceConfig } from "../lib/domain";
+
+const monitoredPdf: SourceConfig = {
+  id: "test-pdf",
+  name: "測試 PDF",
+  authority: "測試機關",
+  jurisdiction: "中央",
+  url: "https://example.gov.tw/guide.pdf",
+  format: "pdf",
+  roles: ["legal_basis"],
+  automation: "change_detection_only",
+  adapterKey: "document_monitor",
+  checkEveryHours: 168,
+  crawlerRequired: false,
+  status: "active",
+  lastVerifiedAt: "2026-07-27",
+};
+
+test("PDF Source 用 magic bytes 阻擋偽裝成下載檔的 HTML", () => {
+  assert.doesNotThrow(() => validateSnapshotFormat(monitoredPdf, Buffer.from("%PDF-1.7"), "application/pdf"));
+  assert.throws(
+    () => validateSnapshotFormat(monitoredPdf, Buffer.from("<html>redirect</html>"), "application/pdf"),
+    /expected PDF/,
+  );
+});
 
 test("桃園 JSON 保留未知欄位且不採用 raw Category", () => {
   const items = extractTaoyuanRows(JSON.stringify([{ policyName: "測試福利", policyCategory: "錯誤分類", sourceUrl: "https://example.gov.tw/a", futureField: "保留我" }]));

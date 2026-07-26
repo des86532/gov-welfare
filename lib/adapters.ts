@@ -26,6 +26,12 @@ export function contentHashFor(bytes: Buffer, format: SourceConfig["format"]): s
   return createHash("sha256").update(`${text}\n${links.join("\n")}`).digest("hex");
 }
 
+export function validateSnapshotFormat(source: SourceConfig, bytes: Buffer, contentType: string): void {
+  if (source.format === "pdf" && bytes.subarray(0, 5).toString("ascii") !== "%PDF-") {
+    throw new Error(`${source.id}: expected PDF but received ${contentType}`);
+  }
+}
+
 export async function fetchSnapshot(source: SourceConfig): Promise<RawSnapshot> {
   let response: Response | undefined;
   let fetchError: unknown;
@@ -45,6 +51,7 @@ export async function fetchSnapshot(source: SourceConfig): Promise<RawSnapshot> 
   if (!response.ok) throw new Error(`${source.id}: HTTP ${response.status}`);
   const bytes = Buffer.from(await response.arrayBuffer());
   const contentType = response.headers.get("content-type") ?? "application/octet-stream";
+  validateSnapshotFormat(source, bytes, contentType);
   const isText = /json|text|html|xml|csv/i.test(contentType) || ["json", "csv", "xml", "html"].includes(source.format);
   const textBody = isText ? bytes.toString("utf8") : "";
   if (/The requested URL was rejected|Access Denied/i.test(textBody) && textBody.length < 10_000) {

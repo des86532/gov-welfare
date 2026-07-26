@@ -23,8 +23,8 @@ test("桃園 26 筆 Source items 全部有分類與理由", () => {
 test("新北 151 筆 Source items 全部有 Review 去向", () => {
   assert.equal(newTaipeiSourceClassifications.length, 151);
   assert.equal(new Set(newTaipeiSourceClassifications.map((item) => item.title)).size, 151);
-  assert.equal(newTaipeiSourceClassifications.filter((item) => item.classification === "matchable").length, 1);
-  assert.equal(newTaipeiSourceClassifications.filter((item) => item.classification === "descriptive_only").length, 145);
+  assert.equal(newTaipeiSourceClassifications.filter((item) => item.classification === "matchable").length, 6);
+  assert.equal(newTaipeiSourceClassifications.filter((item) => item.classification === "descriptive_only").length, 140);
   assert.equal(newTaipeiSourceClassifications.filter((item) => item.classification === "excluded").length, 5);
   for (const item of newTaipeiSourceClassifications) assert.ok(item.rationale, item.title);
 });

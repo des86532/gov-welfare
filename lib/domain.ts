@@ -74,6 +74,7 @@ export type AtomicOperator =
   | "lte"
   | "lt"
   | "between"
+  | "date_within_past_years"
   | "date_on_or_before_years_ago";
 
 export type AtomicRule = {

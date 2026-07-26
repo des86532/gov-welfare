@@ -99,6 +99,15 @@ function compareAtomic(rule: AtomicRule, facts: ProfileFacts, asOf: string): Tru
         ? actual >= minimum && actual <= maximum
         : false;
     }
+    case "date_within_past_years": {
+      if (typeof actual !== "string" || typeof expected !== "number") return false;
+      const date = new Date(`${actual}T00:00:00Z`);
+      const today = new Date(`${asOf}T00:00:00Z`);
+      const threshold = new Date(today);
+      if (Number.isNaN(date.getTime())) return false;
+      threshold.setUTCFullYear(threshold.getUTCFullYear() - expected);
+      return date >= threshold && date <= today;
+    }
     case "date_on_or_before_years_ago": {
       if (typeof actual !== "string" || typeof expected !== "number") return false;
       const date = new Date(`${actual}T00:00:00Z`);

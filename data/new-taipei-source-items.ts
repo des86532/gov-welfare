@@ -170,14 +170,28 @@ const excluded = new Map<string, string>([
 
 const specialRationales = new Map<string, string>([
   ["辦理兒童卡", "設籍、年齡與新北市國小學籍可依 Authority page 建立基本門檻 Rules。"],
+  ["生育獎勵金", "新生兒戶籍、父母設籍條件與出生後一年申請期可依民政局 Authority page 建立 Rules。"],
+  ["好孕專車車資補貼", "懷孕、設籍或非本國籍配偶條件可依社會局 Authority page 建立 Rules。"],
+  ["長者健康檢查服務", "新北設籍、年齡與原住民身分可依 115 年衛生局計畫建立 Rules。"],
+  ["身心障礙者生活補助", "設籍、實際居住、身障證明與排除條件可建立基本 Rules；財稅由官方查調。"],
+  ["青年租屋補貼", "115 年問與答明確列出年齡、新北連結、租屋、家庭、住宅、所得及重複補貼條件，可建立 Rules。"],
   ["「鮮奶幸福週-生生喝鮮乳」計畫", "Open Data 為 2–12 歲，但官方已公告 2026-08-31 擴大至國中生；目前只提供說明，不自動 Matching。"],
   ["腸病毒疫苗", "Authority page 的年齡下限為滿 2 個月；現有問卷僅有幼兒整歲，無法精準判斷。"],
+]);
+
+const matchableTitles = new Set([
+  "辦理兒童卡",
+  "生育獎勵金",
+  "好孕專車車資補貼",
+  "長者健康檢查服務",
+  "身心障礙者生活補助",
+  "青年租屋補貼",
 ]);
 
 export const newTaipeiSourceClassifications: NewTaipeiSourceClassification[] = sourceTitles.map((title) => {
   const excludedRationale = excluded.get(title);
   if (excludedRationale) return { title, classification: "excluded", rationale: excludedRationale };
-  if (title === "辦理兒童卡") {
+  if (matchableTitles.has(title)) {
     return { title, classification: "matchable", rationale: specialRationales.get(title)! };
   }
   return {
