@@ -42,6 +42,12 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npx --no-install tsx scripts/seed-reviewed-programs.ts --apply --publish-reviewed-updates
+      - name: Audit Published data acceptance
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_reviewed_programs }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run data:audit
       - uses: actions/upload-artifact@v4
         if: always()
         with:
