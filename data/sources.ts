@@ -220,8 +220,9 @@ export const sources: SourceConfig[] = [
     adapterKey: "official_page",
     checkEveryHours: 168,
     crawlerRequired: false,
-    status: "active",
+    status: "blocked",
     lastVerifiedAt: "2026-07-27",
+    note: "GitHub runner 會被官方 WAF 拒絕；申請期間改由 MyEGov 115 年說明監測。",
   },
   {
     id: "nlma-rent-rules",

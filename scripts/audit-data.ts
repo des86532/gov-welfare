@@ -4,7 +4,7 @@ import { sources } from "../data/sources";
 import type { Program, RuleNode } from "../lib/domain";
 import { supabaseConfig, supabaseRest, type SupabaseConfig } from "../lib/supabase-rest";
 
-type Snapshot = { id: string; source_id: string; fetch_error: unknown };
+type Snapshot = { id: string; source_id: string };
 type Version = {
   status: string;
   coverage: string;
@@ -28,7 +28,7 @@ async function main() {
   const config = requiredConfig();
   const [databaseSources, snapshots, taoyuanItems, versions, drafts] = await Promise.all([
     supabaseRest<Array<{ id: string; status: string; last_check_error: unknown }>>(config, "sources?select=id,status,last_check_error"),
-    supabaseRest<Snapshot[]>(config, "source_snapshots?select=id,source_id,fetch_error&order=observed_at.desc"),
+    supabaseRest<Snapshot[]>(config, "source_snapshots?select=id,source_id&content_hash=not.is.null&order=observed_at.desc"),
     supabaseRest<Array<{ classification: string | null }>>(config, "source_items?select=classification&source_id=eq.taoyuan-welfare-open-data"),
     supabaseRest<Version[]>(config, "program_versions?select=status,coverage,canonical_content,field_evidence(field_path,source_id,snapshot_id,reviewed_at)&status=eq.published"),
     supabaseRest<Array<{ id: string }>>(config, "program_versions?select=id&status=eq.draft"),
@@ -36,7 +36,7 @@ async function main() {
 
   const latest = new Map<string, Snapshot>();
   for (const snapshot of snapshots) if (!latest.has(snapshot.source_id)) latest.set(snapshot.source_id, snapshot);
-  const expected = programs.filter((program) => program.evidence.every((item) => latest.get(item.sourceId)?.fetch_error === null));
+  const expected = programs.filter((program) => program.evidence.every((item) => latest.has(item.sourceId)));
 
   assert.deepEqual(new Set(databaseSources.map((source) => source.id)), new Set(sources.map((source) => source.id)), "Source registry drift");
   assert.equal(databaseSources.filter((source) => source.status === "active" && source.last_check_error).length, 0, "Active Source check errors");
@@ -51,7 +51,7 @@ async function main() {
     assert.match(program.applicationUrl ?? program.officialUrl, /^https:\/\//, `${program.title}: official application URL`);
     for (const item of version.field_evidence) {
       const newest = latest.get(item.source_id);
-      assert.ok(newest && newest.fetch_error === null && newest.id === item.snapshot_id, `${program.title}: stale ${item.source_id}`);
+      assert.ok(newest && newest.id === item.snapshot_id, `${program.title}: stale ${item.source_id}`);
       assert.ok(item.reviewed_at, `${program.title}: unreviewed evidence ${item.field_path}`);
     }
     if (version.coverage === "matchable") {

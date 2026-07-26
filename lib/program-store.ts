@@ -11,8 +11,9 @@ type PublishedVersion = {
 type SnapshotState = {
   id: string;
   source_id: string;
-  fetch_error: unknown;
 };
+
+type SourceState = { id: string; last_check_error: unknown };
 
 function isProgram(value: unknown): value is Program {
   if (!value || typeof value !== "object") return false;
@@ -43,18 +44,26 @@ async function loadPrograms(): Promise<Program[]> {
     const serviceConfig = supabaseConfig(true);
     if (serviceConfig) {
       const sourceIds = [...new Set(versions.flatMap((row) => row.field_evidence.map((item) => item.source_id)))];
-      const latest = await supabaseRest<SnapshotState[]>(
-        serviceConfig,
-        `source_snapshots?select=id,source_id,fetch_error&source_id=in.(${sourceIds.map(encodeURIComponent).join(",")})&order=observed_at.desc`,
-        { next: { revalidate: 900 } },
-      );
+      const [latest, sourceStates] = await Promise.all([
+        supabaseRest<SnapshotState[]>(
+          serviceConfig,
+          `source_snapshots?select=id,source_id&content_hash=not.is.null&source_id=in.(${sourceIds.map(encodeURIComponent).join(",")})&order=observed_at.desc`,
+          { next: { revalidate: 900 } },
+        ),
+        supabaseRest<SourceState[]>(
+          serviceConfig,
+          `sources?select=id,last_check_error&id=in.(${sourceIds.map(encodeURIComponent).join(",")})`,
+          { next: { revalidate: 900 } },
+        ),
+      ]);
       const latestBySource = new Map<string, SnapshotState>();
       for (const snapshot of latest) if (!latestBySource.has(snapshot.source_id)) latestBySource.set(snapshot.source_id, snapshot);
+      const errors = new Map(sourceStates.map((source) => [source.id, source.last_check_error]));
       for (const item of published) {
         const evidence = item.evidence;
         const stale = evidence.some((item) => {
           const newest = latestBySource.get(item.source_id);
-          return !newest || newest.fetch_error !== null || newest.id !== item.snapshot_id;
+          return !newest || errors.get(item.source_id) != null || newest.id !== item.snapshot_id;
         });
         if (stale) item.program = { ...item.program, coverage: "needs_review" };
       }

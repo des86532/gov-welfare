@@ -18,7 +18,8 @@ export function contentHashFor(bytes: Buffer, format: SourceConfig["format"]): s
   const text = cleanText($("body").text())
     .replace(/列印時間：?\s*\d{2,3}\/\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2}/g, "列印時間")
     .replace(/專區瀏覽人次\s*累計\d+\s*今日\d+/g, "專區瀏覽人次")
-    .replace(/累計瀏覽人次：?[\d,]+\s*今日瀏覽人次：?[\d,]+/g, "瀏覽人次");
+    .replace(/累計瀏覽人次：?[\d,]+\s*今日瀏覽人次：?[\d,]+/g, "瀏覽人次")
+    .replace(/您來自：\s*[0-9a-f:.]+/gi, "您來自");
   const links = [...new Set($("a[href]").map((_, element) => cleanText($(element).attr("href") ?? "")).get()
     .filter((href) => href && !href.startsWith("#") && !href.startsWith("javascript:")))]
     .sort();
@@ -26,14 +27,28 @@ export function contentHashFor(bytes: Buffer, format: SourceConfig["format"]): s
 }
 
 export async function fetchSnapshot(source: SourceConfig): Promise<RawSnapshot> {
-  const response = await fetch(source.url, {
-    headers: { "user-agent": "TaiwanWelfareNavigator/0.1 source-monitor" },
-    signal: AbortSignal.timeout(source.fetchTimeoutMs ?? 20_000),
-  });
+  let response: Response | undefined;
+  let fetchError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      response = await fetch(source.url, {
+        headers: { "user-agent": "TaiwanWelfareNavigator/0.1 source-monitor" },
+        signal: AbortSignal.timeout(source.fetchTimeoutMs ?? 20_000),
+      });
+      break;
+    } catch (error) {
+      fetchError = error;
+    }
+  }
+  if (!response) throw fetchError;
   if (!response.ok) throw new Error(`${source.id}: HTTP ${response.status}`);
   const bytes = Buffer.from(await response.arrayBuffer());
   const contentType = response.headers.get("content-type") ?? "application/octet-stream";
   const isText = /json|text|html|xml|csv/i.test(contentType) || ["json", "csv", "xml", "html"].includes(source.format);
+  const textBody = isText ? bytes.toString("utf8") : "";
+  if (/The requested URL was rejected|Access Denied/i.test(textBody) && textBody.length < 10_000) {
+    throw new Error(`${source.id}: Source blocked this runner`);
+  }
   return {
     sourceId: source.id,
     observedAt: new Date().toISOString(),
@@ -41,7 +56,7 @@ export async function fetchSnapshot(source: SourceConfig): Promise<RawSnapshot> 
     etag: response.headers.get("etag") ?? undefined,
     lastModified: response.headers.get("last-modified") ?? undefined,
     contentHash: contentHashFor(bytes, source.format),
-    body: isText ? bytes.toString("utf8") : bytes.toString("base64"),
+    body: isText ? textBody : bytes.toString("base64"),
     status: response.status,
   };
 }

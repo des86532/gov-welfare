@@ -39,8 +39,8 @@ test("Official page 只抽文字 Draft，不產生 Rule", () => {
 });
 
 test("HTML Content hash 忽略 Script 變動但保留正文變動", () => {
-  const first = contentHashFor(Buffer.from("<body><p>資格 A</p><p>列印時間：115/07/27 01:47</p><p>累計瀏覽人次：88,964,783 今日瀏覽人次：3,956</p><script>token=1</script></body>"), "html");
-  const same = contentHashFor(Buffer.from("<body><p>資格 A</p><p>列印時間：115/07/27 01:48</p><p>累計瀏覽人次：88,964,799 今日瀏覽人次：3,972</p><script>token=2</script></body>"), "html");
+  const first = contentHashFor(Buffer.from("<body><p>資格 A</p><p>列印時間：115/07/27 01:47</p><p>累計瀏覽人次：88,964,783 今日瀏覽人次：3,956</p><p>您來自：36.225.136.78</p><script>token=1</script></body>"), "html");
+  const same = contentHashFor(Buffer.from("<body><p>資格 A</p><p>列印時間：115/07/27 01:48</p><p>累計瀏覽人次：88,964,799 今日瀏覽人次：3,972</p><p>您來自：172.182.243.50</p><script>token=2</script></body>"), "html");
   const changed = contentHashFor(Buffer.from("<body><p>資格 B</p><script>token=2</script></body>"), "html");
   assert.equal(first, same);
   assert.notEqual(first, changed);

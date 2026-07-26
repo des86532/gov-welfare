@@ -27,7 +27,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npm run sources:persist -- --json > source-report.json
+        run: npx --no-install tsx scripts/check-sources.ts --persist --json > source-report.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:

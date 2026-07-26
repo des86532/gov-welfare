@@ -24,7 +24,7 @@ const ydaAge = evidence("yda-overseas-dream-115-guide", "PDF 第 1 頁／第三�
 const ydaOverview = evidence("yda-overseas-dream", "計畫簡介", "透過海外見習、培訓與自主提案協助青年拓展國際經驗");
 const childcareEvidence = evidence("myegov-childcare-under-2", "申辦資格", "未滿2歲、完成登記、未接受公費安置且未接受公共化或準公共托育服務");
 const rentEvidence = evidence("myegov-rent-115-guide", "申請資格與家庭年所得限制", "有租賃住宅事實、家庭成員無自有房屋且所得符合所在地門檻");
-const rentWindow = evidence("nlma-rent-115", "公告事項／申請期間", "115年1月1日上午9點至115年12月31日下午5點");
+const rentWindow = evidence("myegov-rent-115-guide", "受理申請期間", "115年1月1日上午9點至115年12月31日下午5點");
 const taoyuanReward = evidence("taoyuan-welfare-open-data", "$[0].eligibilityCriteria", "16至65歲、設籍桃園、持身障證明、證照生效12個月內");
 
 export const programs: Program[] = [
