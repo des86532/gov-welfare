@@ -1,0 +1,34 @@
+name: Scheduled source checks
+
+on:
+  schedule:
+    - cron: "17 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: welfare-source-check
+  cancel-in-progress: false
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Fetch, hash, and extract Drafts
+        run: npm run sources:check -- --json > source-report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: source-check-${{ github.run_id }}
+          path: source-report.json
+          if-no-files-found: warn
+          retention-days: 30

@@ -1,0 +1,92 @@
+import type { FactDefinition } from "@/lib/domain";
+
+const yesNoUnknown = [
+  { value: "true", label: "是" },
+  { value: "false", label: "否" },
+];
+
+export const factDefinitions: FactDefinition[] = [
+  { key: "birth_date", type: "date", label: "出生日期", sensitive: true, core: true, help: "只在這個頁面用來計算年齡，不會上傳或儲存。" },
+  {
+    key: "registered_sex",
+    type: "enum",
+    label: "健保／證件登記性別",
+    sensitive: true,
+    core: true,
+    options: [
+      { value: "female", label: "女性" },
+      { value: "male", label: "男性" },
+      { value: "prefer_not", label: "不提供" },
+    ],
+  },
+  {
+    key: "nationality",
+    type: "enum",
+    label: "國籍與居留狀態",
+    sensitive: true,
+    core: true,
+    options: [
+      { value: "taiwan", label: "中華民國國籍" },
+      { value: "foreign_spouse", label: "外籍配偶" },
+      { value: "aprc", label: "永久居留" },
+      { value: "foreign", label: "其他外籍身分" },
+    ],
+  },
+  {
+    key: "household_city",
+    type: "enum",
+    label: "戶籍縣市",
+    sensitive: true,
+    core: true,
+    options: [
+      { value: "taoyuan", label: "桃園市" },
+      { value: "other", label: "其他縣市" },
+      { value: "none", label: "在臺無戶籍" },
+    ],
+  },
+  {
+    key: "residence_city",
+    type: "enum",
+    label: "目前居住縣市",
+    sensitive: true,
+    core: true,
+    options: [
+      { value: "taoyuan", label: "桃園市" },
+      { value: "other", label: "其他縣市" },
+    ],
+  },
+  {
+    key: "employment_status",
+    type: "enum",
+    label: "目前就業狀態",
+    sensitive: false,
+    options: [
+      { value: "employed", label: "受僱在職" },
+      { value: "self_employed", label: "自營作業" },
+      { value: "unemployed", label: "待業／失業" },
+      { value: "student", label: "學生" },
+      { value: "other", label: "其他" },
+    ],
+  },
+  { key: "labor_insured", type: "boolean", label: "目前有參加就業保險、勞保或農保", sensitive: true, options: yesNoUnknown },
+  { key: "is_indigenous", type: "boolean", label: "具有原住民族身分", sensitive: true, options: yesNoUnknown },
+  { key: "is_disabled", type: "boolean", label: "持有身心障礙證明", sensitive: true, options: yesNoUnknown },
+  { key: "has_child_under_2", type: "boolean", label: "家中有未滿 2 歲兒童", sensitive: true, options: yesNoUnknown },
+  { key: "child_is_taiwanese", type: "boolean", label: "該名兒童具中華民國國籍並已完成出生或初設戶籍登記", sensitive: true, options: yesNoUnknown },
+  { key: "child_in_public_placement", type: "boolean", label: "該名兒童正接受政府公費安置", sensitive: true, options: yesNoUnknown },
+  { key: "receives_childcare_subsidy", type: "boolean", label: "同一名兒童正領取公共或準公共托育補助", sensitive: true, options: yesNoUnknown },
+  { key: "is_renting", type: "boolean", label: "目前在外租屋", sensitive: true, options: yesNoUnknown },
+  { key: "owns_home", type: "boolean", label: "家庭成員在臺持有自有住宅", sensitive: true, options: yesNoUnknown },
+  { key: "household_income_eligible", type: "boolean", label: "家戶平均所得符合所在地租金補貼門檻", sensitive: true, options: yesNoUnknown, help: "若不確定可略過，系統會保留為待確認。" },
+  { key: "cervical_last_screening", type: "date", label: "上次子宮頸抹片檢查日期", sensitive: true },
+  { key: "breast_last_screening", type: "date", label: "上次乳房 X 光攝影日期", sensitive: true },
+  { key: "colorectal_last_screening", type: "date", label: "上次糞便潛血檢查日期", sensitive: true },
+  { key: "colorectal_family_history", type: "boolean", label: "父母、子女或兄弟姊妹曾罹患大腸癌", sensitive: true, options: yesNoUnknown },
+  { key: "lung_last_screening", type: "date", label: "上次公費低劑量電腦斷層檢查日期", sensitive: true },
+  { key: "lung_family_history", type: "boolean", label: "父母、子女或兄弟姊妹曾罹患肺癌", sensitive: true, options: yesNoUnknown },
+  { key: "smoking_pack_years", type: "number", label: "吸菸史（pack-years）", sensitive: true, help: "每日包數 × 吸菸年數；不確定可略過。" },
+  { key: "hpv_screened_this_year", type: "boolean", label: "今年已做過 HPV 檢測", sensitive: true, options: yesNoUnknown },
+  { key: "technical_certificate_within_12_months", type: "boolean", label: "近 12 個月取得勞動部技術士證照", sensitive: true, options: yesNoUnknown },
+];
+
+export const factDefinitionByKey = new Map(factDefinitions.map((definition) => [definition.key, definition]));
