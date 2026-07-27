@@ -10,6 +10,7 @@ import { supabaseConfig, supabaseRest, type SupabaseConfig } from "../lib/supaba
 
 type SnapshotRow = { id: string; source_id: string };
 type VersionRow = { version: number; canonical_content: Program };
+type VersionStatusRow = { id: string; program_id: string; version: number };
 type TaoyuanItemRow = ReviewedTaoyuanItem & {
   id: string;
   source_id: string;
@@ -224,7 +225,29 @@ async function main() {
       drafted += 1;
     }
   }
-  console.log(JSON.stringify({ dryRun: false, published: created, drafts: drafted, unchanged, classificationUpdates: classificationUpdates.length, skipped: skipped.map((item) => item.slug) }, null, 2));
+
+  let rejectedStaleDrafts = 0;
+  if (publishUpdates) {
+    const [pendingVersions, publishedVersions] = await Promise.all([
+      supabaseRest<VersionStatusRow[]>(config, "program_versions?select=id,program_id,version&status=in.(draft,in_review)"),
+      supabaseRest<VersionStatusRow[]>(config, "program_versions?select=id,program_id,version&status=eq.published"),
+    ]);
+    const publishedByProgram = new Map(publishedVersions.map((version) => [version.program_id, version.version]));
+    const staleVersions = pendingVersions.filter((version) => version.version < (publishedByProgram.get(version.program_id) ?? 0));
+    for (const version of staleVersions) {
+      await supabaseRest(config, "rpc/reject_program_version", {
+        method: "POST",
+        body: JSON.stringify({
+          target_version_id: version.id,
+          reviewer: "Repository publish recovery",
+          rationale: "Rejected an obsolete interrupted-publish draft after a newer reviewed version was published.",
+        }),
+        headers: { Prefer: "return=minimal" },
+      });
+      rejectedStaleDrafts += 1;
+    }
+  }
+  console.log(JSON.stringify({ dryRun: false, published: created, drafts: drafted, rejectedStaleDrafts, unchanged, classificationUpdates: classificationUpdates.length, skipped: skipped.map((item) => item.slug) }, null, 2));
 }
 
 void main();
