@@ -200,6 +200,42 @@ test("職業訓練生活津貼要求兩年內非自願離職及公立就服安�
   assert.equal(matchProgram(program, { ...facts, registered_for_work_with_public_service: undefined }, "2026-07-27").status, "possible");
 });
 
+test("115 年公費留學只回報符合報考門檻且仍需甄選", () => {
+  const program = programs.find((item) => item.slug === "moe-public-study-exam-115");
+  assert.ok(program);
+  const facts = {
+    nationality: "taiwan",
+    household_city: "taoyuan",
+    public_study_age_eligible: true,
+    has_doctorate: false,
+    overseas_study_academic_eligible: true,
+    overseas_language_eligible: true,
+    government_overseas_award_eligible: true,
+  };
+  assert.equal(matchProgram(program, facts, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...facts, overseas_language_eligible: false }, "2026-07-27").status, "ineligible");
+  assert.equal(matchProgram(program, facts, "2026-08-01").status, "closed");
+});
+
+test("教育部年度留學方案截止後不誤顯示可報名", () => {
+  for (const slug of ["moe-overseas-scholarship-115", "moe-top-100-scholarship-115", "moe-eu-scholarship-115"]) {
+    const program = programs.find((item) => item.slug === slug);
+    assert.ok(program);
+    assert.equal(matchProgram(program, {}, "2026-07-27").status, "closed", slug);
+  }
+});
+
+test("健保弱勢依核定身分與年齡回傳正確補助方案", () => {
+  const income = programs.find((item) => item.slug === "nhi-low-and-mid-low-income-premium-support");
+  const disability = programs.find((item) => item.slug === "nhi-disability-premium-support");
+  const ageSupport = programs.find((item) => item.slug === "nhi-mid-low-income-child-senior-premium-support");
+  assert.ok(income && disability && ageSupport);
+  assert.equal(matchProgram(income, { social_assistance_status: "low_income" }, "2026-07-27").status, "eligible");
+  assert.equal(matchProgram(disability, { disability_severity: "moderate" }, "2026-07-27").status, "eligible");
+  assert.equal(matchProgram(ageSupport, { birth_date: "1956-07-27", social_assistance_status: "mid_low_income" }, "2026-07-27").status, "eligible");
+  assert.equal(matchProgram(ageSupport, { birth_date: "1990-01-01", social_assistance_status: "mid_low_income" }, "2026-07-27").status, "ineligible");
+});
+
 test("桃園公職補習補助只判斷基本門檻並保留官方查核", () => {
   const program = taoyuanPrograms.find((item) => item.slug === "taoyuan-disabled-civil-exam-prep");
   assert.ok(program);

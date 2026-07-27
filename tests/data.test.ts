@@ -9,6 +9,7 @@ import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
 import { taichungSourceClassifications } from "../data/taichung-source-items";
 import { buildTaoyuanReviewedPrograms, taoyuanProgramCurations } from "../data/taoyuan-programs";
 import type { AtomicRule, RuleNode } from "../lib/domain";
+import { appliesToRegion } from "../lib/program-filters";
 
 function atomicRules(rule: RuleNode): AtomicRule[] {
   if ("all" in rule) return rule.all.flatMap(atomicRules);
@@ -120,4 +121,14 @@ test("戶籍與居住地可選擇臺灣 22 縣市", () => {
   assert.ok(taiwanCityOptions.some((city) => city.value === "taipei"));
   assert.ok(taiwanCityOptions.some((city) => city.value === "new_taipei"));
   assert.ok(taiwanCityOptions.some((city) => city.value === "taichung"));
+});
+
+test("地區篩選保留中央方案並排除其他地方方案", () => {
+  const central = programs.find((program) => program.jurisdiction === "中央");
+  const taoyuan = programs.find((program) => program.jurisdiction === "桃園市");
+  const newTaipei = programs.find((program) => program.jurisdiction === "新北市");
+  assert.ok(central && taoyuan && newTaipei);
+  assert.equal(appliesToRegion(central, "桃園市"), true);
+  assert.equal(appliesToRegion(taoyuan, "桃園市"), true);
+  assert.equal(appliesToRegion(newTaipei, "桃園市"), false);
 });

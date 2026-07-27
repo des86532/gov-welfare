@@ -172,7 +172,7 @@ img { max-width: 100%; }
 .catalog-title { max-width: none; display: flex; justify-content: space-between; align-items: end; gap: 30px; }
 .catalog-count { flex: 0 0 150px; padding: 20px; border: 1px solid var(--ink); text-align: center; }
 .catalog-count strong { display: block; font-family: var(--font-serif), serif; font-size: 3rem; line-height: 1; }
-.catalog-filter { display: grid; grid-template-columns: minmax(250px, 2fr) minmax(190px, 1fr) auto auto; align-items: end; gap: 14px; margin-bottom: 38px; padding: 22px; border: 1px solid var(--ink); background: #e9e4d6; }
+.catalog-filter { display: grid; grid-template-columns: minmax(240px, 2fr) repeat(2, minmax(175px, 1fr)) auto auto; align-items: end; gap: 14px; margin-bottom: 38px; padding: 22px; border: 1px solid var(--ink); background: #e9e4d6; }
 .catalog-filter label span { display: block; margin-bottom: 5px; font-size: .75rem; font-weight: 600; }
 .catalog-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .catalog-grid .program-card { min-height: 420px; }
