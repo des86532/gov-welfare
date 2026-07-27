@@ -1234,8 +1234,8 @@ export const programs: Program[] = [
     decisionType: "professional_assessment",
     jurisdiction: "臺北市",
     authority: "臺北市政府社會局",
-    officialUrl: "https://dosw.gov.taipei/cp.aspx?n=0BF751F1B9F07AA1",
-    applicationUrl: "https://dosw.gov.taipei/cp.aspx?n=0BF751F1B9F07AA1",
+    officialUrl: "https://dosw.gov.taipei/cp.aspx?n=0BF751F1B9F07AA1&s=C99E39D1712B843E",
+    applicationUrl: "https://dosw.gov.taipei/cp.aspx?n=0BF751F1B9F07AA1&s=8548895E1D6460E1",
     verifiedAt: "2026-07-27",
     requestedFacts: ["household_city", "taipei_emergency_reason_within_3_months", "stranded_or_disaster_in_taipei"],
     rule: { any: [
