@@ -21,6 +21,11 @@ const hpvAge = evidence("mohw-screening-2025", "擴大癌症篩檢／HPV", "35�
 const oralScreening = evidence("mohw-oral-screening", "口腔癌篩檢對象與頻率", "30歲以上曾嚼檳榔或吸菸者，或18至29歲曾嚼檳榔之原住民，每2年1次", "2026-07-27");
 const wdaEmployment = evidence("mol-industrial-talent-rules", "補助要點第二點", "年滿15歲，具指定保險身分之在職勞工，並符合國籍或居留工作許可資格");
 const wdaLimit = evidence("wda-industrial-talent", "常見問答／3年10萬元", "自114年1月1日起，每3年最高補助10萬元");
+const youthEmploymentEligibility = evidence("taiwanjobs-youth-employment", "Q&A 2-1 至 2-4、2-11", "15至29歲本國籍或符合準國民身分之初次尋職青年，未在學且依投保紀錄連續未就業60日以上", "2026-07-27");
+const youthEmploymentBenefit = evidence("taiwanjobs-youth-employment", "Q&A 4-1、5-1 至 5-5", "尋職津貼每月6,000元、最多3次；符合就業階段條件另有獎勵，合計最高48,000元", "2026-07-27");
+const vocationalTrainingEligibility = evidence("bli-vocational-training-eligibility", "請領資格", "就業保險被保險人非自願離職、完成公立就業服務機構求職登記，並經安排參加全日制職業訓練", "2026-07-27");
+const vocationalTrainingBenefit = evidence("bli-vocational-training-benefit", "給付標準及期間", "每月按離職退保前6個月平均月投保薪資60%發給，最長6個月；受扶養眷屬每人加給10%，最多20%", "2026-07-27");
+const vocationalTrainingProcedure = evidence("bli-vocational-training-procedure", "請領手續", "離職退保後2年內向公立就業服務機構辦理，由職業訓練單位於受訓當日線上申報", "2026-07-27");
 const ydaAge = evidence("yda-overseas-dream-115-guide", "PDF 第 1 頁／第三點", "具中華民國國籍之15歲至30歲青年");
 const ydaOverview = evidence("yda-overseas-dream", "計畫簡介", "透過海外見習、培訓與自主提案協助青年拓展國際經驗");
 const childcareEvidence = evidence("myegov-childcare-under-2", "申辦資格", "未滿2歲、完成登記、未接受公費安置且未接受公共化或準公共托育服務");
@@ -330,13 +335,16 @@ export const programs: Program[] = [
     decisionType: "automatic",
     jurisdiction: "中央",
     authority: "衛生福利部中央健康保險署",
-    officialUrl: "https://data.gov.tw/dataset/106333",
+    officialUrl: "https://www.nhi.gov.tw/ch/cp-4721-0d598-2645-1.html",
     verifiedAt: VERIFIED_AT,
     requestedFacts: [],
-    caveats: ["不同身分類別的認定機關與補助比例不同，ODS 內容待逐列 Review。"],
+    caveats: ["同一官方表格混合中央與地方補助，且不同身分類別的認定機關、投保類別與補助比例不同；逐項 Review 前不進行個人化判斷。"],
     documents: [],
     methods: ["由身分認定機關或健保署查核"],
-    evidence: [evidence("nhi-vulnerable-premium", "Dataset description", "弱勢保費補助項目")],
+    evidence: [
+      evidence("nhi-vulnerable-premium", "Dataset description", "弱勢保費補助項目"),
+      evidence("nhi-premium-assistance-list", "補助項目一覽表", "各級政府按弱勢身分提供全額或部分健保自付保費補助", "2026-07-27"),
+    ],
   },
   {
     id: "central-long-term-care",
@@ -406,6 +414,35 @@ export const programs: Program[] = [
     evidence: [wdaEmployment, wdaLimit],
   },
   {
+    id: "central-vocational-training-living-allowance",
+    slug: "vocational-training-living-allowance",
+    title: "就業保險職業訓練生活津貼",
+    summary: "非自願離職的就業保險被保險人，經公立就業服務機構安排參加全日制職業訓練，可於受訓期間領取生活津貼。",
+    category: "employment",
+    tags: ["非自願離職", "失業", "職業訓練", "生活津貼"],
+    benefitType: "cash",
+    benefitSummary: "每月按離職退保前 6 個月平均月投保薪資 60% 發給，最長 6 個月；符合扶養眷屬條件者每人加給 10%，最多加給 20%。",
+    coverage: "matchable",
+    decisionType: "official_record_check",
+    jurisdiction: "中央",
+    authority: "勞動部勞工保險局",
+    officialUrl: "https://www.bli.gov.tw/0015723.html",
+    applicationUrl: "https://www.bli.gov.tw/0015725.html",
+    verifiedAt: "2026-07-27",
+    requestedFacts: ["employment_status", "employment_insurance_before_separation", "involuntary_separation_date", "registered_for_work_with_public_service", "referred_full_time_vocational_training"],
+    rule: { all: [
+      { field: "employment_status", operator: "eq", value: "unemployed", label: "目前為待業／失業狀態", evidence: vocationalTrainingEligibility },
+      { field: "employment_insurance_before_separation", operator: "eq", value: true, label: "離職前為就業保險被保險人", evidence: vocationalTrainingEligibility },
+      { field: "involuntary_separation_date", operator: "date_within_past_years", value: 2, label: "非自願離職退保後尚未超過 2 年", evidence: vocationalTrainingProcedure },
+      { field: "registered_for_work_with_public_service", operator: "eq", value: true, label: "已向公立就業服務機構辦理求職登記", evidence: vocationalTrainingEligibility },
+      { field: "referred_full_time_vocational_training", operator: "eq", value: true, label: "經公立就業服務機構安排參加全日制職業訓練", evidence: vocationalTrainingEligibility },
+    ] },
+    caveats: ["平台只判斷基本門檻；就業保險身分、非自願離職事由及訓練安排由公立就業服務機構與勞保局認定。", "職業訓練生活津貼不能與失業給付同時領取；受訓期間另有工作或中途離、退訓會影響後續給付。"],
+    documents: ["職業訓練生活津貼申請書及給付收據", "離職證明書或定期契約證明文件", "身分證明文件", "本人國內金融機構存摺影本", "扶養眷屬證明（如適用）"],
+    methods: ["親自向公立就業服務機構辦理求職登記", "由職業訓練單位於受訓當日線上申報"],
+    evidence: [vocationalTrainingEligibility, vocationalTrainingBenefit, vocationalTrainingProcedure],
+  },
+  {
     id: "central-first-job-youth",
     slug: "first-job-youth-support",
     title: "支援青年就業計畫（原初次尋職青年穩定就業計畫）",
@@ -414,17 +451,28 @@ export const programs: Program[] = [
     tags: ["青年", "初次尋職", "就業獎勵"],
     benefitType: "cash",
     benefitSummary: "依求職準備與穩定就業進度分階段核發，最高 48,000 元。",
-    coverage: "descriptive_only",
+    coverage: "matchable",
     decisionType: "official_record_check",
     jurisdiction: "中央",
     authority: "勞動部勞動力發展署",
-    officialUrl: "https://youth.taiwanjobs.gov.tw/",
+    officialUrl: "https://special.taiwanjobs.gov.tw/internet/2025/YNGSRH/page-05.html",
+    applicationUrl: "https://special.taiwanjobs.gov.tw/internet/2025/YNGSRH/index.html",
     verifiedAt: "2026-07-27",
-    requestedFacts: [],
-    caveats: ["需查核年齡、在學、就業與投保紀錄；本期完整 Rules 尚未完成結構化。"],
-    documents: ["依台灣就業通當期公告"],
-    methods: ["台灣就業通"],
-    evidence: [evidence("taiwanjobs-youth-employment", "計畫首頁", "尋職及就業獎勵金最高4萬8千元")],
+    requestedFacts: ["birth_date", "nationality", "youth_quasi_national_eligible", "has_formal_student_status", "youth_unemployed_60_days", "youth_first_jobseeker_eligible"],
+    rule: { all: [
+      { field: "age", operator: "between", value: [15, 29], label: "報名時年滿 15 歲且未滿 30 歲", evidence: youthEmploymentEligibility },
+      { any: [
+        { field: "nationality", operator: "eq", value: "taiwan", label: "具有中華民國國籍", evidence: youthEmploymentEligibility },
+        { field: "youth_quasi_national_eligible", operator: "eq", value: true, label: "符合計畫準國民身分", evidence: youthEmploymentEligibility },
+      ] },
+      { field: "has_formal_student_status", operator: "eq", value: false, label: "目前未具正式學籍（休學仍視為有學籍）", evidence: youthEmploymentEligibility },
+      { field: "youth_unemployed_60_days", operator: "eq", value: true, label: "畢（肄）業後依計畫算法連續未就業滿 60 日", evidence: youthEmploymentEligibility },
+      { field: "youth_first_jobseeker_eligible", operator: "eq", value: true, label: "符合初次尋職投保紀錄或例外規定", evidence: youthEmploymentEligibility },
+    ] },
+    caveats: ["平台只能判斷報名基本門檻；投保、畢（肄）業、服役及未就業期間由公立就業服務機構查核。", "尋職津貼與就業獎勵各有求職紀錄、就業服務、申請時點及持續受僱期間要求，符合報名資格不代表可領取全部 48,000 元。", "每人限參加 1 次。"],
+    documents: ["申請書及資料查核同意", "身分證明文件", "最高學歷畢（肄）業證明", "本人國內金融機構存摺封面", "退伍或免役證明及法定代理人同意書（如適用）"],
+    methods: ["加入台灣就業通會員", "完成至少 1 種職業心理測驗", "至計畫專區線上申請並上傳文件"],
+    evidence: [youthEmploymentEligibility, youthEmploymentBenefit],
   },
   {
     id: "central-scholarship",

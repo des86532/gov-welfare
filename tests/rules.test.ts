@@ -166,6 +166,40 @@ test("長照服務涵蓋高齡、原住民、失智、身障與急性後期照�
   assert.equal(matchProgram(program, { ...base, birth_date: "1990-07-27", is_disabled: false, has_dementia: false, is_post_acute_care_case: false, is_indigenous: false }, "2026-07-27").status, "ineligible");
 });
 
+test("支援青年就業計畫保留未就學、60 日與投保紀錄查核", () => {
+  const program = programs.find((item) => item.slug === "first-job-youth-support");
+  assert.ok(program);
+  const facts = {
+    birth_date: "2000-07-27",
+    nationality: "taiwan",
+    youth_quasi_national_eligible: false,
+    has_formal_student_status: false,
+    youth_unemployed_60_days: true,
+    youth_first_jobseeker_eligible: true,
+  };
+  assert.equal(matchProgram(program, facts, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...facts, has_formal_student_status: true }, "2026-07-27").status, "ineligible");
+  assert.equal(matchProgram(program, { ...facts, birth_date: "1996-07-26" }, "2026-07-27").status, "ineligible");
+  assert.equal(matchProgram(program, { ...facts, nationality: "foreign_spouse", youth_quasi_national_eligible: true }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...facts, youth_unemployed_60_days: undefined }, "2026-07-27").status, "possible");
+});
+
+test("職業訓練生活津貼要求兩年內非自願離職及公立就服安排", () => {
+  const program = programs.find((item) => item.slug === "vocational-training-living-allowance");
+  assert.ok(program);
+  const facts = {
+    employment_status: "unemployed",
+    employment_insurance_before_separation: true,
+    involuntary_separation_date: "2024-07-27",
+    registered_for_work_with_public_service: true,
+    referred_full_time_vocational_training: true,
+  };
+  assert.equal(matchProgram(program, facts, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...facts, involuntary_separation_date: "2024-07-26" }, "2026-07-27").status, "ineligible");
+  assert.equal(matchProgram(program, { ...facts, referred_full_time_vocational_training: false }, "2026-07-27").status, "ineligible");
+  assert.equal(matchProgram(program, { ...facts, registered_for_work_with_public_service: undefined }, "2026-07-27").status, "possible");
+});
+
 test("桃園公職補習補助只判斷基本門檻並保留官方查核", () => {
   const program = taoyuanPrograms.find((item) => item.slug === "taoyuan-disabled-civil-exam-prep");
   assert.ok(program);
