@@ -18,11 +18,17 @@ const breastAge = evidence("mohw-screening-2025", "擴大癌症篩檢／乳癌",
 const colorectalAge = evidence("mohw-screening-2025", "擴大癌症篩檢／大腸癌", "45至74歲每2年1次；40至44歲具家族史者");
 const lungAge = evidence("mohw-screening-2025", "擴大癌症篩檢／肺癌", "具家族史或重度吸菸史之指定年齡族群每2年1次");
 const hpvAge = evidence("mohw-screening-2025", "擴大癌症篩檢／HPV", "35、45、65歲女性當年度1次");
+const oralScreening = evidence("mohw-oral-screening", "口腔癌篩檢對象與頻率", "30歲以上曾嚼檳榔或吸菸者，或18至29歲曾嚼檳榔之原住民，每2年1次", "2026-07-27");
 const wdaEmployment = evidence("mol-industrial-talent-rules", "補助要點第二點", "年滿15歲，具指定保險身分之在職勞工，並符合國籍或居留工作許可資格");
 const wdaLimit = evidence("wda-industrial-talent", "常見問答／3年10萬元", "自114年1月1日起，每3年最高補助10萬元");
 const ydaAge = evidence("yda-overseas-dream-115-guide", "PDF 第 1 頁／第三點", "具中華民國國籍之15歲至30歲青年");
 const ydaOverview = evidence("yda-overseas-dream", "計畫簡介", "透過海外見習、培訓與自主提案協助青年拓展國際經驗");
 const childcareEvidence = evidence("myegov-childcare-under-2", "申辦資格", "未滿2歲、完成登記、未接受公費安置且未接受公共化或準公共托育服務");
+const childcareTwoToSix = evidence("myegov-childcare-2-to-6", "申辦資格", "2至未滿5歲及5歲至入國民小學前之我國籍幼兒", "2026-07-27");
+const childcareTwoToSixAmount = evidence("moe-childcare-2-to-6-benefit", "育兒津貼及5歲就學補助", "依子女序每月發給5,000元、6,000元或7,000元", "2026-07-27");
+const childcareSubsidy = evidence("myegov-childcare-subsidy", "發放金額與申辦資格", "未滿2歲我國籍兒童送托政府簽約單位每週30小時以上；公共化每月7,000元、準公共每月13,000元起", "2026-07-27");
+const phoenixLoan = evidence("myegov-phoenix-loan", "措施內容與申辦資格", "成年女性、45至65歲國民或20至65歲離島居民，事業登記未超過5年、員工未滿5人並完成近3年18小時創業課程", "2026-07-27");
+const longTermCare = evidence("mohw-long-term-care", "長照服務對象、流程與給付額度", "經評估長照需要等級2級以上，且符合65歲以上、55歲以上原住民、失智、失能身障或急性後期照護收案身分之一", "2026-07-27");
 const rentEvidence = evidence("myegov-rent-115-guide", "申請資格與家庭年所得限制", "有租賃住宅事實、家庭成員無自有房屋且所得符合所在地門檻");
 const rentWindow = evidence("myegov-rent-115-guide", "受理申請期間", "115年1月1日上午9點至115年12月31日下午5點");
 const taoyuanReward = evidence("taoyuan-welfare-open-data", "$[0].eligibilityCriteria", "16至65歲、設籍桃園、持身障證明、證照生效12個月內");
@@ -281,18 +287,35 @@ export const programs: Program[] = [
     category: "health",
     tags: ["癌症篩檢", "口腔癌"],
     benefitType: "free_service",
-    benefitSummary: "依年齡、檳榔或吸菸風險及前次檢查紀錄辦理。",
-    coverage: "descriptive_only",
+    benefitSummary: "符合風險與年齡條件者，每 2 年 1 次免費口腔黏膜檢查。",
+    coverage: "matchable",
     decisionType: "official_record_check",
     jurisdiction: "中央",
     authority: "衛生福利部國民健康署",
     officialUrl: "https://www.hpa.gov.tw/Pages/List.aspx?nodeid=189",
-    verifiedAt: VERIFIED_AT,
-    requestedFacts: [],
-    caveats: ["風險定義尚未完成 Rule Review，因此只列為其他可能方案。"],
+    verifiedAt: "2026-07-27",
+    requestedFacts: ["birth_date", "is_indigenous", "has_betel_history", "has_smoking_habit", "oral_last_screening"],
+    rule: { all: [
+      { any: [
+        { all: [
+          { field: "age", operator: "gte", value: 30, label: "年滿 30 歲", evidence: oralScreening },
+          { any: [
+            { field: "has_betel_history", operator: "eq", value: true, label: "目前或過去曾嚼檳榔", evidence: oralScreening },
+            { field: "has_smoking_habit", operator: "eq", value: true, label: "目前有吸菸習慣", evidence: oralScreening },
+          ] },
+        ] },
+        { all: [
+          { field: "age", operator: "between", value: [18, 29], label: "年齡為 18–29 歲", evidence: oralScreening },
+          { field: "is_indigenous", operator: "eq", value: true, label: "具有原住民族身分", evidence: oralScreening },
+          { field: "has_betel_history", operator: "eq", value: true, label: "目前或過去曾嚼檳榔", evidence: oralScreening },
+        ] },
+      ] },
+      { field: "oral_last_screening", operator: "date_on_or_before_years_ago", value: 2, label: "距上次公費口腔黏膜檢查已滿 2 年", evidence: oralScreening },
+    ] },
+    caveats: ["若未提供上次檢查日期，結果只會顯示年齡與風險條件可能符合，仍須由醫療院所查核健保紀錄。"],
     documents: ["健保卡"],
     methods: ["至健保特約醫療院所洽詢"],
-    evidence: [evidence("hpa-screening", "癌症篩檢／口腔癌", "依官方風險與年齡條件提供")],
+    evidence: [oralScreening],
   },
   {
     id: "central-nhi-premium",
@@ -314,6 +337,41 @@ export const programs: Program[] = [
     documents: [],
     methods: ["由身分認定機關或健保署查核"],
     evidence: [evidence("nhi-vulnerable-premium", "Dataset description", "弱勢保費補助項目")],
+  },
+  {
+    id: "central-long-term-care",
+    slug: "long-term-care-services",
+    title: "長期照顧服務",
+    summary: "對預期或已達 6 個月以上無法生活自理者，提供照顧、交通、輔具、居家改善及喘息等服務。",
+    category: "care",
+    tags: ["長照", "高齡", "原住民", "失智", "身心障礙"],
+    benefitType: "care_service",
+    benefitSummary: "依長照需要等級提供照顧及專業服務、交通接送、輔具與居家無障礙改善及喘息服務；自付比例依經濟身分而異。",
+    coverage: "matchable",
+    decisionType: "professional_assessment",
+    jurisdiction: "中央",
+    authority: "衛生福利部",
+    officialUrl: "https://1966.gov.tw/LTC/cp-6533-70777-207.html",
+    applicationUrl: "https://1966.gov.tw/LTC/cp-6533-70777-207.html",
+    verifiedAt: "2026-07-27",
+    requestedFacts: ["birth_date", "is_indigenous", "is_disabled", "has_dementia", "is_post_acute_care_case", "needs_long_term_care"],
+    rule: { all: [
+      { any: [
+        { field: "age", operator: "gte", value: 65, label: "年滿 65 歲", evidence: longTermCare },
+        { all: [
+          { field: "age", operator: "gte", value: 55, label: "年滿 55 歲", evidence: longTermCare },
+          { field: "is_indigenous", operator: "eq", value: true, label: "具有原住民族身分", evidence: longTermCare },
+        ] },
+        { field: "has_dementia", operator: "eq", value: true, label: "經診斷為失智症", evidence: longTermCare },
+        { field: "is_disabled", operator: "eq", value: true, label: "領有身心障礙證明", evidence: longTermCare },
+        { field: "is_post_acute_care_case", operator: "eq", value: true, label: "符合健保急性後期整合照護計畫收案對象", evidence: longTermCare },
+      ] },
+      { field: "needs_long_term_care", operator: "eq", value: true, label: "預期或已達 6 個月以上無法完全生活自理", evidence: longTermCare },
+    ] },
+    caveats: ["平台只判斷申請基本門檻；必須由各縣市長期照顧管理中心到府評估，達長照需要等級 2 級以上才有給付資格。"],
+    documents: ["身分證明", "失智診斷或身心障礙證明（如適用）"],
+    methods: ["撥打 1966", "聯絡所在地長期照顧管理中心", "住院期間洽出院準備小組", "線上申請"],
+    evidence: [longTermCare],
   },
   {
     id: "central-industrial-talent",
@@ -415,6 +473,46 @@ export const programs: Program[] = [
     evidence: [ydaAge, ydaOverview],
   },
   {
+    id: "central-phoenix-loan",
+    slug: "micro-startup-phoenix-loan",
+    title: "微型創業鳳凰貸款",
+    summary: "協助女性、中高齡國民及離島居民在創業初期取得低利貸款、利息補貼與信用保證。",
+    category: "startup",
+    tags: ["女性", "中高齡", "離島", "創業", "Loan", "Interest subsidy"],
+    benefitType: "loan",
+    benefitSummary: "最高 200 萬元；免商業登記的小規模商業最高 50 萬元。最長 7 年，前 2 年利息全額補貼，並提供 9 成 5 信用保證。",
+    coverage: "matchable",
+    decisionType: "loan_credit_review",
+    jurisdiction: "中央",
+    authority: "勞動部勞動力發展署",
+    officialUrl: "https://www.gov.tw/News_Content_2_392722",
+    applicationUrl: "https://www.gov.tw/News_Content_2_392722",
+    verifiedAt: "2026-07-27",
+    requestedFacts: ["birth_date", "registered_sex", "nationality", "household_city", "is_registered_business_owner", "business_registration_years", "business_employee_count", "startup_course_18_hours_within_3_years"],
+    rule: { all: [
+      { field: "nationality", operator: "eq", value: "taiwan", label: "具有中華民國國籍", evidence: phoenixLoan },
+      { any: [
+        { all: [
+          { field: "registered_sex", operator: "eq", value: "female", label: "證件登記性別為女性", evidence: phoenixLoan },
+          { field: "age", operator: "between", value: [18, 65], label: "成年且 65 歲以下", evidence: phoenixLoan },
+        ] },
+        { field: "age", operator: "between", value: [45, 65], label: "年齡為 45–65 歲", evidence: phoenixLoan },
+        { all: [
+          { field: "household_city", operator: "in", value: ["penghu", "kinmen", "lienchiang"], label: "設籍澎湖、金門或連江離島", evidence: phoenixLoan },
+          { field: "age", operator: "between", value: [20, 65], label: "年齡為 20–65 歲", evidence: phoenixLoan },
+        ] },
+      ] },
+      { field: "is_registered_business_owner", operator: "eq", value: true, label: "為申請事業的負責人", evidence: phoenixLoan },
+      { field: "business_registration_years", operator: "lte", value: 5, label: "事業設立及稅籍登記未超過 5 年", evidence: phoenixLoan },
+      { field: "business_employee_count", operator: "lt", value: 5, label: "員工人數不含負責人未滿 5 人", evidence: phoenixLoan },
+      { field: "startup_course_18_hours_within_3_years", operator: "eq", value: true, label: "近 3 年完成政府創業研習課程 18 小時", evidence: phoenixLoan },
+    ] },
+    caveats: ["符合基本資格只代表可提出申請，不代表貸款核准；實際額度仍由勞動力發展署審查與承貸金融機構授信。"],
+    documents: ["創業計畫及貸款申請書", "事業設立與稅籍證明", "身分證明", "個人及事業信用報告", "創業研習課程證明"],
+    methods: ["備齊文件向勞動力發展署所屬分署提出申請"],
+    evidence: [phoenixLoan],
+  },
+  {
     id: "central-youth-loan",
     slug: "youth-startup-loan",
     title: "青年創業及啟動金貸款",
@@ -462,6 +560,65 @@ export const programs: Program[] = [
     documents: ["申請表", "申請人及兒童身分資料", "金融機構帳戶資料"],
     methods: ["線上", "戶籍所在地公所臨櫃", "郵寄（依官方頁面）"],
     evidence: [childcareEvidence],
+  },
+  {
+    id: "central-childcare-2-to-6",
+    slug: "childcare-allowance-2-to-6",
+    title: "2 歲至入國民小學前育兒津貼／就學補助",
+    summary: "未接受公共化或準公共教保服務的我國籍幼兒，可申請育兒津貼或 5 歲就學補助。",
+    category: "family",
+    tags: ["育兒", "幼兒", "就學補助", "家庭"],
+    benefitType: "cash",
+    benefitSummary: "依子女序每月發給 5,000、6,000 或 7,000 元。",
+    coverage: "matchable",
+    decisionType: "official_record_check",
+    jurisdiction: "中央",
+    authority: "教育部國民及學前教育署",
+    officialUrl: "https://www.gov.tw/News_Content_2_524816",
+    applicationUrl: "https://e-service.k12ea.gov.tw/",
+    verifiedAt: "2026-07-27",
+    requestedFacts: ["child_age", "child_is_taiwanese", "child_not_in_elementary_school", "uses_public_or_quasi_public_preschool"],
+    rule: { all: [
+      { field: "child_age", operator: "between", value: [2, 5], label: "幼兒年滿 2 歲且尚未滿 6 歲", evidence: childcareTwoToSix },
+      { field: "child_is_taiwanese", operator: "eq", value: true, label: "幼兒具有中華民國國籍", evidence: childcareTwoToSix },
+      { field: "child_not_in_elementary_school", operator: "eq", value: true, label: "幼兒尚未就讀國民小學", evidence: childcareTwoToSix },
+      { field: "uses_public_or_quasi_public_preschool", operator: "eq", value: false, label: "未接受公共化或準公共教保服務", evidence: childcareTwoToSix },
+    ] },
+    caveats: ["5 歲幼兒依學齡與是否已入國民小學判斷；系統只作基本門檻比對，實際月份與子女序由教育部系統查核。"],
+    documents: ["幼兒及申請人身分證明", "金融機構帳戶資料", "子女序等其他佐證資料（如適用）"],
+    methods: ["教育部指定網站線上申請", "幼兒戶籍所在地公所臨櫃或郵寄"],
+    evidence: [childcareTwoToSix, childcareTwoToSixAmount],
+  },
+  {
+    id: "central-childcare-subsidy",
+    slug: "childcare-service-subsidy-under-2",
+    title: "未滿二歲兒童托育費用補助",
+    summary: "未滿 2 歲兒童送托政府簽約的公共化或準公共托育單位，可申請托育費用補助。",
+    category: "family",
+    tags: ["托育", "未滿二歲", "保母", "托嬰中心"],
+    benefitType: "cash",
+    benefitSummary: "公共化托育每月 7,000 元、準公共托育每月 13,000 元起；弱勢身分與第 2 名以上子女另有加發。",
+    coverage: "matchable",
+    decisionType: "official_record_check",
+    jurisdiction: "中央",
+    authority: "衛生福利部社會及家庭署",
+    officialUrl: "https://www.gov.tw/News_Content_2_745216",
+    applicationUrl: "https://www.gov.tw/News_Content_2_745216",
+    verifiedAt: "2026-07-27",
+    requestedFacts: ["has_child_under_2", "child_is_taiwanese", "uses_public_childcare", "weekly_childcare_hours", "receives_childcare_allowance", "child_in_public_placement", "one_to_one_childcare_without_exception"],
+    rule: { all: [
+      { field: "has_child_under_2", operator: "eq", value: true, label: "兒童實際年齡未滿 2 歲", evidence: childcareSubsidy },
+      { field: "child_is_taiwanese", operator: "eq", value: true, label: "兒童具中華民國國籍並完成出生或戶籍登記", evidence: childcareSubsidy },
+      { field: "uses_public_childcare", operator: "eq", value: true, label: "送托政府簽約的公共化或準公共托育單位", evidence: childcareSubsidy },
+      { field: "weekly_childcare_hours", operator: "gte", value: 30, label: "每週送托達 30 小時", evidence: childcareSubsidy },
+      { field: "receives_childcare_allowance", operator: "eq", value: false, label: "同一名兒童未領取育兒津貼", evidence: childcareSubsidy },
+      { field: "child_in_public_placement", operator: "eq", value: false, label: "兒童未經政府公費安置", evidence: childcareSubsidy },
+      { field: "one_to_one_childcare_without_exception", operator: "eq", value: false, label: "未指定一對一收托，或符合官方特殊例外", evidence: childcareSubsidy },
+    ] },
+    caveats: ["滿 2 歲後若續留準公共保母或托嬰中心，補助可延長至未滿 3 歲；此延長條件仍須由受理單位個別查核。", "實際托育費低於補助金額時按實際費用補助。"],
+    documents: ["申報表", "詳細記事戶口名簿", "托育服務契約", "金融機構帳戶資料", "加發資格證明（如適用）"],
+    methods: ["托育事實發生後 15 日內向托嬰中心或居家托育服務中心提出申請"],
+    evidence: [childcareSubsidy],
   },
   {
     id: "central-rent-115",

@@ -59,6 +59,113 @@ test("Annual application window 截止後為 closed", () => {
   assert.equal(matchProgram(program, { is_renting: true, owns_home: false, household_income_eligible: true }, "2027-01-01").status, "closed");
 });
 
+test("口腔癌篩檢支援一般風險與原住民提早篩檢兩條路徑", () => {
+  const program = programs.find((item) => item.slug === "oral-cancer-screening");
+  assert.ok(program);
+  const common = { oral_last_screening: "2024-07-27" };
+  assert.equal(matchProgram(program, {
+    ...common,
+    birth_date: "1996-07-27",
+    has_smoking_habit: true,
+    has_betel_history: false,
+    is_indigenous: false,
+  }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, {
+    ...common,
+    birth_date: "2000-07-27",
+    has_smoking_habit: false,
+    has_betel_history: true,
+    is_indigenous: true,
+  }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, {
+    ...common,
+    birth_date: "2000-07-27",
+    has_smoking_habit: true,
+    has_betel_history: false,
+    is_indigenous: false,
+  }, "2026-07-27").status, "ineligible");
+});
+
+test("2 歲至入學前育兒津貼排除已入小學或公共化教保", () => {
+  const program = programs.find((item) => item.slug === "childcare-allowance-2-to-6");
+  assert.ok(program);
+  const facts = {
+    child_age: 5,
+    child_is_taiwanese: true,
+    child_not_in_elementary_school: true,
+    uses_public_or_quasi_public_preschool: false,
+  };
+  assert.equal(matchProgram(program, facts, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...facts, child_not_in_elementary_school: false }, "2026-07-27").status, "ineligible");
+  assert.equal(matchProgram(program, { ...facts, uses_public_or_quasi_public_preschool: true }, "2026-07-27").status, "ineligible");
+});
+
+test("托育費用補助要求簽約單位、每週 30 小時且未領育兒津貼", () => {
+  const program = programs.find((item) => item.slug === "childcare-service-subsidy-under-2");
+  assert.ok(program);
+  const facts = {
+    has_child_under_2: true,
+    child_is_taiwanese: true,
+    uses_public_childcare: true,
+    weekly_childcare_hours: 30,
+    receives_childcare_allowance: false,
+    child_in_public_placement: false,
+    one_to_one_childcare_without_exception: false,
+  };
+  assert.equal(matchProgram(program, facts, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...facts, weekly_childcare_hours: 29 }, "2026-07-27").status, "ineligible");
+  assert.equal(matchProgram(program, { ...facts, receives_childcare_allowance: true }, "2026-07-27").status, "ineligible");
+});
+
+test("微型創業鳳凰貸款保留身分路徑與授信審查", () => {
+  const program = programs.find((item) => item.slug === "micro-startup-phoenix-loan");
+  assert.ok(program);
+  const business = {
+    nationality: "taiwan",
+    is_registered_business_owner: true,
+    business_registration_years: 5,
+    business_employee_count: 4,
+    startup_course_18_hours_within_3_years: true,
+  };
+  assert.equal(matchProgram(program, {
+    ...business,
+    birth_date: "1990-07-27",
+    registered_sex: "female",
+    household_city: "taipei",
+  }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, {
+    ...business,
+    birth_date: "1981-07-27",
+    registered_sex: "male",
+    household_city: "taipei",
+  }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, {
+    ...business,
+    birth_date: "1996-07-27",
+    registered_sex: "male",
+    household_city: "kinmen",
+  }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, {
+    ...business,
+    business_employee_count: 5,
+    birth_date: "1990-07-27",
+    registered_sex: "female",
+    household_city: "taipei",
+  }, "2026-07-27").status, "ineligible");
+});
+
+test("長照服務涵蓋高齡、原住民、失智、身障與急性後期照護", () => {
+  const program = programs.find((item) => item.slug === "long-term-care-services");
+  assert.ok(program);
+  const base = { needs_long_term_care: true };
+  assert.equal(matchProgram(program, { ...base, birth_date: "1961-07-27" }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...base, birth_date: "1971-07-27", is_indigenous: true }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...base, birth_date: "1990-07-27", has_dementia: true }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...base, birth_date: "1990-07-27", is_disabled: true }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...base, birth_date: "1990-07-27", is_post_acute_care_case: true }, "2026-07-27").status, "review_required");
+  assert.equal(matchProgram(program, { ...base, birth_date: "1990-07-27", is_disabled: false, has_dementia: false, is_post_acute_care_case: false, is_indigenous: false }, "2026-07-27").status, "ineligible");
+});
+
 test("桃園公職補習補助只判斷基本門檻並保留官方查核", () => {
   const program = taoyuanPrograms.find((item) => item.slug === "taoyuan-disabled-civil-exam-prep");
   assert.ok(program);
