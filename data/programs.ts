@@ -341,10 +341,7 @@ export const programs: Program[] = [
     caveats: ["同一官方表格混合中央與地方補助，且不同身分類別的認定機關、投保類別與補助比例不同；逐項 Review 前不進行個人化判斷。"],
     documents: [],
     methods: ["由身分認定機關或健保署查核"],
-    evidence: [
-      evidence("nhi-vulnerable-premium", "Dataset description", "弱勢保費補助項目"),
-      evidence("nhi-premium-assistance-list", "補助項目一覽表", "各級政府按弱勢身分提供全額或部分健保自付保費補助", "2026-07-27"),
-    ],
+    evidence: [evidence("nhi-vulnerable-premium", "Dataset description", "弱勢保費補助項目")],
   },
   {
     id: "central-long-term-care",
