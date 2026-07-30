@@ -13,6 +13,7 @@ export function SiteHeader() {
       <nav aria-label="主要導覽">
         <Link href="/find">資格初篩</Link>
         <Link href="/programs">全部方案</Link>
+        <Link href="/activities">活動與體驗營</Link>
         <Link href="/about">資料方法</Link>
       </nav>
     </header>

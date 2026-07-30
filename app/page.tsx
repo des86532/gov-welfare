@@ -1,13 +1,15 @@
 import Link from "next/link";
+import { OpportunityCard } from "@/components/opportunity-card";
 import { ProgramCard } from "@/components/program-card";
 import { CATEGORY_KEYS, CATEGORY_LABELS } from "@/lib/domain";
+import { getOpportunities } from "@/lib/opportunity-store";
 import { getPrograms } from "@/lib/program-store";
 
 export const dynamic = "force-dynamic";
 
 const featuredSlugs = ["cervical-cancer-screening", "industrial-talent-investment", "youth-overseas-dream-fund", "childcare-allowance-under-2"];
 export default async function HomePage() {
-  const programs = await getPrograms();
+  const [programs, opportunities] = await Promise.all([getPrograms(), getOpportunities()]);
   const reviewedAt = programs.map((program) => program.verifiedAt).sort().at(-1) ?? "—";
   const featured = featuredSlugs.map((slug) => programs.find((program) => program.slug === slug)).filter((program) => program !== undefined);
   const matchableCount = programs.filter((program) => program.coverage === "matchable").length;
@@ -18,7 +20,7 @@ export default async function HomePage() {
           <p className="kicker"><span>中央福利</span><span>四市 Pilot</span><span>來源可追溯</span></p>
           <h1>福利很多，<br /><em>不該靠運氣找到。</em></h1>
           <p className="hero-lead">回答年齡、國籍與生活狀態，初步找出你可能適用的政府福利；每一個判斷都附官方依據。</p>
-          <div className="hero-actions"><Link className="button" href="/find">開始資格初篩 <span aria-hidden="true">→</span></Link><Link className="button button-ghost" href="/programs">先瀏覽全部方案</Link></div>
+          <div className="hero-actions"><Link className="button" href="/find">開始資格初篩 <span aria-hidden="true">→</span></Link><Link className="button button-ghost" href="/programs">瀏覽福利方案</Link><Link className="button button-ghost" href="/activities">找活動與體驗營</Link></div>
           <p className="privacy-inline"><span aria-hidden="true">◉</span> 不需登入，回答不會離開你的 Browser</p>
         </div>
         <div className="hero-ledger" aria-label="目前資料範圍">
@@ -46,6 +48,11 @@ export default async function HomePage() {
       <section className="featured-section">
         <header className="section-header"><div><p className="eyebrow">先看幾個常見需求</p><h2>已建立資格依據的方案</h2></div><Link className="text-link" href="/programs">查看完整清單 →</Link></header>
         <div className="program-grid">{featured.map((program) => <ProgramCard key={program.id} program={program} />)}</div>
+      </section>
+
+      <section className="activity-home-section">
+        <header className="section-header"><div><p className="eyebrow">不只現金補助</p><h2>限時活動與體驗機會</h2></div><div><p>政府營隊、青年培力、工作假期與減免費用活動，資格、地點及報名期限分開 Review。</p><Link className="text-link" href="/activities">查看全部活動 →</Link></div></header>
+        <div className="opportunity-grid home-opportunity-grid">{opportunities.filter((item) => item.status !== "ended").slice(0, 3).map((item) => <OpportunityCard key={item.slug} opportunity={item} />)}</div>
       </section>
 
       <section className="method-strip">

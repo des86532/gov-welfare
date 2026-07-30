@@ -58,6 +58,24 @@ async function assertPublishable(config: SupabaseConfig, versionId: string, expe
   if (version.field_evidence.some((item) => latest.get(item.source_id) !== item.snapshot_id)) throw new Error("Evidence 不是最新 Snapshot，禁止 Publish");
 }
 
+async function assertClassifiable(config: SupabaseConfig, itemId: string, classification: string) {
+  const [item] = await supabaseRest<Array<{ source_id: string; snapshot_id: string; canonical_draft: Record<string, unknown> }>>(config,
+    `source_items?select=source_id,snapshot_id,canonical_draft&id=eq.${itemId}&limit=1`);
+  if (!item) throw new Error("Source item 不存在，請重新整理");
+  if (item.canonical_draft.entityType === "opportunity" && classification === "matchable") {
+    throw new Error("Activity 不能分類為 matchable，只能 descriptive_only 或 excluded");
+  }
+  const [snapshots, sources] = await Promise.all([
+    supabaseRest<Array<{ id: string }>>(config,
+      `source_snapshots?select=id&source_id=eq.${encodeURIComponent(item.source_id)}&content_hash=not.is.null&order=observed_at.desc&limit=1`),
+    supabaseRest<Array<{ last_check_error: unknown }>>(config,
+      `sources?select=last_check_error&id=eq.${encodeURIComponent(item.source_id)}&limit=1`),
+  ]);
+  if (!sources[0]) throw new Error("Source registry 不存在，禁止 Classification");
+  if (sources[0].last_check_error != null) throw new Error("Source 最近一次檢查失敗，禁止 Classification");
+  if (snapshots[0]?.id !== item.snapshot_id) throw new Error("Source item 不是最新 Snapshot，請重新整理");
+}
+
 async function versionAction(formData: FormData, action: "publish" | "rollback") {
   await requireAdmin();
   try {
@@ -113,7 +131,9 @@ export async function classifySourceItemAction(formData: FormData) {
     if (!CLASSIFICATIONS.has(classification)) throw new Error("Classification 不正確");
     const reviewer = textField(formData, "reviewer", 2, 80);
     const rationale = textField(formData, "rationale", 10, 1_000);
-    await supabaseRest(adminConfig(), "rpc/classify_source_item", {
+    const config = adminConfig();
+    await assertClassifiable(config, sourceItemId, classification);
+    await supabaseRest(config, "rpc/classify_source_item", {
       method: "POST",
       body: JSON.stringify({ target_item_id: sourceItemId, target_classification: classification, reviewer, rationale }),
       headers: { Prefer: "return=minimal" },
@@ -122,5 +142,7 @@ export async function classifySourceItemAction(formData: FormData) {
     redirect(`/admin?error=${encodeURIComponent(message(error))}`);
   }
   revalidatePath("/admin");
+  revalidatePath("/activities");
+  revalidatePath("/api/opportunities");
   redirect(`/admin?notice=${encodeURIComponent("Source item 已分類")}`);
 }

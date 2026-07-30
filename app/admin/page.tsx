@@ -4,7 +4,7 @@ import { sources } from "@/data/sources";
 import { taipeiSourceClassifications } from "@/data/taipei-source-items";
 import { taichungSourceClassifications } from "@/data/taichung-source-items";
 import { taoyuanSourceClassifications } from "@/data/taoyuan-source-items";
-import { loadAdminReviewData, type ProgramVersionRow } from "@/lib/admin-review";
+import { loadAdminReviewData, type ProgramVersionRow, type SourceItemRow } from "@/lib/admin-review";
 import { classifySourceItemAction, publishVersionAction, rejectVersionAction, rollbackVersionAction } from "@/app/admin/actions";
 
 export const metadata = { title: "Review dashboard" };
@@ -19,6 +19,22 @@ function dateTime(value: string | null | undefined) {
 function jsonPreview(value: Record<string, unknown> | undefined) {
   const text = JSON.stringify(value ?? {}, null, 2);
   return text.length > 4_000 ? `${text.slice(0, 4_000)}\n… truncated` : text;
+}
+
+function isOpportunityItem(item: SourceItemRow) {
+  return item.canonical_draft.entityType === "opportunity";
+}
+
+function SourceItemReviewForm({ item, opportunity = false }: { item: SourceItemRow; opportunity?: boolean }) {
+  return (
+    <form className="review-form" action={classifySourceItemAction}>
+      <input type="hidden" name="sourceItemId" value={item.id} />
+      <label>Classification<select name="classification" defaultValue={item.classification ?? "descriptive_only"}>{opportunity ? null : <option value="matchable">matchable</option>}<option value="descriptive_only">descriptive_only</option><option value="excluded">excluded</option></select></label>
+      <label>Reviewer<input name="reviewer" required minLength={2} maxLength={80} defaultValue="Admin reviewer" /></label>
+      <label>Rationale<textarea name="rationale" required minLength={10} maxLength={1_000} defaultValue={item.classification_rationale ?? ""} placeholder={opportunity ? "記錄資格、日期、費用與政府關聯的 Review 結論。" : "說明這筆資料應如何進入福利 Catalog。"} /></label>
+      <button className="button button-small">{opportunity ? "Publish Activity Review" : "儲存 Classification"}</button>
+    </form>
+  );
 }
 
 function VersionEvidence({ version }: { version: ProgramVersionRow }) {
@@ -70,6 +86,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const localClassifications = [...taoyuanSourceClassifications, ...newTaipeiSourceClassifications, ...taipeiSourceClassifications, ...taichungSourceClassifications];
   const localExcluded = localClassifications.filter((item) => item.classification === "excluded").length;
   const localMatchable = localClassifications.filter((item) => item.classification === "matchable").length;
+  const pendingOpportunityItems = database?.pendingItems.filter(isOpportunityItem) ?? [];
+  const pendingProgramItems = database?.pendingItems.filter((item) => !isOpportunityItem(item)) ?? [];
+  const reviewedOpportunityCount = new Set((database?.items ?? [])
+    .filter((item) => isOpportunityItem(item) && item.review_status === "published" && item.classification === "descriptive_only")
+    .map((item) => `${item.source_id}\n${item.external_id}`)).size;
   return (
     <div className="page-shell admin-page">
       <header className="page-title catalog-title"><div><p className="eyebrow">Admin · Evidence control room</p><h1>Source 與 Review dashboard</h1><p>Ingestion 只產生 immutable Snapshot 與 Draft；只有通過 Evidence gate 的 Version 才能 Publish。</p></div><span className={`environment-badge ${database ? "connected" : ""}`}>{database ? "Supabase live" : "Seed data mode"}</span></header>
@@ -79,7 +100,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
       <section className="metric-grid">
         <div><span>Snapshots</span><strong>{database?.snapshots.length ?? 0}</strong><small>Immutable responses</small></div>
-        <div><span>Review queue</span><strong>{(database?.pendingItems.length ?? 0) + (database?.pendingVersions.length ?? 0)}</strong><small>{database?.pendingVersions.length ?? 0} Program versions</small></div>
+        <div><span>Review queue</span><strong>{(database?.pendingItems.length ?? 0) + (database?.pendingVersions.length ?? 0)}</strong><small>{pendingOpportunityItems.length} Activities · {database?.pendingVersions.length ?? 0} Program versions</small></div>
         <div><span>Published</span><strong>{database?.published.length ?? programs.length}</strong><small>{database?.published.filter((version) => version.coverage === "matchable").length ?? matchable} Matchable</small></div>
         <div><span>地方已分類</span><strong>197/197</strong><small>{localMatchable} matchable · {localExcluded} excluded</small></div>
       </section>
@@ -98,19 +119,26 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       </section>
 
       <section className="admin-section">
-        <div className="admin-section-title"><div><p className="eyebrow">Source item review</p><h2>最新 Snapshot 待分類項目</h2></div><span>Classification 不等於 Publish</span></div>
-        {database?.pendingItems.length ? <div className="source-review-grid">{database.pendingItems.map((item) => (
+        <div className="admin-section-title"><div><p className="eyebrow">Opportunity review</p><h2>活動與體驗營 Drafts</h2></div><span>{reviewedOpportunityCount} reviewed Opportunities</span></div>
+        <div className="admin-notice"><strong>Publish gate</strong><span>活動只允許 <code>descriptive_only</code> 或 <code>excluded</code>。Reviewer 必須核對官方日期、對象、費用、地點與政府關聯；不得轉成自動資格 Rule。</span></div>
+        {pendingOpportunityItems.length ? <div className="source-review-grid">{pendingOpportunityItems.map((item) => (
+          <article className="source-review-card opportunity-review-card" key={item.id}>
+            <header><code>{item.source_id}</code><span>{item.external_id}</span></header>
+            <h3>{item.title}</h3>
+            <details open><summary>查看 Canonical draft</summary><pre>{jsonPreview(item.canonical_draft)}</pre></details>
+            <SourceItemReviewForm item={item} opportunity />
+          </article>
+        ))}</div> : <div className="empty-review"><strong>Activity queue 已清空</strong><p>最新 Snapshot 中沒有尚待分類的 Opportunity Draft。</p></div>}
+      </section>
+
+      <section className="admin-section">
+        <div className="admin-section-title"><div><p className="eyebrow">Source item review</p><h2>其他最新 Snapshot 待分類項目</h2></div><span>Classification 不會直接建立或 Publish Program Version</span></div>
+        {pendingProgramItems.length ? <div className="source-review-grid">{pendingProgramItems.map((item) => (
           <article className="source-review-card" key={item.id}>
             <header><code>{item.source_id}</code><span>{item.external_id}</span></header>
             <h3>{item.title}</h3>
             <details><summary>查看 Canonical draft</summary><pre>{jsonPreview(item.canonical_draft)}</pre></details>
-            <form className="review-form" action={classifySourceItemAction}>
-              <input type="hidden" name="sourceItemId" value={item.id} />
-              <label>Classification<select name="classification" defaultValue={item.classification ?? "descriptive_only"}><option value="matchable">matchable</option><option value="descriptive_only">descriptive_only</option><option value="excluded">excluded</option></select></label>
-              <label>Reviewer<input name="reviewer" required minLength={2} maxLength={80} defaultValue="Admin reviewer" /></label>
-              <label>Rationale<textarea name="rationale" required minLength={10} maxLength={1_000} defaultValue={item.classification_rationale ?? ""} placeholder="說明這筆資料應如何進入福利 Catalog。" /></label>
-              <button className="button button-small">儲存 Classification</button>
-            </form>
+            <SourceItemReviewForm item={item} />
           </article>
         ))}</div> : <div className="empty-review"><strong>Source item queue 已清空</strong><p>所有最新 Snapshot items 都已完成分類。</p></div>}
       </section>

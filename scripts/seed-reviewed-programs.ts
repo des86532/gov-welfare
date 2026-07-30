@@ -1,4 +1,5 @@
 import { programs } from "../data/programs";
+import { reviewedOpportunities } from "../data/opportunities";
 import { newTaipeiSourceClassifications } from "../data/new-taipei-source-items";
 import { taipeiSourceClassifications } from "../data/taipei-source-items";
 import { taichungSourceClassifications } from "../data/taichung-source-items";
@@ -14,6 +15,7 @@ type VersionStatusRow = { id: string; program_id: string; version: number };
 type TaoyuanItemRow = ReviewedTaoyuanItem & {
   id: string;
   source_id: string;
+  external_id: string;
   classification: "matchable" | "descriptive_only" | "excluded" | null;
   review_status: string;
 };
@@ -103,12 +105,13 @@ async function main() {
     ["taipei-social-aid-open-data", taipeiSourceClassifications],
     ["taichung-social-aid-open-data", taichungSourceClassifications],
   ]);
+  const opportunitySourceIds = new Set(reviewedOpportunities.map((item) => item.sourceId));
   const sourceItems: TaoyuanItemRow[] = [];
-  for (const sourceId of manifests.keys()) {
+  for (const sourceId of new Set([...manifests.keys(), ...opportunitySourceIds])) {
     const snapshotId = snapshots.get(sourceId);
     if (!snapshotId) continue;
     sourceItems.push(...await supabaseRest<TaoyuanItemRow[]>(config,
-      `source_items?select=id,source_id,title,snapshot_id,canonical_draft,classification,review_status&source_id=eq.${sourceId}&snapshot_id=eq.${snapshotId}`));
+      `source_items?select=id,source_id,external_id,title,snapshot_id,canonical_draft,classification,review_status&source_id=eq.${sourceId}&snapshot_id=eq.${snapshotId}`));
   }
   const reviewedTaoyuanItems = sourceItems.filter((item) =>
     item.source_id === "taoyuan-welfare-open-data" && item.review_status === "published" && item.classification !== "excluded");
@@ -122,11 +125,18 @@ async function main() {
       ? [{ item, expected }]
       : [];
   });
+  const opportunityClassificationUpdates = reviewedOpportunities.flatMap((expected) => {
+    const item = sourceItems.find((row) => row.source_id === expected.sourceId && row.external_id === expected.externalId);
+    if (!item) return [];
+    return item.classification !== "descriptive_only" || item.review_status !== "published"
+      ? [{ item, expected }]
+      : [];
+  });
 
   const ready = allPrograms.filter((program) => program.evidence.every((item) => snapshots.has(item.sourceId)));
   const skipped = allPrograms.filter((program) => !ready.includes(program));
   if (!apply) {
-    console.log(JSON.stringify({ dryRun: true, ready: ready.map((item) => item.slug), classificationUpdates: classificationUpdates.map(({ item }) => item.title), skipped: skipped.map((item) => item.slug) }, null, 2));
+    console.log(JSON.stringify({ dryRun: true, ready: ready.map((item) => item.slug), classificationUpdates: classificationUpdates.map(({ item }) => item.title), opportunityClassificationUpdates: opportunityClassificationUpdates.map(({ expected }) => expected.slug), skipped: skipped.map((item) => item.slug) }, null, 2));
     return;
   }
 
@@ -138,6 +148,19 @@ async function main() {
         target_classification: expected.classification,
         reviewer: "Repository classification manifest",
         rationale: expected.rationale,
+      }),
+      headers: { Prefer: "return=minimal" },
+    });
+  }
+
+  for (const { item, expected } of opportunityClassificationUpdates) {
+    await supabaseRest(config, "rpc/classify_source_item", {
+      method: "POST",
+      body: JSON.stringify({
+        target_item_id: item.id,
+        target_classification: "descriptive_only",
+        reviewer: "Repository Opportunity manifest",
+        rationale: `Reviewed ${expected.slug}: eligibility, dates, fees, location, organizer type, and government support status are curated with field-level Evidence.`,
       }),
       headers: { Prefer: "return=minimal" },
     });
@@ -247,7 +270,7 @@ async function main() {
       rejectedStaleDrafts += 1;
     }
   }
-  console.log(JSON.stringify({ dryRun: false, published: created, drafts: drafted, rejectedStaleDrafts, unchanged, classificationUpdates: classificationUpdates.length, skipped: skipped.map((item) => item.slug) }, null, 2));
+  console.log(JSON.stringify({ dryRun: false, published: created, drafts: drafted, rejectedStaleDrafts, unchanged, classificationUpdates: classificationUpdates.length, opportunityClassificationUpdates: opportunityClassificationUpdates.length, skipped: skipped.map((item) => item.slug) }, null, 2));
 }
 
 void main();

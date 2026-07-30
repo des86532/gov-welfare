@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/rules.test.ts tests/adapters.test.ts tests/data.test.ts tests/admin-review.test.ts",
+    "test": "tsx --test tests/rules.test.ts tests/adapters.test.ts tests/data.test.ts tests/admin-review.test.ts tests/opportunities.test.ts",
     "sources:check": "tsx scripts/check-sources.ts",
     "sources:persist": "tsx scripts/check-sources.ts --persist",
     "data:seed": "tsx scripts/seed-reviewed-programs.ts",
