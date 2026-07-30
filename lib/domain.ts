@@ -150,6 +150,9 @@ export type SourceConfig = {
     | "taichung_social_aid_json"
     | "myegov_html"
     | "official_page"
+    | "activity_listing_html"
+    | "opportunity_detail"
+    | "spnp_activity_json"
     | "document_monitor"
     | "manual";
   checkEveryHours: number | null;

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { contentHashFor, decodeSourceText, extractMyEGovHtml, extractNewTaipeiRows, extractOfficialPage, extractTaichungRows, extractTaipeiRows, extractTaoyuanRows, parseCsvRecords, validateSnapshotFormat } from "../lib/adapters";
+import { contentHashFor, decodeSourceText, extractMyEGovHtml, extractNewTaipeiRows, extractOfficialPage, extractOpportunityDetail, extractOpportunityListing, extractSpnpActivityRows, extractTaichungRows, extractTaipeiRows, extractTaoyuanRows, parseCsvRecords, validateSnapshotFormat } from "../lib/adapters";
 import type { SourceConfig } from "../lib/domain";
 
 const monitoredPdf: SourceConfig = {
@@ -106,6 +106,65 @@ test("Official page 只抽文字 Draft，不產生 Rule", () => {
   assert.equal(item.canonicalDraft.bodyText, "年滿 20 歲");
   assert.equal("rule" in item.canonicalDraft, false);
   assert.ok(item.warnings.includes("no_automatic_rule_generation"));
+});
+
+test("青年發展署活動列表轉成多筆 Opportunity Draft", () => {
+  const html = `
+    <div class="all-event"><div class="event-box">
+      <a class="title" href="eventDoc.aspx?uid=102&pid=56&eid=116">115年青年體驗營</a>
+      <small class="date">活動日期：<br>115-07-01~115-08-31</small>
+      <div class="tag-box"><a class="tag">壯遊體驗</a></div>
+      <span class="status">報名中</span>
+    </div></div>`;
+  const item = extractOpportunityListing(html, "yda-activity-listing")[0];
+  assert.equal(item.externalId, "https://www.yda.gov.tw/eventDoc.aspx?uid=102&pid=56&eid=116");
+  assert.equal(item.canonicalDraft.entityType, "opportunity");
+  assert.equal(item.canonicalDraft.dateText, "115-07-01~115-08-31");
+  assert.equal(item.canonicalDraft.statusText, "報名中");
+  assert.equal(item.canonicalDraft.organizerType, "government");
+  assert.equal("rule" in item.canonicalDraft, false);
+  assert.ok(item.warnings.includes("dates_and_eligibility_require_review"));
+});
+
+test("NGO 工作假期保留非政府主辦與待查證補助狀態", () => {
+  const html = `
+    <div class="view-display-id-page_1"><div class="views-row">
+      <div class="views-field-title"><a href="/civicrm/event/info?id=391&reset=1">已額滿【手作步道】工作假期</a></div>
+      <div class="views-field-end-date">2026/04/17 - 11:00～2026/04/19 - 14:30</div>
+    </div></div>`;
+  const item = extractOpportunityListing(html, "tmitrail-work-holiday-listing")[0];
+  assert.equal(item.canonicalDraft.organizerType, "nonprofit");
+  assert.equal(item.canonicalDraft.governmentSupportStatus, "claimed_pending_evidence");
+  assert.equal(item.canonicalDraft.statusText, "已額滿");
+  assert.equal(item.canonicalDraft.category, "工作假期");
+});
+
+test("活動 Detail 使用 Source-specific selector 且不自動產生 Eligibility Rule", () => {
+  const item = extractOpportunityDetail('<html><h1>網站名稱</h1><h2 class="title">南沙研習營</h2><div id="content"><p>本活動採限額甄選，詳細資格、報名期間與應備文件請查看當年度官方簡章。</p></div></html>', "mnd-nansha-study-camp-115")[0];
+  assert.equal(item.title, "南沙研習營");
+  assert.equal(item.canonicalDraft.bodyText, "本活動採限額甄選，詳細資格、報名期間與應備文件請查看當年度官方簡章。");
+  assert.equal(item.canonicalDraft.entityType, "opportunity");
+  assert.equal(item.canonicalDraft.opportunityType, "study_camp");
+  assert.equal(item.canonicalDraft.organizerType, "government");
+  assert.equal("rule" in item.canonicalDraft, false);
+  assert.ok(item.warnings.includes("dates_fees_capacity_and_eligibility_require_review"));
+});
+
+test("雪霸 JSON 僅擷取資料中的最新年度活動", () => {
+  const body = JSON.stringify([
+    { id: 1, title: "2025 舊活動", event_start: "2025-07-01T00:00:00.000Z", event_end: "2025-07-02T00:00:00.000Z" },
+    { id: 2, title: "第18屆 Youth Camp", event_start: "2026-08-04T00:20:00.000Z", event_end: "2026-08-06T09:00:00.000Z", content: "<p>高中及大專院校學生，清寒學員得減收部分費用。</p>" },
+  ]);
+  const items = extractSpnpActivityRows(body);
+  assert.equal(items.length, 1);
+  assert.equal(items[0].externalId, "2");
+  assert.equal(items[0].canonicalDraft.entityType, "opportunity");
+  assert.match(String(items[0].canonicalDraft.applicationWindowText), /清寒學員/);
+});
+
+test("未登錄的活動 Source mapping 直接失敗", () => {
+  assert.throws(() => extractOpportunityListing("<main>活動</main>", "unknown-listing"), /missing opportunity listing mapping/);
+  assert.throws(() => extractOpportunityDetail("<main>活動</main>", "unknown-detail"), /missing opportunity detail mapping/);
 });
 
 test("HTML Content hash 忽略版頭動態內容但保留正文與申請連結變動", () => {

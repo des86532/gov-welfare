@@ -115,6 +115,18 @@ test("新北、臺北與臺中地方 Dataset 已使用 Source-specific adapters"
   assert.equal(adapters.get("taichung-social-aid-open-data"), "taichung_social_aid_json");
 });
 
+test("限時活動 Sources 使用 Opportunity adapters 且不混入自動發布", () => {
+  const byId = new Map(sources.map((source) => [source.id, source]));
+  assert.equal(byId.get("yda-activity-listing")?.adapterKey, "activity_listing_html");
+  assert.equal(byId.get("tmitrail-work-holiday-listing")?.adapterKey, "activity_listing_html");
+  assert.equal(byId.get("mnd-nansha-study-camp-115")?.adapterKey, "opportunity_detail");
+  assert.equal(byId.get("spnp-activity-calendar-json")?.adapterKey, "spnp_activity_json");
+  for (const source of sources.filter((item) => item.adapterKey === "activity_listing_html" || item.adapterKey === "opportunity_detail" || item.adapterKey === "spnp_activity_json")) {
+    assert.notEqual(source.automation, "structured_extract", source.id);
+    assert.ok(source.note?.includes("Review") || source.note?.includes("不得"), source.id);
+  }
+});
+
 test("戶籍與居住地可選擇臺灣 22 縣市", () => {
   assert.equal(taiwanCityOptions.length, 22);
   assert.equal(new Set(taiwanCityOptions.map((city) => city.value)).size, 22);

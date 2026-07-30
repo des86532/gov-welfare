@@ -324,6 +324,200 @@ export function extractOfficialPage(body: string, sourceId: string): DraftSource
   }];
 }
 
+type OpportunitySourceKind = "government" | "foundation" | "nonprofit";
+
+type OpportunityListingDefinition = {
+  baseUrl: string;
+  itemSelector: string;
+  titleSelector: string;
+  linkSelector: string;
+  dateSelector: string;
+  statusSelector?: string;
+  categorySelector?: string;
+  fixedCategory?: string;
+  organizer: string;
+  organizerType: OpportunitySourceKind;
+  governmentSupportStatus: "official" | "not_applicable" | "claimed_pending_evidence";
+};
+
+const opportunityListings: Record<string, OpportunityListingDefinition> = {
+  "yda-activity-listing": {
+    baseUrl: "https://www.yda.gov.tw/",
+    itemSelector: ".all-event .event-box",
+    titleSelector: "a.title",
+    linkSelector: "a.title",
+    dateSelector: "small.date",
+    statusSelector: ".status",
+    categorySelector: ".tag-box .tag",
+    organizer: "教育部青年發展署",
+    organizerType: "government",
+    governmentSupportStatus: "official",
+  },
+  "tmitrail-work-holiday-listing": {
+    baseUrl: "https://www.tmitrail.org.tw/",
+    itemSelector: ".view-display-id-page_1 .views-row",
+    titleSelector: ".views-field-title a",
+    linkSelector: ".views-field-title a",
+    dateSelector: ".views-field-end-date",
+    fixedCategory: "工作假期",
+    organizer: "台灣千里步道協會",
+    organizerType: "nonprofit",
+    governmentSupportStatus: "claimed_pending_evidence",
+  },
+};
+
+const opportunityDetails: Record<string, {
+  organizer: string;
+  organizerType: OpportunitySourceKind;
+  opportunityType: string;
+  governmentSupportStatus: "official" | "not_applicable" | "claimed_pending_evidence";
+  titleSelector: string;
+  contentSelector: string;
+}> = {
+  "cga-marine-student-camp-115": {
+    organizer: "海洋委員會海巡署",
+    organizerType: "government",
+    opportunityType: "experience_camp",
+    governmentSupportStatus: "official",
+    titleSelector: ".page-title h3",
+    contentSelector: ".page-title, .info, .download",
+  },
+  "mnd-nansha-study-camp-115": {
+    organizer: "國防部",
+    organizerType: "government",
+    opportunityType: "study_camp",
+    governmentSupportStatus: "official",
+    titleSelector: "h2.title",
+    contentSelector: "#content",
+  },
+  "cadf-summer-air-camp-2026": {
+    organizer: "財團法人中華航空事業發展基金會",
+    organizerType: "foundation",
+    opportunityType: "experience_camp",
+    governmentSupportStatus: "not_applicable",
+    titleSelector: "#page-title",
+    contentSelector: ".field-name-body .field-item",
+  },
+};
+
+function absoluteUrl(href: string, baseUrl: string): string | null {
+  if (!href || href.startsWith("javascript:") || href.startsWith("#")) return null;
+  try {
+    return new URL(href, baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
+export function extractOpportunityListing(body: string, sourceId: string): DraftSourceItem[] {
+  const definition = opportunityListings[sourceId];
+  if (!definition) throw new Error(`${sourceId}: missing opportunity listing mapping`);
+  const $ = cheerio.load(body);
+  const items = new Map<string, DraftSourceItem>();
+  $(definition.itemSelector).each((index, element) => {
+    const row = $(element);
+    const title = cleanText(row.find(definition.titleSelector).first().text());
+    const detailUrl = absoluteUrl(row.find(definition.linkSelector).first().attr("href") ?? "", definition.baseUrl);
+    if (!title || !detailUrl) return;
+    const dateText = cleanText(row.find(definition.dateSelector).first().text()).replace(/^活動日期：?\s*/, "");
+    const explicitStatus = definition.statusSelector ? cleanText(row.find(definition.statusSelector).first().text()) : "";
+    const statusText = explicitStatus || (/已額滿/.test(title) ? "已額滿" : "待確認");
+    const category = (definition.fixedCategory
+      ?? (definition.categorySelector ? cleanText(row.find(definition.categorySelector).first().text()) : ""))
+      || null;
+    const externalId = detailUrl;
+    items.set(externalId, {
+      externalId,
+      title,
+      raw: { sourceId, rowIndex: index, rowText: cleanText(row.text()), detailUrl },
+      canonicalDraft: {
+        entityType: "opportunity",
+        title,
+        detailUrl,
+        dateText: dateText || null,
+        statusText,
+        category,
+        organizer: definition.organizer,
+        organizerType: definition.organizerType,
+        governmentSupportStatus: definition.governmentSupportStatus,
+      },
+      unknownFields: {},
+      reviewStatus: "pending",
+      warnings: ["opportunity_requires_review", "dates_and_eligibility_require_review", "draft_never_auto_publish"],
+    });
+  });
+  if (items.size === 0) throw new Error(`${sourceId}: activity listing format changed or returned no items`);
+  return [...items.values()];
+}
+
+export function extractOpportunityDetail(body: string, sourceId: string): DraftSourceItem[] {
+  const metadata = opportunityDetails[sourceId];
+  if (!metadata) throw new Error(`${sourceId}: missing opportunity detail mapping`);
+  const { titleSelector, contentSelector, ...canonicalMetadata } = metadata;
+  const $ = cheerio.load(body);
+  const title = cleanText($(titleSelector).first().text());
+  const bodyText = cleanText($(contentSelector).map((_, element) => $(element).text()).get().join(" "));
+  if (!title || bodyText.length < 30) throw new Error(`${sourceId}: opportunity detail content extraction empty`);
+  return extractOfficialPage(body, sourceId).map((item) => ({
+    ...item,
+    title,
+    canonicalDraft: {
+      entityType: "opportunity",
+      ...item.canonicalDraft,
+      title,
+      bodyText,
+      ...canonicalMetadata,
+    },
+    warnings: ["opportunity_requires_review", "dates_fees_capacity_and_eligibility_require_review", ...item.warnings],
+  }));
+}
+
+export function extractSpnpActivityRows(body: string): DraftSourceItem[] {
+  const parsed: unknown = JSON.parse(body.replace(/^\uFEFF/, ""));
+  if (!Array.isArray(parsed)) throw new Error("雪霸活動 Source format changed: expected a JSON array");
+  const rows = parsed.map((value, index) => {
+    const row = objectRecord(value);
+    if (!row || typeof row.id !== "number" || typeof row.title !== "string") {
+      throw new Error(`雪霸活動 row ${index} 缺少 id 或 title`);
+    }
+    return row;
+  });
+  const years = rows
+    .map((row) => typeof row.event_start === "string" ? Number(row.event_start.slice(0, 4)) : NaN)
+    .filter(Number.isFinite);
+  const latestYear = Math.max(...years);
+  if (!Number.isFinite(latestYear)) throw new Error("雪霸活動 Source 缺少有效 event_start");
+  return rows
+    .filter((row) => typeof row.event_start === "string" && row.event_start.startsWith(`${latestYear}-`))
+    .map((row) => {
+      const title = String(row.title);
+      const detailUrl = `https://www.spnp.gov.tw/ch/titlelist/events-calendar/${row.id}`;
+      const contentHtml = typeof row.content === "string" ? row.content : "";
+      const contentText = cleanText(cheerio.load(contentHtml).text());
+      return {
+        externalId: String(row.id),
+        title,
+        raw: row,
+        canonicalDraft: {
+          entityType: "opportunity",
+          title,
+          detailUrl,
+          eventStart: typeof row.event_start === "string" ? row.event_start : null,
+          eventEnd: typeof row.event_end === "string" ? row.event_end : null,
+          applicationWindowText: contentText || null,
+          locationText: typeof row.event_area === "string" ? cleanText(row.event_area) || null : null,
+          category: "國家公園活動",
+          organizer: "內政部國家公園署雪霸國家公園管理處",
+          organizerType: "government",
+          governmentSupportStatus: "official",
+        },
+        unknownFields: {},
+        reviewStatus: "pending" as const,
+        warnings: ["opportunity_requires_review", "dates_fees_capacity_and_eligibility_require_review", "draft_never_auto_publish"],
+      };
+    });
+}
+
 class TaoyuanJsonAdapter implements SourceAdapter {
   fetch = fetchSnapshot;
   async extract(snapshot: RawSnapshot) { return extractTaoyuanRows(snapshot.body); }
@@ -352,6 +546,21 @@ class MyEGovHtmlAdapter implements SourceAdapter {
 class OfficialPageAdapter implements SourceAdapter {
   fetch = fetchSnapshot;
   async extract(snapshot: RawSnapshot) { return extractOfficialPage(snapshot.body, snapshot.sourceId); }
+}
+
+class ActivityListingHtmlAdapter implements SourceAdapter {
+  fetch = fetchSnapshot;
+  async extract(snapshot: RawSnapshot) { return extractOpportunityListing(snapshot.body, snapshot.sourceId); }
+}
+
+class OpportunityDetailAdapter implements SourceAdapter {
+  fetch = fetchSnapshot;
+  async extract(snapshot: RawSnapshot) { return extractOpportunityDetail(snapshot.body, snapshot.sourceId); }
+}
+
+class SpnpActivityJsonAdapter implements SourceAdapter {
+  fetch = fetchSnapshot;
+  async extract(snapshot: RawSnapshot) { return extractSpnpActivityRows(snapshot.body); }
 }
 
 class DocumentMonitorAdapter implements SourceAdapter {
@@ -384,6 +593,9 @@ export function createAdapter(source: SourceConfig): SourceAdapter {
     case "taichung_social_aid_json": return new TaichungJsonAdapter();
     case "myegov_html": return new MyEGovHtmlAdapter();
     case "official_page": return new OfficialPageAdapter();
+    case "activity_listing_html": return new ActivityListingHtmlAdapter();
+    case "opportunity_detail": return new OpportunityDetailAdapter();
+    case "spnp_activity_json": return new SpnpActivityJsonAdapter();
     case "document_monitor": return new DocumentMonitorAdapter();
     case "manual": return new ManualAdapter();
   }
