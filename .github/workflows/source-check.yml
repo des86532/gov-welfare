@@ -63,7 +63,7 @@ jobs:
           SOURCE_CHECK_OUTCOME: ${{ steps.source_check.outcome }}
         run: |
           title="Source monitoring failure"
-          issue="$(gh issue list --state open --search \"$title in:title\" --json number --jq '.[0].number // empty')"
+          issue="$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')"
           if [ "$SOURCE_CHECK_OUTCOME" = "failure" ]; then
             message="Scheduled Source check failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
             if [ -n "$issue" ]; then gh issue comment "$issue" --body "$message"; else gh issue create --title "$title" --body "$message"; fi
