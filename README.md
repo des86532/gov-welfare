@@ -5,7 +5,7 @@
 ## 已實作
 
 - Next.js App Router 公開網站：首頁、Category catalog、Dynamic questionnaire、Results、Program detail、資料方法頁。
-- Production 共 65 個中央／桃園／新北／臺北／臺中 Programs：62 個 Supabase Published versions，加上 3 個受控 Seed fallback；其中 41 個可執行 Rules。
+- Production 方案由 Supabase Published versions 與受控 Seed fallback 合併；即時數量與 Review 狀態以 `/api/programs` 及 `npm run data:audit` 為準，避免文件硬編碼後產生 drift。
 - 桃園 Open Data 26 筆 Source items 的完整 `matchable`／`descriptive_only`／`excluded` 分類。
 - 桃園共 5 個 `matchable`、17 個 `descriptive_only` 福利進入公開 Catalog；自然語言資格尚未結構化前不參與 Matching。
 - 戶籍與居住地可選擇臺灣全部 22 縣市，為後續地方 Coverage 保留一致 Fact values。
@@ -28,7 +28,7 @@ npm install
 npm run dev
 ```
 
-開啟 `http://localhost:3000`。沒有 Supabase credentials 時仍可操作 44 個 Repository reviewed Seed Programs；完整 65 個 Production Programs 由 Supabase Published versions 與受控 Seed fallback 合併提供。
+開啟 `http://localhost:3000`。沒有 Supabase credentials 時仍可操作 Repository reviewed Seed Programs；Production 由 Supabase Published versions 與受控 Seed fallback 合併提供。
 
 ## 驗證
 
@@ -64,6 +64,8 @@ npm run data:audit
 ```
 
 Repository-reviewed Rules 可由 GitHub Actions 的 `Scheduled source checks` 手動執行，勾選 `publish_reviewed_programs` 後才會建立並發布新版；每日 Schedule 只擷取 Draft，不會自動 Publish。單一 Source 失敗不會阻止其他已審核、Evidence Source 正常的 Program 發布，但 workflow 最後仍會保留失敗狀態供追蹤。
+
+Schedule 會依每個 Source 的 `checkEveryHours` 判斷是否到期；手動執行則強制檢查全部 active Sources。失敗時會建立或更新 GitHub Issue，恢復後自動關閉。
 
 ## Supabase
 

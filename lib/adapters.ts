@@ -15,16 +15,19 @@ export function decodeSourceText(bytes: Buffer): string {
   return bytes.toString("utf8").replace(/\u0000/g, "");
 }
 
-export function contentHashFor(bytes: Buffer, format: SourceConfig["format"]): string {
+export function contentHashFor(bytes: Buffer, format: SourceConfig["format"], ignoreSelectors: string[] = []): string {
   if (format !== "html") return createHash("sha256").update(bytes).digest("hex");
   const $ = cheerio.load(bytes.toString("utf8"));
-  $("script, style, noscript, svg").remove();
-  const text = cleanText($("body").text())
+  $("script, style, noscript, svg, iframe, nav, header, footer").remove();
+  for (const selector of ignoreSelectors) $(selector).remove();
+  const content = $("main, article, #content, .content").first();
+  const root = content.length ? content : $("body");
+  const text = cleanText(root.text())
     .replace(/列印時間：?\s*\d{2,3}\/\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2}/g, "列印時間")
     .replace(/專區瀏覽人次\s*累計\d+\s*今日\d+/g, "專區瀏覽人次")
     .replace(/累計瀏覽人次：?[\d,]+\s*今日瀏覽人次：?[\d,]+/g, "瀏覽人次")
     .replace(/您來自：\s*[0-9a-f:.]+/gi, "您來自");
-  const links = [...new Set($("a[href]").map((_, element) => cleanText($(element).attr("href") ?? "")).get()
+  const links = [...new Set(root.find("a[href]").map((_, element) => cleanText($(element).attr("href") ?? "")).get()
     .filter((href) => href && !href.startsWith("#") && !href.startsWith("javascript:")))]
     .sort();
   return createHash("sha256").update(`${text}\n${links.join("\n")}`).digest("hex");
@@ -67,7 +70,7 @@ export async function fetchSnapshot(source: SourceConfig): Promise<RawSnapshot> 
     contentType,
     etag: response.headers.get("etag") ?? undefined,
     lastModified: response.headers.get("last-modified") ?? undefined,
-    contentHash: contentHashFor(bytes, source.format),
+    contentHash: contentHashFor(bytes, source.format, source.hashIgnoreSelectors),
     body: isText ? textBody : bytes.toString("base64"),
     status: response.status,
   };

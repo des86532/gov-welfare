@@ -10,6 +10,7 @@ import { taichungSourceClassifications } from "../data/taichung-source-items";
 import { buildTaoyuanReviewedPrograms, taoyuanProgramCurations } from "../data/taoyuan-programs";
 import type { AtomicRule, RuleNode } from "../lib/domain";
 import { appliesToRegion } from "../lib/program-filters";
+import { isSourceDue } from "../lib/ingestion";
 
 function atomicRules(rule: RuleNode): AtomicRule[] {
   if ("all" in rule) return rule.all.flatMap(atomicRules);
@@ -131,4 +132,14 @@ test("地區篩選保留中央方案並排除其他地方方案", () => {
   assert.equal(appliesToRegion(central, "桃園市"), true);
   assert.equal(appliesToRegion(taoyuan, "桃園市"), true);
   assert.equal(appliesToRegion(newTaipei, "桃園市"), false);
+});
+
+test("Scheduled Source checks 遵守各 Source 的檢查頻率", () => {
+  const source = { ...sources[0], checkEveryHours: 168 };
+  const now = new Date("2026-07-30T00:00:00Z");
+  assert.equal(isSourceDue(source, null, now), true);
+  assert.equal(isSourceDue(source, "2026-07-29T00:00:00Z", now), false);
+  assert.equal(isSourceDue(source, "2026-07-23T00:00:00Z", now), true);
+  assert.equal(isSourceDue(source, "2026-07-30T00:00:00Z", now, true), true);
+  assert.equal(isSourceDue({ ...source, checkEveryHours: null }, null, now), false);
 });

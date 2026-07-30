@@ -108,10 +108,18 @@ test("Official page 只抽文字 Draft，不產生 Rule", () => {
   assert.ok(item.warnings.includes("no_automatic_rule_generation"));
 });
 
-test("HTML Content hash 忽略 Script 變動但保留正文變動", () => {
-  const first = contentHashFor(Buffer.from("<body><p>資格 A</p><p>列印時間：115/07/27 01:47</p><p>累計瀏覽人次：88,964,783 今日瀏覽人次：3,956</p><p>您來自：36.225.136.78</p><script>token=1</script></body>"), "html");
-  const same = contentHashFor(Buffer.from("<body><p>資格 A</p><p>列印時間：115/07/27 01:48</p><p>累計瀏覽人次：88,964,799 今日瀏覽人次：3,972</p><p>您來自：172.182.243.50</p><script>token=2</script></body>"), "html");
-  const changed = contentHashFor(Buffer.from("<body><p>資格 B</p><script>token=2</script></body>"), "html");
+test("HTML Content hash 忽略版頭動態內容但保留正文與申請連結變動", () => {
+  const first = contentHashFor(Buffer.from("<body><header>線上人數 1<a href='/daily?token=1'>導覽</a></header><main><p>資格 A</p><a href='/apply?id=1'>申請</a></main><script>token=1</script></body>"), "html");
+  const same = contentHashFor(Buffer.from("<body><header>線上人數 9<a href='/daily?token=2'>導覽</a></header><main><p>資格 A</p><a href='/apply?id=1'>申請</a></main><script>token=2</script></body>"), "html");
+  const changed = contentHashFor(Buffer.from("<body><main><p>資格 B</p><a href='/apply?id=1'>申請</a></main></body>"), "html");
+  const changedLink = contentHashFor(Buffer.from("<body><main><p>資格 A</p><a href='/apply?id=2'>申請</a></main></body>"), "html");
   assert.equal(first, same);
   assert.notEqual(first, changed);
+  assert.notEqual(first, changedLink);
+});
+
+test("HTML Content hash 支援 Source-specific 動態區塊排除", () => {
+  const first = contentHashFor(Buffer.from("<main><p>資格 A</p><select id='locations'><option>甲</option><option>乙</option></select><div id='mapdesc'>甲地址</div></main>"), "html", ["#locations", "#mapdesc"]);
+  const same = contentHashFor(Buffer.from("<main><p>資格 A</p><select id='locations'><option>乙</option><option>甲</option></select><div id='mapdesc'>乙地址</div></main>"), "html", ["#locations", "#mapdesc"]);
+  assert.equal(first, same);
 });

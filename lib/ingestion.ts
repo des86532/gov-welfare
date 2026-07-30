@@ -18,6 +18,14 @@ export type PersistResult = {
   persistedItems: number;
 };
 
+export function isSourceDue(source: SourceConfig, lastCheckedAt: string | null, now = new Date(), lastCheckFailed = false): boolean {
+  if (!source.checkEveryHours) return false;
+  if (lastCheckFailed) return true;
+  if (!lastCheckedAt) return true;
+  const checkedAt = Date.parse(lastCheckedAt);
+  return !Number.isFinite(checkedAt) || now.getTime() - checkedAt >= source.checkEveryHours * 60 * 60 * 1_000;
+}
+
 export async function syncSourceRegistry(config: SupabaseConfig, sourceConfigs: SourceConfig[]) {
   await supabaseRest(config, "sources?on_conflict=id", {
     method: "POST",
@@ -38,7 +46,7 @@ export async function syncSourceRegistry(config: SupabaseConfig, sourceConfigs: 
       crawler_required: source.crawlerRequired,
       status: source.status,
       blocked_reason: source.status === "blocked" ? source.note ?? "Source blocked" : null,
-      config: { fetchUrl: source.url, publicUrl: source.publicUrl, note: source.note },
+      config: { fetchUrl: source.url, publicUrl: source.publicUrl, hashIgnoreSelectors: source.hashIgnoreSelectors, note: source.note },
     }))),
     headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
   });

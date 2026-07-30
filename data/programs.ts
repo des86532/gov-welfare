@@ -71,7 +71,7 @@ const taipeiStudyLiving = evidence("taipei-study-living-support", "服務內容�
 const taipeiStudyLivingDataset = evidence("taipei-social-aid-open-data", "row 序號=2", "低收入戶18歲以上就學生活補助；Dataset 財稅門檻為舊值", "2026-07-27");
 const taipeiStudentTransport = evidence("taipei-student-transport-support", "補助對象／補助內容", "低收入戶家庭12歲以上未滿25歲成員，依年齡每學期自動撥付500至1,500元", "2026-07-27");
 const taipeiStudentTransportDataset = evidence("taipei-social-aid-open-data", "row 序號=3", "低收入戶國中以上就學子女交通補助；Dataset 財稅門檻為舊值", "2026-07-27");
-const taipeiMidLowIncome = evidence("taipei-mid-low-income-status", "申請資格／備註／應備書證", "年滿18歲之臺北市民可申請中低收入戶查定，家庭人口與財稅由政府審核", "2026-07-27");
+const taipeiMidLowIncome = evidence("taipei-mid-low-income-status", "第 2 點／作業分工", "區公所受理低收入戶及中低收入戶申請並辦理初審，社會局查調財稅及戶籍資料", "2026-07-30");
 const taipeiMidLowIncomeDataset = evidence("taipei-social-aid-open-data", "row 序號=4", "中低收入戶查定；Dataset 財稅門檻為109年舊值", "2026-07-27");
 const taipeiDisabilityLiving = evidence("taipei-disability-living", "服務內容／服務對象", "設籍並實際居住臺北、最近一年居住國內超過183日、持身障證明、未公費安置並符合115年財稅門檻", "2026-07-27");
 const taipeiDisabilityLivingDataset = evidence("taipei-social-aid-open-data", "row 序號=5", "身心障礙者生活補助；Dataset 財稅門檻為舊值", "2026-07-27");
@@ -1322,7 +1322,7 @@ export const programs: Program[] = [
     id: "taipei-mid-low-income-status",
     slug: "taipei-mid-low-income-status",
     title: "臺北市中低收入戶資格申請",
-    summary: "年滿 18 歲的臺北市民，可由區公所依家庭人口、所得與財產查定中低收入戶資格。",
+    summary: "設籍臺北市的家庭，可由區公所依家庭人口、所得與財產查定中低收入戶資格。",
     category: "social_aid",
     tags: ["臺北市", "中低收入戶", "資格認定"],
     benefitType: "free_service",
@@ -1331,20 +1331,19 @@ export const programs: Program[] = [
     decisionType: "official_record_check",
     jurisdiction: "臺北市",
     authority: "臺北市政府社會局",
-    officialUrl: "https://service.taipei/case-detail/AI040",
-    applicationUrl: "https://service.taipei/case-detail/AI040",
-    verifiedAt: "2026-07-27",
+    officialUrl: "https://laws.gov.taipei/Law/LawSearch/LawArticleContent/FL002881",
+    applicationUrl: "https://service.gov.taipei/Case/OnlineStep1/009186",
+    verifiedAt: "2026-07-30",
     effectiveFrom: "2026-01-01",
     effectiveTo: "2026-12-31",
-    requestedFacts: ["birth_date", "household_city", "taipei_mid_low_income_financial_eligible"],
+    requestedFacts: ["household_city", "taipei_mid_low_income_financial_eligible"],
     rule: { all: [
-      { field: "age", operator: "gte", value: 18, label: "年滿 18 歲", evidence: taipeiMidLowIncome },
       { field: "household_city", operator: "eq", value: "taipei", label: "設籍臺北市", evidence: taipeiMidLowIncome },
       { field: "taipei_mid_low_income_financial_eligible", operator: "eq", value: true, label: "家庭所得、動產及不動產符合 115 年門檻", evidence: taipeiStandard115 },
     ] },
     caveats: ["系統只能比對使用者自填的門檻；家庭人口範圍、所得、動產與不動產均以區公所查調結果為準。"],
     documents: ["申請表", "全戶戶籍及身分資料", "家庭人口與財產相關證明", "申請人印章"],
-    methods: ["戶籍所在地區公所臨櫃或郵寄申請"],
+    methods: ["戶籍所在地區公所臨櫃或郵寄申請", "臺北市民服務大平臺線上申請"],
     evidence: [taipeiMidLowIncome, taipeiStandard115, taipeiMidLowIncomeDataset],
   },
   {

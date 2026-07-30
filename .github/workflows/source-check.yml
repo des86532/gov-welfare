@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: welfare-source-check
@@ -35,7 +36,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx --no-install tsx scripts/check-sources.ts --persist --json > source-report.json
+        run: npx --no-install tsx scripts/check-sources.ts --persist --json ${{ github.event_name == 'workflow_dispatch' && '--force' || '' }} > source-report.json
       - name: Publish Repository-reviewed Program updates
         if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.publish_reviewed_programs }}
         env:
@@ -55,6 +56,21 @@ jobs:
           path: source-report.json
           if-no-files-found: warn
           retention-days: 30
+      - name: Report or resolve Source monitoring issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_CHECK_OUTCOME: ${{ steps.source_check.outcome }}
+        run: |
+          title="Source monitoring failure"
+          issue="$(gh issue list --state open --search \"$title in:title\" --json number --jq '.[0].number // empty')"
+          if [ "$SOURCE_CHECK_OUTCOME" = "failure" ]; then
+            message="Scheduled Source check failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            if [ -n "$issue" ]; then gh issue comment "$issue" --body "$message"; else gh issue create --title "$title" --body "$message"; fi
+          elif [ -n "$issue" ]; then
+            gh issue comment "$issue" --body "Source checks recovered in $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            gh issue close "$issue" --reason completed
+          fi
       - name: Preserve Source check failure status
         if: ${{ steps.source_check.outcome == 'failure' }}
         run: exit 1

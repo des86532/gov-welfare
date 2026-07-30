@@ -153,6 +153,7 @@ export type SourceConfig = {
     | "document_monitor"
     | "manual";
   checkEveryHours: number | null;
+  hashIgnoreSelectors?: string[];
   fetchTimeoutMs?: number;
   crawlerRequired: boolean;
   status: "active" | "blocked" | "archived";

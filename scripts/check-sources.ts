@@ -1,7 +1,7 @@
 import { createAdapter } from "../lib/adapters";
 import { sources } from "../data/sources";
-import { persistFailedCheck, persistSuccessfulCheck, syncSourceRegistry } from "../lib/ingestion";
-import { supabaseConfig } from "../lib/supabase-rest";
+import { isSourceDue, persistFailedCheck, persistSuccessfulCheck, syncSourceRegistry } from "../lib/ingestion";
+import { supabaseConfig, supabaseRest } from "../lib/supabase-rest";
 
 type CheckResult = {
   sourceId: string;
@@ -23,9 +23,10 @@ const persist = args.includes("--persist");
 const store = persist ? supabaseConfig(true) : null;
 const sourceFlag = args.indexOf("--source");
 const requestedId = sourceFlag >= 0 ? args[sourceFlag + 1] : undefined;
-const selected = sources.filter((source) => source.status === "active" && (!requestedId || source.id === requestedId));
+const force = args.includes("--force");
+const activeSources = sources.filter((source) => source.status === "active" && (!requestedId || source.id === requestedId));
 
-if (requestedId && selected.length === 0) {
+if (requestedId && activeSources.length === 0) {
   console.error(`Unknown active source: ${requestedId}`);
   process.exit(2);
 }
@@ -72,6 +73,18 @@ async function checkSource(sourceId: string): Promise<CheckResult> {
 
 async function main() {
   if (store) await syncSourceRegistry(store, sources);
+  let selected = activeSources;
+  if (store && !requestedId && !force) {
+    const states = await supabaseRest<Array<{ id: string; last_checked_at: string | null; last_check_error: unknown }>>(
+      store,
+      "sources?select=id,last_checked_at,last_check_error",
+    );
+    const stateById = new Map(states.map((source) => [source.id, source]));
+    selected = selected.filter((source) => {
+      const state = stateById.get(source.id);
+      return isSourceDue(source, state?.last_checked_at ?? null, new Date(), state?.last_check_error != null);
+    });
+  }
   const results: CheckResult[] = [];
   for (const source of selected) results.push(await checkSource(source.id));
   if (jsonOutput) {
