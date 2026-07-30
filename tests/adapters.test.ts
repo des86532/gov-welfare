@@ -109,8 +109,8 @@ test("Official page 只抽文字 Draft，不產生 Rule", () => {
 });
 
 test("HTML Content hash 忽略版頭動態內容但保留正文與申請連結變動", () => {
-  const first = contentHashFor(Buffer.from("<body><header>線上人數 1<a href='/daily?token=1'>導覽</a></header><main><p>資格 A</p><a href='/apply?id=1'>申請</a></main><script>token=1</script></body>"), "html");
-  const same = contentHashFor(Buffer.from("<body><header>線上人數 9<a href='/daily?token=2'>導覽</a></header><main><p>資格 A</p><a href='/apply?id=1'>申請</a></main><script>token=2</script></body>"), "html");
+  const first = contentHashFor(Buffer.from("<body><header>線上人數 1<a href='/daily?token=1'>導覽</a></header><main><p>資格 A</p><p>瀏覽人次：1,234 人</p><a href='/apply?id=1'>申請</a></main><script>token=1</script></body>"), "html");
+  const same = contentHashFor(Buffer.from("<body><header>線上人數 9<a href='/daily?token=2'>導覽</a></header><main><p>資格 A</p><p>瀏覽人次：1,235 人</p><a href='/apply?id=1'>申請</a></main><script>token=2</script></body>"), "html");
   const changed = contentHashFor(Buffer.from("<body><main><p>資格 B</p><a href='/apply?id=1'>申請</a></main></body>"), "html");
   const changedLink = contentHashFor(Buffer.from("<body><main><p>資格 A</p><a href='/apply?id=2'>申請</a></main></body>"), "html");
   assert.equal(first, same);
