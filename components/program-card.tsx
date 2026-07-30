@@ -1,30 +1,21 @@
 import Link from "next/link";
-import { CATEGORY_LABELS, type Program } from "@/lib/domain";
+import { BENEFIT_TYPE_LABELS, CATEGORY_LABELS, type Program } from "@/lib/domain";
 
-const benefitLabels: Record<Program["benefitType"], string> = {
-  cash: "現金給付",
-  grant: "Grant",
-  loan: "Loan",
-  interest_subsidy: "利息補貼",
-  fee_reduction: "費用減免",
-  free_service: "免費服務",
-  training: "課程／訓練",
-  scholarship: "Scholarship",
-  guarantee: "Credit guarantee",
-  care_service: "照顧服務",
-};
+type ProgramCardVariant = "default" | "compact" | "list";
 
-export function ProgramCard({ program, eyebrow }: { program: Program; eyebrow?: string }) {
+export function ProgramCard({ program, eyebrow, headingLevel = 3, variant = "default" }: { program: Program; eyebrow?: string; headingLevel?: 2 | 3; variant?: ProgramCardVariant }) {
+  const Heading = headingLevel === 2 ? "h2" : "h3";
+
   return (
-    <article className="program-card">
+    <article className={`program-card program-card-${variant}`}>
       <div className="program-card-topline">
         <span className="eyebrow">{eyebrow ?? CATEGORY_LABELS[program.category]}</span>
         <span className={`coverage-dot coverage-${program.coverage}`}>{program.coverage === "matchable" ? "已驗證 Rules" : "資格待確認"}</span>
       </div>
-      <h3><Link href={`/programs/${program.slug}`}>{program.title}</Link></h3>
+      <Heading><Link href={`/programs/${program.slug}`}>{program.title}</Link></Heading>
       <p>{program.summary}</p>
       <div className="benefit-strip">
-        <span>{benefitLabels[program.benefitType]}</span>
+        <span>{BENEFIT_TYPE_LABELS[program.benefitType]}</span>
         <strong>{program.benefitSummary}</strong>
       </div>
       <footer>

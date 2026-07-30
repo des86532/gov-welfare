@@ -9,7 +9,7 @@ import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
 import { taichungSourceClassifications } from "../data/taichung-source-items";
 import { buildTaoyuanReviewedPrograms, taoyuanProgramCurations } from "../data/taoyuan-programs";
 import type { AtomicRule, RuleNode } from "../lib/domain";
-import { appliesToRegion } from "../lib/program-filters";
+import { appliesToRegion, getProgramAvailability, paginatePrograms, PROGRAMS_PER_PAGE, sortProgramsForCatalog } from "../lib/program-filters";
 import { isSourceDue } from "../lib/ingestion";
 
 function atomicRules(rule: RuleNode): AtomicRule[] {
@@ -144,6 +144,42 @@ test("地區篩選保留中央方案並排除其他地方方案", () => {
   assert.equal(appliesToRegion(central, "桃園市"), true);
   assert.equal(appliesToRegion(taoyuan, "桃園市"), true);
   assert.equal(appliesToRegion(newTaipei, "桃園市"), false);
+});
+
+test("方案分頁限制每頁筆數並修正超出範圍的頁碼", () => {
+  const items = Array.from({ length: PROGRAMS_PER_PAGE * 2 + 1 }, (_, index) => index + 1);
+  assert.deepEqual(paginatePrograms(items, 2), {
+    items: items.slice(PROGRAMS_PER_PAGE, PROGRAMS_PER_PAGE * 2),
+    page: 2,
+    pageCount: 3,
+    from: 13,
+    to: 24,
+  });
+  assert.equal(paginatePrograms(items, 99).page, 3);
+  assert.equal(paginatePrograms(items, Number.NaN).page, 1);
+  assert.deepEqual(paginatePrograms([], 1), { items: [], page: 1, pageCount: 1, from: 0, to: 0 });
+});
+
+test("方案清單先按 Primary category 再按繁中標題穩定排序", () => {
+  const sample = [
+    programs.find((program) => program.slug === "cervical-cancer-screening"),
+    programs.find((program) => program.slug === "adult-preventive-care"),
+    programs.find((program) => program.slug === "industrial-talent-investment"),
+  ].filter((program): program is (typeof programs)[number] => Boolean(program));
+  assert.deepEqual(sortProgramsForCatalog(sample).map((program) => program.slug), [
+    "cervical-cancer-screening",
+    "adult-preventive-care",
+    "industrial-talent-investment",
+  ]);
+});
+
+test("申請狀態不把未提供期限的方案誤判為申請中", () => {
+  const open = programs.find((program) => program.slug === "moe-public-study-exam-115");
+  const unspecified = programs.find((program) => program.slug === "adult-preventive-care");
+  assert.ok(open && unspecified);
+  assert.equal(getProgramAvailability(open, "2026-07-30"), "open");
+  assert.equal(getProgramAvailability(open, "2026-08-01"), "closed");
+  assert.equal(getProgramAvailability(unspecified, "2026-07-30"), "unspecified");
 });
 
 test("Scheduled Source checks 遵守各 Source 的檢查頻率", () => {

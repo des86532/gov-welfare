@@ -41,17 +41,33 @@ export type DecisionType =
   | "loan_credit_review"
   | "automatic";
 
-export type BenefitType =
-  | "cash"
-  | "grant"
-  | "loan"
-  | "interest_subsidy"
-  | "fee_reduction"
-  | "free_service"
-  | "training"
-  | "scholarship"
-  | "guarantee"
-  | "care_service";
+export const BENEFIT_TYPE_KEYS = [
+  "cash",
+  "grant",
+  "loan",
+  "interest_subsidy",
+  "fee_reduction",
+  "free_service",
+  "training",
+  "scholarship",
+  "guarantee",
+  "care_service",
+] as const;
+
+export type BenefitType = (typeof BENEFIT_TYPE_KEYS)[number];
+
+export const BENEFIT_TYPE_LABELS: Record<BenefitType, string> = {
+  cash: "現金給付",
+  grant: "Grant",
+  loan: "Loan",
+  interest_subsidy: "利息補貼",
+  fee_reduction: "費用減免",
+  free_service: "免費服務",
+  training: "課程／訓練",
+  scholarship: "Scholarship",
+  guarantee: "Credit guarantee",
+  care_service: "照顧服務",
+};
 
 export type SourceFormat = "json" | "csv" | "xml" | "ods" | "html" | "pdf" | "manual";
 export type SourceRole = "discovery" | "eligibility" | "application" | "legal_basis" | "supplement";
