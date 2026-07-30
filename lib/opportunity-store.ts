@@ -61,6 +61,9 @@ async function loadOpportunities(): Promise<PublicOpportunity[]> {
         `sources?select=id,last_check_error&id=in.(${encoded})`,
         { cache: "no-store" }),
     ]);
+    if (publishedItems.length === 0) {
+      return reviewedOpportunities.map((item) => withRuntimeState(item, "reviewed_seed"));
+    }
     const reviewedByKey = new Map<string, SourceItemState>();
     for (const row of publishedItems) {
       const key = `${row.source_id}\n${row.external_id}`;
