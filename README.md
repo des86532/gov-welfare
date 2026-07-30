@@ -16,7 +16,7 @@
 - 臺中 10 筆急難、災害與食物銀行項目已逐項核對社會局現行頁面，全部建立人工驗證 Rules；專業訪查型方案只顯示可申請門檻。
 - Dry-run／persistent ingestion CLI、GitHub Actions Scheduled source checks。
 - Supabase PostgreSQL migration：Sources、Snapshots、Source items、Programs、Versions、Evidence、Reviews、Relationships 與 RLS。
-- Basic Auth 保護的 `/admin` Review dashboard：Source diff、Source item classification、Evidence gate、Publish、Reject、Rollback 與 Audit trail。
+- Basic Auth 保護的 `/admin`：資料方法、完整 Source registry、Source diff、Source item classification、Evidence gate、Publish、Reject、Rollback 與 Audit trail。
 - 公開 Profile 僅存在 Browser memory；沒有帳號、MyData 或 `POST /api/match`。
 
 ## 本機執行
@@ -73,7 +73,7 @@ Schedule 會依每個 Source 的 `checkEveryHours` 判斷是否到期；手動�
 2. 執行 `supabase db push`，依序套用 `supabase/migrations/`。
 3. 將管理員的 `app_metadata.role` 設為 `admin`。
 4. 複製 `.env.example` 為 `.env.local` 並填入 credentials。
-5. Production 必須設定 `ADMIN_PASSWORD`；未設定時 `/admin` 會回應 503。
+5. 所有環境都必須設定 `ADMIN_PASSWORD` 才能進入 `/admin`；未設定時會回應 503，錯誤密碼回應 401。
 
 `SUPABASE_SERVICE_ROLE_KEY` 只供 Server-side ingestion 與 Admin 使用，不得放進 Client component 或公開輸出。
 

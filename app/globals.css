@@ -316,6 +316,13 @@ code { padding: 2px 5px; background: #e6e0cf; font-family: ui-monospace, monospa
 .metric-grid span, .metric-grid small { color: var(--muted); }
 .metric-grid strong { margin: 12px 0; font-family: var(--font-serif), serif; font-size: 3.2rem; line-height: 1; }
 .admin-section { margin-top: 65px; }
+.admin-jump-nav { position: sticky; top: 0; z-index: 10; display: flex; gap: 1px; margin: -18px 0 42px; overflow-x: auto; border: 1px solid var(--ink); background: var(--ink); scrollbar-width: thin; }
+.admin-jump-nav a { flex: 1 0 auto; padding: 10px 16px; color: var(--ink); background: var(--paper-light); font-size: .78rem; font-weight: 600; text-align: center; }
+.admin-jump-nav a:hover, .admin-jump-nav a:focus-visible { color: white; background: var(--jade); }
+.admin-methodology { scroll-margin-top: 70px; }
+.admin-methodology .pipeline { margin-top: 24px; }
+.admin-methodology .about-grid { margin-top: 28px; }
+.admin-methodology .about-grid > section { min-height: 0; }
 .admin-section-title { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
 .admin-section-title > span { color: var(--muted); font-size: .82rem; }
 .table-wrap { overflow-x: auto; border: 1px solid var(--ink); }
@@ -474,6 +481,7 @@ td small { color: var(--muted); }
   .metric-grid > div { border-right: 1px solid var(--ink); }
   .review-list article { grid-template-columns: 1fr; }
   .source-review-grid, .version-facts, .item-diff > div { grid-template-columns: 1fr; }
+  .admin-jump-nav { margin-top: -12px; }
   .review-form { grid-template-columns: 1fr; }
   .review-actions { align-items: stretch; flex-direction: column; }
   .evidence-ledger > div { grid-template-columns: 1fr; }

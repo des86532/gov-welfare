@@ -28,6 +28,8 @@ test("Admin Basic Auth 驗證完整密碼且忽略 username", () => {
   assert.equal(isAdminAuthorization(`Basic ${btoa("admin:correct horse")}`, "correct horse"), true);
   assert.equal(isAdminAuthorization(`Basic ${btoa("other:wrong")}`, "correct horse"), false);
   assert.equal(isAdminAuthorization("Bearer token", "correct horse"), false);
+  assert.equal(isAdminAuthorization(null, "correct horse"), false);
+  assert.equal(isAdminAuthorization(`Basic ${btoa("admin:correct horse")}`, undefined), false);
 });
 
 test("Source diff 分開列出新增、移除、變更與未變更項目", () => {

@@ -1,4 +1,5 @@
 import { programs } from "@/data/programs";
+import { DataMethodContent } from "@/components/data-method-content";
 import { newTaipeiSourceClassifications } from "@/data/new-taipei-source-items";
 import { sources } from "@/data/sources";
 import { taipeiSourceClassifications } from "@/data/taipei-source-items";
@@ -94,18 +95,24 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   return (
     <div className="page-shell admin-page">
       <header className="page-title catalog-title"><div><p className="eyebrow">Admin · Evidence control room</p><h1>Source 與 Review dashboard</h1><p>Ingestion 只產生 immutable Snapshot 與 Draft；只有通過 Evidence gate 的 Version 才能 Publish。</p></div><span className={`environment-badge ${database ? "connected" : ""}`}>{database ? "Supabase live" : "Seed data mode"}</span></header>
+      <nav className="admin-jump-nav" aria-label="Admin sections"><a href="#overview">總覽</a><a href="#methodology">資料方法</a><a href="#review">Review queue</a><a href="#sources">資料來源</a><a href="#audit">Audit trail</a></nav>
       {feedback.notice ? <div className="admin-feedback success" role="status"><strong>完成</strong><span>{feedback.notice}</span></div> : null}
       {feedback.error ? <div className="admin-feedback error" role="alert"><strong>未執行</strong><span>{feedback.error}</span></div> : null}
       {!database ? <div className="admin-notice"><strong>目前無法讀取 Supabase</strong><span>公開網站仍使用 reviewed Seed fallback，Questionnaire 可繼續操作。</span></div> : null}
 
-      <section className="metric-grid">
+      <section className="metric-grid" id="overview">
         <div><span>Snapshots</span><strong>{database?.snapshots.length ?? 0}</strong><small>Immutable responses</small></div>
         <div><span>Review queue</span><strong>{(database?.pendingItems.length ?? 0) + (database?.pendingVersions.length ?? 0)}</strong><small>{pendingOpportunityItems.length} Activities · {database?.pendingVersions.length ?? 0} Program versions</small></div>
         <div><span>Published</span><strong>{database?.published.length ?? programs.length}</strong><small>{database?.published.filter((version) => version.coverage === "matchable").length ?? matchable} Matchable</small></div>
         <div><span>地方已分類</span><strong>197/197</strong><small>{localMatchable} matchable · {localExcluded} excluded</small></div>
       </section>
 
-      <section className="admin-section">
+      <section className="admin-section admin-methodology" id="methodology">
+        <div className="admin-section-title"><div><p className="eyebrow">Data governance</p><h2>資料方法</h2></div><span>與 Public 透明度頁面共用同一份內容</span></div>
+        <DataMethodContent />
+      </section>
+
+      <section className="admin-section" id="review">
         <div className="admin-section-title"><div><p className="eyebrow">Program review</p><h2>等待決策的 Version</h2></div><span>Publish 前再次驗證最新 Snapshot 與每條 Rule evidence</span></div>
         {database?.pendingVersions.length ? <div className="decision-stack">{database.pendingVersions.map((version) => (
           <article className="decision-card" key={version.id}>
@@ -156,10 +163,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         })}</div>
       </section>
 
-      <section className="admin-section"><div className="admin-section-title"><div><p className="eyebrow">Source registry</p><h2>各來源獨立檢查頻率</h2></div><code>npm run sources:persist</code></div><div className="table-wrap"><table><thead><tr><th>Source</th><th>Status</th><th>Adapter</th><th>Automation</th><th>頻率</th><th>最近檢查</th></tr></thead><tbody>{sources.map((source) => {
+      <section className="admin-section" id="sources"><div className="admin-section-title"><div><p className="eyebrow">Source registry</p><h2>網站使用的資料來源</h2></div><span>{sources.length} registered Sources · <code>npm run sources:persist</code></span></div><div className="table-wrap"><table><thead><tr><th>Source</th><th>Scope</th><th>Status</th><th>Adapter</th><th>Automation</th><th>頻率</th><th>最近檢查</th></tr></thead><tbody>{sources.map((source) => {
         const live = database?.sources.get(source.id);
         const state = live?.last_check_error ? "blocked" : source.status;
-        return <tr key={source.id}><td><a href={source.publicUrl ?? source.url} target="_blank" rel="noreferrer"><strong>{source.name} ↗</strong></a><small>{source.authority}{live?.last_check_error?.message ? ` · ${live.last_check_error.message}` : source.note ? ` · ${source.note}` : ""}</small></td><td><span className={`source-state source-${state}`}>{state}</span></td><td><code>{source.adapterKey}</code></td><td>{source.automation}</td><td>{source.checkEveryHours ? `${source.checkEveryHours}h` : "Manual"}</td><td>{dateTime(live?.last_checked_at ?? source.lastVerifiedAt)}</td></tr>;
+        return <tr key={source.id}><td><a href={source.publicUrl ?? source.url} target="_blank" rel="noreferrer"><strong>{source.name} ↗</strong></a><small>{source.authority}{live?.last_check_error?.message ? ` · ${live.last_check_error.message}` : source.note ? ` · ${source.note}` : ""}</small></td><td><strong>{source.jurisdiction}</strong><small>{source.format.toUpperCase()} · {source.roles.join(" / ")}</small></td><td><span className={`source-state source-${state}`}>{state}</span></td><td><code>{source.adapterKey}</code></td><td>{source.automation}</td><td>{source.checkEveryHours ? `${source.checkEveryHours}h` : "Manual"}</td><td>{dateTime(live?.last_checked_at ?? source.lastVerifiedAt)}</td></tr>;
       })}</tbody></table></div></section>
 
       <section className="admin-section">
@@ -167,7 +174,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <div className="rollback-list">{database?.rollbackCandidates.map((version) => <details key={version.id}><summary><span><strong>{version.title}</strong><small>v{version.version} · Published {dateTime(version.published_at)}</small></span><code>{version.coverage}</code></summary><VersionEvidence version={version} /><VersionForm version={version} mode="rollback" /></details>)}</div>
       </section>
 
-      <section className="admin-section"><div className="admin-section-title"><div><p className="eyebrow">Audit trail</p><h2>最近 30 筆 Review</h2></div><span>Reviewer 與 Rationale 永久保留</span></div><div className="table-wrap"><table><thead><tr><th>時間</th><th>Action</th><th>Reviewer</th><th>Rationale</th></tr></thead><tbody>{database?.reviews.map((review) => <tr key={review.id}><td>{dateTime(review.created_at)}</td><td><span className="review-state state-descriptive_only">{review.action}</span></td><td>{review.reviewer_name ?? "Supabase user"}</td><td className="wrap-cell">{review.rationale}</td></tr>)}</tbody></table></div></section>
+      <section className="admin-section" id="audit"><div className="admin-section-title"><div><p className="eyebrow">Audit trail</p><h2>最近 30 筆 Review</h2></div><span>Reviewer 與 Rationale 永久保留</span></div><div className="table-wrap"><table><thead><tr><th>時間</th><th>Action</th><th>Reviewer</th><th>Rationale</th></tr></thead><tbody>{database?.reviews.map((review) => <tr key={review.id}><td>{dateTime(review.created_at)}</td><td><span className="review-state state-descriptive_only">{review.action}</span></td><td>{review.reviewer_name ?? "Supabase user"}</td><td className="wrap-cell">{review.rationale}</td></tr>)}</tbody></table></div></section>
     </div>
   );
 }
