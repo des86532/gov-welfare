@@ -4,7 +4,7 @@
 
 ## 已實作
 
-- Next.js App Router 公開網站：首頁、Category catalog、Dynamic questionnaire、Results、Program detail、資料方法頁。
+- Next.js App Router 公開網站：首頁、Category catalog、Dynamic questionnaire、Results 與 Program detail。
 - Production 方案由 Supabase Published versions 與受控 Seed fallback 合併；即時數量與 Review 狀態以 `/api/programs` 及 `npm run data:audit` 為準，避免文件硬編碼後產生 drift。
 - 桃園 Open Data 26 筆 Source items 的完整 `matchable`／`descriptive_only`／`excluded` 分類。
 - 桃園共 5 個 `matchable`、17 個 `descriptive_only` 福利進入公開 Catalog；自然語言資格尚未結構化前不參與 Matching。
@@ -16,7 +16,7 @@
 - 臺中 10 筆急難、災害與食物銀行項目已逐項核對社會局現行頁面，全部建立人工驗證 Rules；專業訪查型方案只顯示可申請門檻。
 - Dry-run／persistent ingestion CLI、GitHub Actions Scheduled source checks。
 - Supabase PostgreSQL migration：Sources、Snapshots、Source items、Programs、Versions、Evidence、Reviews、Relationships 與 RLS。
-- Basic Auth 保護的 `/admin`：資料方法、完整 Source registry、Source diff、Source item classification、Evidence gate、Publish、Reject、Rollback 與 Audit trail。
+- Basic Auth 保護的 `/admin`：待處理工作優先，資料方法、完整 Source registry、Source diff、Rollback 與 Audit trail 收進進階管理。
 - 公開 Profile 僅存在 Browser memory；沒有帳號、MyData 或 `POST /api/match`。
 
 ## 本機執行

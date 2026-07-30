@@ -1,14 +1,10 @@
 import { programs } from "@/data/programs";
 import { DataMethodContent } from "@/components/data-method-content";
-import { newTaipeiSourceClassifications } from "@/data/new-taipei-source-items";
 import { sources } from "@/data/sources";
-import { taipeiSourceClassifications } from "@/data/taipei-source-items";
-import { taichungSourceClassifications } from "@/data/taichung-source-items";
-import { taoyuanSourceClassifications } from "@/data/taoyuan-source-items";
 import { loadAdminReviewData, type ProgramVersionRow, type SourceItemRow } from "@/lib/admin-review";
 import { classifySourceItemAction, publishVersionAction, rejectVersionAction, rollbackVersionAction } from "@/app/admin/actions";
 
-export const metadata = { title: "Review dashboard" };
+export const metadata = { title: "資料管理" };
 export const dynamic = "force-dynamic";
 
 const sourceById = new Map(sources.map((source) => [source.id, source]));
@@ -83,38 +79,30 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   } catch (error) {
     console.error("Admin Supabase review data failed", error);
   }
-  const matchable = programs.filter((program) => program.coverage === "matchable").length;
-  const localClassifications = [...taoyuanSourceClassifications, ...newTaipeiSourceClassifications, ...taipeiSourceClassifications, ...taichungSourceClassifications];
-  const localExcluded = localClassifications.filter((item) => item.classification === "excluded").length;
-  const localMatchable = localClassifications.filter((item) => item.classification === "matchable").length;
   const pendingOpportunityItems = database?.pendingItems.filter(isOpportunityItem) ?? [];
   const pendingProgramItems = database?.pendingItems.filter((item) => !isOpportunityItem(item)) ?? [];
-  const reviewedOpportunityCount = new Set((database?.items ?? [])
-    .filter((item) => isOpportunityItem(item) && item.review_status === "published" && item.classification === "descriptive_only")
-    .map((item) => `${item.source_id}\n${item.external_id}`)).size;
+  const pendingVersionCount = database?.pendingVersions.length ?? 0;
+  const pendingCount = pendingOpportunityItems.length + pendingProgramItems.length + pendingVersionCount;
+  const blockedSourceCount = sources.filter((source) => database?.sources.get(source.id)?.last_check_error || source.status === "blocked").length;
   return (
     <div className="page-shell admin-page">
-      <header className="page-title catalog-title"><div><p className="eyebrow">Admin · Evidence control room</p><h1>Source 與 Review dashboard</h1><p>Ingestion 只產生 immutable Snapshot 與 Draft；只有通過 Evidence gate 的 Version 才能 Publish。</p></div><span className={`environment-badge ${database ? "connected" : ""}`}>{database ? "Supabase live" : "Seed data mode"}</span></header>
-      <nav className="admin-jump-nav" aria-label="Admin sections"><a href="#overview">總覽</a><a href="#methodology">資料方法</a><a href="#review">Review queue</a><a href="#sources">資料來源</a><a href="#audit">Audit trail</a></nav>
+      <header className="page-title catalog-title"><div><p className="eyebrow">Admin</p><h1>資料管理</h1><p>先處理等待確認的資料；Sources、資料方法與系統紀錄收在頁面下方的進階管理。</p></div><span className={`environment-badge ${database ? "connected" : ""}`}>{database ? "Supabase live" : "Seed data mode"}</span></header>
       {feedback.notice ? <div className="admin-feedback success" role="status"><strong>完成</strong><span>{feedback.notice}</span></div> : null}
       {feedback.error ? <div className="admin-feedback error" role="alert"><strong>未執行</strong><span>{feedback.error}</span></div> : null}
       {!database ? <div className="admin-notice"><strong>目前無法讀取 Supabase</strong><span>公開網站仍使用 reviewed Seed fallback，Questionnaire 可繼續操作。</span></div> : null}
 
       <section className="metric-grid" id="overview">
-        <div><span>Snapshots</span><strong>{database?.snapshots.length ?? 0}</strong><small>Immutable responses</small></div>
-        <div><span>Review queue</span><strong>{(database?.pendingItems.length ?? 0) + (database?.pendingVersions.length ?? 0)}</strong><small>{pendingOpportunityItems.length} Activities · {database?.pendingVersions.length ?? 0} Program versions</small></div>
-        <div><span>Published</span><strong>{database?.published.length ?? programs.length}</strong><small>{database?.published.filter((version) => version.coverage === "matchable").length ?? matchable} Matchable</small></div>
-        <div><span>地方已分類</span><strong>197/197</strong><small>{localMatchable} matchable · {localExcluded} excluded</small></div>
-      </section>
-
-      <section className="admin-section admin-methodology" id="methodology">
-        <div className="admin-section-title"><div><p className="eyebrow">Data governance</p><h2>資料方法</h2></div><span>與 Public 透明度頁面共用同一份內容</span></div>
-        <DataMethodContent />
+        <div><span>待處理</span><strong>{pendingCount}</strong><small>需要人工確認</small></div>
+        <div><span>已發布方案</span><strong>{database?.published.length ?? programs.length}</strong><small>使用者目前看得到</small></div>
+        <div><span>資料來源</span><strong>{sources.length}</strong><small>已登錄 Sources</small></div>
+        <div><span>來源異常</span><strong>{blockedSourceCount}</strong><small>需要檢查或已有替代 Source</small></div>
       </section>
 
       <section className="admin-section" id="review">
-        <div className="admin-section-title"><div><p className="eyebrow">Program review</p><h2>等待決策的 Version</h2></div><span>Publish 前再次驗證最新 Snapshot 與每條 Rule evidence</span></div>
-        {database?.pendingVersions.length ? <div className="decision-stack">{database.pendingVersions.map((version) => (
+        <div className="admin-section-title"><div><p className="eyebrow">Today</p><h2>待處理工作</h2></div><span>只有人工確認後才會出現在公開網站</span></div>
+        {pendingCount === 0 ? <div className="empty-review admin-all-clear"><strong>目前沒有待處理資料</strong><p>新的 Source 內容進來後，會依類型出現在這裡。</p></div> : null}
+
+        {pendingVersionCount ? <div className="admin-task-block"><div className="admin-task-heading"><h3>福利方案待審核</h3><p>確認資格 Rules 與 Evidence 後，決定 Publish 或退回。</p></div><div className="decision-stack">{database?.pendingVersions.map((version) => (
           <article className="decision-card" key={version.id}>
             <header><div><span className="review-state state-descriptive_only">{version.status}</span><small>{version.programs.stable_key} · v{version.version}</small></div><strong>{version.coverage}</strong></header>
             <h3>{version.title}</h3><p>{version.summary}</p>
@@ -122,37 +110,35 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             <VersionEvidence version={version} />
             <VersionForm version={version} mode="review" />
           </article>
-        ))}</div> : <div className="empty-review"><strong>Program queue 已清空</strong><p>新的 Source 內容不會直接出現在這裡；必須先由 Curator 建立完整 Program Version 與 Field evidence。</p></div>}
-      </section>
+        ))}</div></div> : null}
 
-      <section className="admin-section">
-        <div className="admin-section-title"><div><p className="eyebrow">Opportunity review</p><h2>活動與體驗營 Drafts</h2></div><span>{reviewedOpportunityCount} reviewed Opportunities</span></div>
-        <div className="admin-notice"><strong>Publish gate</strong><span>活動只允許 <code>descriptive_only</code> 或 <code>excluded</code>。Reviewer 必須核對官方日期、對象、費用、地點與政府關聯；不得轉成自動資格 Rule。</span></div>
-        {pendingOpportunityItems.length ? <div className="source-review-grid">{pendingOpportunityItems.map((item) => (
+        {pendingOpportunityItems.length ? <div className="admin-task-block"><div className="admin-task-heading"><h3>活動待確認</h3><p>Crawler 找到的活動草稿；確認日期、對象、費用與官方關聯後，決定發布或排除。</p></div><div className="source-review-grid">{pendingOpportunityItems.map((item) => (
           <article className="source-review-card opportunity-review-card" key={item.id}>
             <header><code>{item.source_id}</code><span>{item.external_id}</span></header>
             <h3>{item.title}</h3>
             <details open><summary>查看 Canonical draft</summary><pre>{jsonPreview(item.canonical_draft)}</pre></details>
             <SourceItemReviewForm item={item} opportunity />
           </article>
-        ))}</div> : <div className="empty-review"><strong>Activity queue 已清空</strong><p>最新 Snapshot 中沒有尚待分類的 Opportunity Draft。</p></div>}
-      </section>
+        ))}</div></div> : null}
 
-      <section className="admin-section">
-        <div className="admin-section-title"><div><p className="eyebrow">Source item review</p><h2>其他最新 Snapshot 待分類項目</h2></div><span>Classification 不會直接建立或 Publish Program Version</span></div>
-        {pendingProgramItems.length ? <div className="source-review-grid">{pendingProgramItems.map((item) => (
+        {pendingProgramItems.length ? <div className="admin-task-block"><div className="admin-task-heading"><h3>其他資料待分類</h3><p>判斷這筆 Source item 應進入方案 Catalog、只保留說明，或排除。</p></div><div className="source-review-grid">{pendingProgramItems.map((item) => (
           <article className="source-review-card" key={item.id}>
             <header><code>{item.source_id}</code><span>{item.external_id}</span></header>
             <h3>{item.title}</h3>
             <details><summary>查看 Canonical draft</summary><pre>{jsonPreview(item.canonical_draft)}</pre></details>
             <SourceItemReviewForm item={item} />
           </article>
-        ))}</div> : <div className="empty-review"><strong>Source item queue 已清空</strong><p>所有最新 Snapshot items 都已完成分類。</p></div>}
+        ))}</div></div> : null}
       </section>
 
-      <section className="admin-section">
-        <div className="admin-section-title"><div><p className="eyebrow">Source diff</p><h2>最近兩個有效 Snapshot</h2></div><span>只比較 Extracted Draft，不載入 Raw body</span></div>
-        <div className="diff-stack">{database?.sourceDiffs.map((diff) => {
+      <section className="admin-section admin-advanced">
+        <div className="admin-section-title"><div><p className="eyebrow">Advanced</p><h2>進階管理</h2></div><span>平常不需要操作</span></div>
+        <div className="admin-tool-stack">
+          <details id="sources">
+            <summary><span><strong>資料來源與更新狀態</strong><small>查看全部 {sources.length} 個 Sources 與最近內容變更</small></span><b>{blockedSourceCount} 異常</b></summary>
+            <div className="admin-tool-content">
+              <h3>最近兩個有效 Snapshot 的差異</h3>
+              <div className="diff-stack">{database?.sourceDiffs.map((diff) => {
           const source = sourceById.get(diff.sourceId);
           const changeCount = diff.added.length + diff.removed.length + diff.changed.length;
           return <details className="diff-card" key={diff.sourceId}>
@@ -160,21 +146,34 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             <div className="diff-meta"><code>current {diff.current.id}</code>{diff.previous ? <code>previous {diff.previous.id}</code> : <span>尚無前一版 Snapshot</span>}<span>{diff.unchanged} unchanged items</span></div>
             {[...diff.added, ...diff.changed, ...diff.removed].map((change) => <details className="item-diff" key={`${change.externalId}-${change.fields.join("-")}`}><summary><span>{change.title}</span><code>{change.fields.join(", ")}</code></summary><div>{change.before ? <section><strong>Before</strong><pre>{jsonPreview(change.before)}</pre></section> : null}{change.after ? <section><strong>After</strong><pre>{jsonPreview(change.after)}</pre></section> : null}</div></details>)}
           </details>;
-        })}</div>
-      </section>
-
-      <section className="admin-section" id="sources"><div className="admin-section-title"><div><p className="eyebrow">Source registry</p><h2>網站使用的資料來源</h2></div><span>{sources.length} registered Sources · <code>npm run sources:persist</code></span></div><div className="table-wrap"><table><thead><tr><th>Source</th><th>Scope</th><th>Status</th><th>Adapter</th><th>Automation</th><th>頻率</th><th>最近檢查</th></tr></thead><tbody>{sources.map((source) => {
+              })}</div>
+              <h3>網站使用的資料來源</h3>
+              <div className="table-wrap"><table><thead><tr><th>Source</th><th>地區與用途</th><th>Status</th><th>檢查</th></tr></thead><tbody>{sources.map((source) => {
         const live = database?.sources.get(source.id);
         const state = live?.last_check_error ? "blocked" : source.status;
-        return <tr key={source.id}><td><a href={source.publicUrl ?? source.url} target="_blank" rel="noreferrer"><strong>{source.name} ↗</strong></a><small>{source.authority}{live?.last_check_error?.message ? ` · ${live.last_check_error.message}` : source.note ? ` · ${source.note}` : ""}</small></td><td><strong>{source.jurisdiction}</strong><small>{source.format.toUpperCase()} · {source.roles.join(" / ")}</small></td><td><span className={`source-state source-${state}`}>{state}</span></td><td><code>{source.adapterKey}</code></td><td>{source.automation}</td><td>{source.checkEveryHours ? `${source.checkEveryHours}h` : "Manual"}</td><td>{dateTime(live?.last_checked_at ?? source.lastVerifiedAt)}</td></tr>;
-      })}</tbody></table></div></section>
+        return <tr key={source.id}><td><a href={source.publicUrl ?? source.url} target="_blank" rel="noreferrer"><strong>{source.name} ↗</strong></a><small>{source.authority}{live?.last_check_error?.message ? ` · ${live.last_check_error.message}` : source.note ? ` · ${source.note}` : ""}</small></td><td><strong>{source.jurisdiction}</strong><small>{source.format.toUpperCase()} · {source.roles.join(" / ")}</small></td><td><span className={`source-state source-${state}`}>{state}</span></td><td>{source.checkEveryHours ? `每 ${source.checkEveryHours} 小時` : "人工"}<small>{dateTime(live?.last_checked_at ?? source.lastVerifiedAt)}</small></td></tr>;
+              })}</tbody></table></div>
+            </div>
+          </details>
 
-      <section className="admin-section">
-        <div className="admin-section-title"><div><p className="eyebrow">Rollback</p><h2>上一個 Published Version</h2></div><span>舊 Evidence 不是最新 Snapshot 時，Server 會拒絕</span></div>
-        <div className="rollback-list">{database?.rollbackCandidates.map((version) => <details key={version.id}><summary><span><strong>{version.title}</strong><small>v{version.version} · Published {dateTime(version.published_at)}</small></span><code>{version.coverage}</code></summary><VersionEvidence version={version} /><VersionForm version={version} mode="rollback" /></details>)}</div>
+          <details id="methodology">
+            <summary><span><strong>資料處理原則</strong><small>了解 Source 如何經過 Review 後發布</small></span></summary>
+            <div className="admin-tool-content admin-methodology"><DataMethodContent /></div>
+          </details>
+
+          <details id="audit">
+            <summary><span><strong>版本復原與操作紀錄</strong><small>誤改時復原，並追查誰在何時做了什麼決定</small></span></summary>
+            <div className="admin-tool-content">
+              <h3>可復原的上一版</h3>
+              <p className="admin-tool-description">只有需要撤回錯誤發布時才使用 Rollback；Server 會再次檢查 Evidence。</p>
+              <div className="rollback-list">{database?.rollbackCandidates.map((version) => <details key={version.id}><summary><span><strong>{version.title}</strong><small>v{version.version} · Published {dateTime(version.published_at)}</small></span><code>{version.coverage}</code></summary><VersionEvidence version={version} /><VersionForm version={version} mode="rollback" /></details>)}</div>
+              <h3>最近 30 筆操作紀錄（Audit trail）</h3>
+              <p className="admin-tool-description">永久記錄 Publish、Reject 與 Rollback 的時間、操作者及理由，方便追查錯誤；不是待辦清單。</p>
+              <div className="table-wrap"><table><thead><tr><th>時間</th><th>Action</th><th>Reviewer</th><th>Rationale</th></tr></thead><tbody>{database?.reviews.map((review) => <tr key={review.id}><td>{dateTime(review.created_at)}</td><td><span className="review-state state-descriptive_only">{review.action}</span></td><td>{review.reviewer_name ?? "Supabase user"}</td><td className="wrap-cell">{review.rationale}</td></tr>)}</tbody></table></div>
+            </div>
+          </details>
+        </div>
       </section>
-
-      <section className="admin-section" id="audit"><div className="admin-section-title"><div><p className="eyebrow">Audit trail</p><h2>最近 30 筆 Review</h2></div><span>Reviewer 與 Rationale 永久保留</span></div><div className="table-wrap"><table><thead><tr><th>時間</th><th>Action</th><th>Reviewer</th><th>Rationale</th></tr></thead><tbody>{database?.reviews.map((review) => <tr key={review.id}><td>{dateTime(review.created_at)}</td><td><span className="review-state state-descriptive_only">{review.action}</span></td><td>{review.reviewer_name ?? "Supabase user"}</td><td className="wrap-cell">{review.rationale}</td></tr>)}</tbody></table></div></section>
     </div>
   );
 }
