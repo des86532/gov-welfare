@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { reviewedOpportunities, type CuratedOpportunity } from "@/data/opportunities";
 import { supabaseConfig, supabaseRest } from "@/lib/supabase-rest";
 
@@ -85,7 +86,8 @@ async function loadOpportunities(): Promise<PublicOpportunity[]> {
   }
 }
 
-export const getOpportunities = cache(loadOpportunities);
+const getOpportunitiesCached = unstable_cache(loadOpportunities, ["public-opportunities-v1"], { revalidate: 300, tags: ["opportunities"] });
+export const getOpportunities = cache(getOpportunitiesCached);
 
 export async function getOpportunityBySlug(slug: string) {
   return (await getOpportunities()).find((item) => item.slug === slug);

@@ -9,6 +9,7 @@ import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
 import { taichungSourceClassifications } from "../data/taichung-source-items";
 import { buildTaoyuanReviewedPrograms, taoyuanProgramCurations } from "../data/taoyuan-programs";
 import type { AtomicRule, RuleNode } from "../lib/domain";
+import { parseFinderSession } from "../lib/finder-session";
 import { appliesToRegion, getProgramAvailability, paginatePrograms, PROGRAMS_PER_PAGE, sortProgramsForCatalog } from "../lib/program-filters";
 import { isSourceDue } from "../lib/ingestion";
 
@@ -17,6 +18,16 @@ function atomicRules(rule: RuleNode): AtomicRule[] {
   if ("any" in rule) return rule.any.flatMap(atomicRules);
   return [rule];
 }
+
+test("資格初篩只恢復同分頁內的有效 Session state", () => {
+  assert.deepEqual(parseFinderSession('{"step":3,"facts":{"age":25,"employed":true},"showAllFollowups":true}'), {
+    step: 3,
+    facts: { age: 25, employed: true },
+    showAllFollowups: true,
+  });
+  assert.equal(parseFinderSession('{"step":9,"facts":{}}'), null);
+  assert.equal(parseFinderSession("not-json"), null);
+});
 
 test("桃園 26 筆 Source items 全部有分類與理由", () => {
   assert.equal(taoyuanSourceClassifications.length, 26);

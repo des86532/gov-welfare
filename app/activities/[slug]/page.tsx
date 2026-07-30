@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BackLink } from "@/components/back-link";
 import { opportunityStatusLabels } from "@/components/opportunity-card";
 import { sourceById } from "@/data/sources";
-import { getOpportunityBySlug } from "@/lib/opportunity-store";
+import { getOpportunities, getOpportunityBySlug } from "@/lib/opportunity-store";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
+
+export async function generateStaticParams() {
+  return (await getOpportunities()).map((item) => ({ slug: item.slug }));
+}
 
 const selectionLabels = {
   first_come_review: "依報名順序並審查資格",
@@ -34,7 +38,7 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
 
   return (
     <div className="page-shell detail-page activity-detail-page">
-      <Link className="back-link" href="/activities">← 回活動清單</Link>
+      <BackLink fallback="/activities" label="← 回上一頁" />
       <header className="detail-hero activity-detail-hero">
         <div>
           <p className="kicker"><span>{item.category}</span><span>{opportunityStatusLabels[item.status]}</span><span>{item.regions.join("・") || "地點待確認"}</span></p>

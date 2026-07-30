@@ -241,6 +241,7 @@ h1, h2, h3 { text-wrap: balance; }
 .home-opportunity-grid .opportunity-card { background: #fbf8f0; }
 
 .back-link { display: inline-block; margin-bottom: 38px; color: var(--jade-dark); font-weight: 600; }
+.back-button { padding: 0; border: 0; background: transparent; font: inherit; cursor: pointer; }
 .detail-hero { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, .65fr); gap: 55px; align-items: end; padding-bottom: 55px; border-bottom: 2px solid var(--ink); }
 .detail-hero h1 { max-width: 920px; margin: 0; font-family: var(--font-serif), serif; font-size: clamp(2.6rem, 5.5vw, 6rem); line-height: 1.05; letter-spacing: -.045em; }
 .detail-hero > div > p { max-width: 760px; color: var(--muted); font-size: 1.07rem; }

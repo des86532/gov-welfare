@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { factDefinitions, factDefinitionByKey } from "@/data/facts";
 import type { FactDefinition, FactValue, ProfileFacts, Program } from "@/lib/domain";
+import { parseFinderSession } from "@/lib/finder-session";
 import { MATCH_STATUS_LABELS, collectRuleFields, matchProgram, type MatchStatus } from "@/lib/rules";
 
 const coreDefinitions = factDefinitions.filter((definition) => definition.core);
 const INITIAL_FOLLOWUP_COUNT = 8;
+const SESSION_KEY = "welfare-finder-state";
 const ranking: Record<MatchStatus, number> = {
   eligible: 0,
   review_required: 1,
@@ -94,6 +96,24 @@ export function WelfareFinder({ programs }: { programs: Program[] }) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [facts, setFacts] = useState<ProfileFacts>({});
   const [showAllFollowups, setShowAllFollowups] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
+
+  useEffect(() => {
+    const saved = parseFinderSession(sessionStorage.getItem(SESSION_KEY));
+    const restore = window.setTimeout(() => {
+      if (saved) {
+        setStep(saved.step);
+        setFacts(saved.facts);
+        setShowAllFollowups(saved.showAllFollowups);
+      }
+      setSessionReady(true);
+    }, 0);
+    return () => window.clearTimeout(restore);
+  }, []);
+
+  useEffect(() => {
+    if (sessionReady) sessionStorage.setItem(SESSION_KEY, JSON.stringify({ facts, showAllFollowups, step }));
+  }, [facts, sessionReady, showAllFollowups, step]);
 
   const coreCandidatePrograms = programs.filter((program) => {
     const status = matchProgram(program, facts).status;
@@ -148,7 +168,7 @@ export function WelfareFinder({ programs }: { programs: Program[] }) {
             <span className="section-number">01</span>
             <div><p className="eyebrow">先縮小範圍</p><h2>告訴我們基本條件</h2><p>每一題都可以略過；資訊不足會顯示「可能符合」，不會擅自判定不符合。</p></div>
           </div>
-          <div className="privacy-note"><strong>不留資料</strong><span>回答只存在目前 Browser memory，不送到 Server、不寫入 Database。</span></div>
+          <div className="privacy-note"><strong>只留在此分頁</strong><span>回答存在同一分頁的 sessionStorage，關閉分頁後即消失；不送到 Server、不寫入 Database。</span></div>
           <div className="question-grid">
             {coreDefinitions.map((definition) => <Question key={definition.key} definition={definition} value={facts[definition.key]} onChange={(value) => updateFact(definition.key, value)} />)}
           </div>

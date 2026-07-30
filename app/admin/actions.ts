@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { isAdminAuthorization } from "@/lib/admin-auth";
 import { requiredEvidencePaths, type ProgramVersionRow } from "@/lib/admin-review";
 import { supabaseConfig, supabaseRest, type SupabaseConfig } from "@/lib/supabase-rest";
@@ -93,6 +93,7 @@ async function versionAction(formData: FormData, action: "publish" | "rollback")
     redirect(`/admin?error=${encodeURIComponent(message(error))}`);
   }
   revalidatePath("/admin");
+  updateTag("programs");
   revalidatePath("/", "layout");
   redirect(`/admin?notice=${encodeURIComponent(action === "rollback" ? "Rollback 已發布" : "Version 已發布")}`);
 }
@@ -142,6 +143,7 @@ export async function classifySourceItemAction(formData: FormData) {
     redirect(`/admin?error=${encodeURIComponent(message(error))}`);
   }
   revalidatePath("/admin");
+  updateTag("opportunities");
   revalidatePath("/activities");
   revalidatePath("/api/opportunities");
   redirect(`/admin?notice=${encodeURIComponent("Source item 已分類")}`);

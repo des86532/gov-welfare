@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { programs as seedPrograms } from "@/data/programs";
 import { CATEGORY_KEYS, type Program } from "@/lib/domain";
 import { supabaseConfig, supabaseRest } from "@/lib/supabase-rest";
@@ -78,7 +79,8 @@ async function loadPrograms(): Promise<Program[]> {
   }
 }
 
-export const getPrograms = cache(loadPrograms);
+const getProgramsCached = unstable_cache(loadPrograms, ["public-programs-v1"], { revalidate: 300, tags: ["programs"] });
+export const getPrograms = cache(getProgramsCached);
 
 export async function getProgramBySlug(slug: string) {
   return (await getPrograms()).find((program) => program.slug === slug);

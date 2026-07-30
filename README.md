@@ -17,7 +17,7 @@
 - Dry-run／persistent ingestion CLI、GitHub Actions Scheduled source checks。
 - Supabase PostgreSQL migration：Sources、Snapshots、Source items、Programs、Versions、Evidence、Reviews、Relationships 與 RLS。
 - Basic Auth 保護的 `/admin`：待處理工作優先，資料方法、完整 Source registry、Source diff、Rollback 與 Audit trail 收進進階管理。
-- 公開 Profile 僅存在 Browser memory；沒有帳號、MyData 或 `POST /api/match`。
+- 公開 Profile 僅存在同一分頁的 `sessionStorage`，關閉分頁後即消失；沒有帳號、MyData 或 `POST /api/match`。
 
 ## 本機執行
 

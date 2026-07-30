@@ -7,8 +7,6 @@ import { getPrograms } from "@/lib/program-store";
 import { todayInTaiwan } from "@/lib/rules";
 
 export const metadata = { title: "方案清單" };
-export const dynamic = "force-dynamic";
-
 type CatalogSearchParams = { availability?: string; benefit?: string; category?: string; coverage?: string; page?: string; q?: string; region?: string; sort?: string; view?: string };
 
 const coverageOptions: Array<{ value: CoverageLevel; label: string }> = [

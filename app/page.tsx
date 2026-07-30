@@ -5,8 +5,6 @@ import { CATEGORY_KEYS, CATEGORY_LABELS } from "@/lib/domain";
 import { getOpportunities } from "@/lib/opportunity-store";
 import { getPrograms } from "@/lib/program-store";
 
-export const dynamic = "force-dynamic";
-
 const featuredSlugs = ["cervical-cancer-screening", "industrial-talent-investment", "youth-overseas-dream-fund", "childcare-allowance-under-2"];
 export default async function HomePage() {
   const [programs, opportunities] = await Promise.all([getPrograms(), getOpportunities()]);

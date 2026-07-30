@@ -2,8 +2,6 @@ import { WelfareFinder } from "@/components/welfare-finder";
 import { getPrograms } from "@/lib/program-store";
 
 export const metadata = { title: "資格初篩" };
-export const dynamic = "force-dynamic";
-
 export default async function FindPage() {
   const programs = await getPrograms();
   return (

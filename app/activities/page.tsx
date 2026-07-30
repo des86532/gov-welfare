@@ -5,8 +5,6 @@ import { taiwanCityOptions } from "@/data/facts";
 import { getOpportunities, opportunityMatchesAudience, opportunityMatchesRegion, type OpportunityStatus } from "@/lib/opportunity-store";
 
 export const metadata = { title: "活動與體驗營" };
-export const dynamic = "force-dynamic";
-
 const statuses: Array<{ value: OpportunityStatus; label: string }> = [
   { value: "open", label: "報名中" },
   { value: "not_open", label: "尚未開放" },

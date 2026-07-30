@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BackLink } from "@/components/back-link";
 import { sourceById } from "@/data/sources";
 import { CATEGORY_LABELS, type RuleNode } from "@/lib/domain";
-import { getProgramBySlug } from "@/lib/program-store";
+import { getProgramBySlug, getPrograms } from "@/lib/program-store";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
+
+export async function generateStaticParams() {
+  return (await getPrograms()).map((program) => ({ slug: program.slug }));
+}
 
 const coverageLabels = {
   catalog_only: "Catalog only",
@@ -47,7 +51,7 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="page-shell detail-page">
-      <Link className="back-link" href="/programs">← 回方案清單</Link>
+      <BackLink fallback="/programs" label="← 回上一頁" />
       <header className="detail-hero">
         <div>
           <p className="kicker"><span>{program.jurisdiction}</span><span>{CATEGORY_LABELS[program.category]}</span></p>
