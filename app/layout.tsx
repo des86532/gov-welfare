@@ -9,12 +9,12 @@ const serif = Noto_Serif_TC({ subsets: ["latin"], weight: ["600", "700", "900"],
 
 export const metadata: Metadata = {
   title: { default: "福利指南｜台灣政府福利資格初篩", template: "%s｜福利指南" },
-  description: "用少量資料初步找出台灣中央、桃園、新北、臺北與臺中政府福利，查看資格依據並前往官方申請。",
+  description: "找出台灣中央與地方政府福利、活動及體驗營，查看人工 Review 的資格與官方 Evidence。",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="zh-Hant-TW" className={`${sans.variable} ${serif.variable}`}>
+    <html lang="zh-Hant-TW" className={`${sans.variable} ${serif.variable}`} data-scroll-behavior="smooth">
       <body>
         <a className="skip-link" href="#main">跳至主要內容</a>
         <div className="site-frame">
