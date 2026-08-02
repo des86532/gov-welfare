@@ -316,6 +316,7 @@ code { padding: 2px 5px; background: #e6e0cf; font-family: ui-monospace, monospa
 .metric-grid span, .metric-grid strong, .metric-grid small { display: block; }
 .metric-grid span, .metric-grid small { color: var(--muted); }
 .metric-grid strong { margin: 12px 0; font-family: var(--font-serif), serif; font-size: 3.2rem; line-height: 1; }
+.admin-page, .admin-section, .admin-tool-stack, .admin-tool-stack > details, .admin-tool-content { min-width: 0; }
 .admin-section { margin-top: 65px; }
 .admin-section-title { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
 .admin-section-title > span { color: var(--muted); font-size: .82rem; }
@@ -326,7 +327,7 @@ code { padding: 2px 5px; background: #e6e0cf; font-family: ui-monospace, monospa
 .admin-task-heading h3 { margin: 0; font-family: var(--font-serif), serif; font-size: 1.55rem; }
 .admin-task-heading p { margin: 6px 0 0; color: var(--muted); }
 .admin-advanced { margin-top: 80px; }
-.admin-tool-stack { display: grid; gap: 12px; }
+.admin-tool-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .admin-tool-stack > details { border: 1px solid var(--ink); background: var(--paper-light); }
 .admin-tool-stack > details > summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 22px; cursor: pointer; list-style: none; }
 .admin-tool-stack > details > summary::-webkit-details-marker { display: none; }
@@ -336,7 +337,7 @@ code { padding: 2px 5px; background: #e6e0cf; font-family: ui-monospace, monospa
 .admin-tool-stack > details > summary strong { font-family: var(--font-serif), serif; font-size: 1.2rem; }
 .admin-tool-stack > details > summary small, .admin-tool-stack > details > summary b { color: var(--muted); font-size: .78rem; }
 .admin-tool-stack > details > summary b { margin-left: auto; font-family: ui-monospace, monospace; font-weight: 500; }
-.admin-tool-content { padding: 28px 22px 30px; border-top: 1px solid var(--line); }
+.admin-tool-content { overflow: hidden; padding: 28px 22px 30px; border-top: 1px solid var(--line); }
 .admin-tool-content > h3 { margin: 34px 0 14px; font-family: var(--font-serif), serif; font-size: 1.4rem; }
 .admin-tool-content > h3:first-child { margin-top: 0; }
 .admin-tool-description { margin: -7px 0 18px; color: var(--muted); font-size: .86rem; }
