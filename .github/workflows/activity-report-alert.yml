@@ -1,0 +1,54 @@
+name: Activity report alerts
+
+on:
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: activity-report-alert
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create or resolve Admin reminder
+        run: |
+          response="$(curl --fail --silent --show-error \
+            "$SUPABASE_URL/rest/v1/activity_reports?select=id&status=eq.open" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY")"
+          count="$(node -e 'const rows=JSON.parse(process.argv[1]); if (!Array.isArray(rows)) process.exit(2); console.log(rows.length)' "$response")"
+          title="Activity reports need review"
+          issue="$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')"
+          admin_url="https://gov-welfare-iota.vercel.app/admin#review"
+
+          if [ "$count" -eq 0 ]; then
+            if [ -n "$issue" ]; then
+              gh issue comment "$issue" --body "All Activity reports have been handled in Admin."
+              gh issue close "$issue" --reason completed
+            fi
+            exit 0
+          fi
+
+          body="There are **$count** open Activity reports. Review the private details in [$admin_url]($admin_url). User-submitted content is intentionally not copied into GitHub."
+          if [ -n "$issue" ]; then
+            previous="$(gh issue view "$issue" --json body --jq '.body')"
+            if [ "$previous" != "$body" ]; then
+              gh issue edit "$issue" --body "$body"
+              gh issue comment "$issue" --body "Open Activity report count changed to **$count**."
+            fi
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
