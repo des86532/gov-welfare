@@ -267,6 +267,9 @@ export async function loadAdminReviewData() {
   const latestSnapshotIds = new Set([...latestSnapshots.values()].map((snapshot) => snapshot.id));
   const databaseSourceById = new Map(databaseSources.map((source) => [source.id, source]));
   const publishedPrograms = new Set(versions.filter((version) => version.status === "published").map((version) => version.program_id));
+  const publishedProgramSourceIds = new Set(versions
+    .filter((version) => version.status === "published")
+    .flatMap((version) => version.field_evidence.map((evidence) => evidence.source_id)));
   const reviewableSources = new Set(databaseSources
     .filter((source) => source.status === "active" && source.last_check_error == null)
     .map((source) => source.id));
@@ -288,7 +291,8 @@ export async function loadAdminReviewData() {
       return source?.automation_level !== "structured_extract"
         && reviewableSources.has(item.source_id)
         && latestSnapshotIds.has(item.snapshot_id)
-        && item.review_status === "draft";
+        && item.review_status === "draft"
+        && (item.canonical_draft.entityType === "opportunity" || !publishedProgramSourceIds.has(item.source_id));
     }),
     pendingVersions: versions.filter((version) => version.status === "draft" || version.status === "in_review"),
     rollbackCandidates: [...rollbackByProgram.values()],
