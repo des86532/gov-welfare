@@ -1,13 +1,16 @@
 import { programs } from "@/data/programs";
+import { reviewedOpportunities } from "@/data/opportunities";
 import { DataMethodContent } from "@/components/data-method-content";
 import { sources } from "@/data/sources";
-import { loadAdminReviewData, type NeedsReviewProgram, type ProgramVersionRow, type SourceDiff, type SourceItemRow } from "@/lib/admin-review";
-import { classifySourceItemAction, createNeedsReviewDraftAction, publishVersionAction, rejectVersionAction, rollbackVersionAction } from "@/app/admin/actions";
+import { activityReportReasonLabels } from "@/lib/activity-report-shared";
+import { loadAdminReviewData, type ActivityReportRow, type NeedsReviewProgram, type ProgramVersionRow, type SourceDiff, type SourceItemRow } from "@/lib/admin-review";
+import { classifySourceItemAction, createNeedsReviewDraftAction, publishVersionAction, rejectVersionAction, resolveActivityReportAction, rollbackVersionAction } from "@/app/admin/actions";
 
 export const metadata = { title: "資料管理" };
 export const dynamic = "force-dynamic";
 
 const sourceById = new Map(sources.map((source) => [source.id, source]));
+const opportunityBySlug = new Map(reviewedOpportunities.map((item) => [item.slug, item]));
 
 function dateTime(value: string | null | undefined) {
   return value ? new Date(value).toLocaleString("zh-TW", { timeZone: "Asia/Taipei" }) : "—";
@@ -18,10 +21,6 @@ function jsonPreview(value: Record<string, unknown> | undefined) {
   return text.length > 4_000 ? `${text.slice(0, 4_000)}\n… truncated` : text;
 }
 
-function isOpportunityItem(item: SourceItemRow) {
-  return item.canonical_draft.entityType === "opportunity";
-}
-
 function officialItemUrl(item: SourceItemRow) {
   const values = ["detailUrl", "applicationUrl", "officialUrl", "url"]
     .map((key) => item.canonical_draft[key])
@@ -30,16 +29,30 @@ function officialItemUrl(item: SourceItemRow) {
   return values[0] ?? source?.publicUrl ?? source?.url;
 }
 
-function SourceItemReviewForm({ item, opportunity = false }: { item: SourceItemRow; opportunity?: boolean }) {
+function SourceItemReviewForm({ item }: { item: SourceItemRow }) {
   return (
     <form className="review-form" action={classifySourceItemAction}>
       <input type="hidden" name="sourceItemId" value={item.id} />
-      <label>處理方式<select name="classification" defaultValue={item.classification ?? "descriptive_only"}>{opportunity ? null : <option value="matchable">資格可做自動初篩</option>}<option value="descriptive_only">確認後公開官方說明</option><option value="excluded">不公開（無效／重複／過期）</option></select></label>
+      <label>處理方式<select name="classification" defaultValue={item.classification ?? "descriptive_only"}><option value="matchable">資格可做自動初篩</option><option value="descriptive_only">確認後公開官方說明</option><option value="excluded">不公開（無效／重複／過期）</option></select></label>
       <label>Reviewer<input name="reviewer" required minLength={2} maxLength={80} defaultValue="Admin reviewer" /></label>
-      <label>Rationale<textarea name="rationale" required minLength={10} maxLength={1_000} defaultValue={item.classification_rationale ?? ""} placeholder={opportunity ? "記錄資格、日期、費用與政府關聯的 Review 結論。" : "說明這筆資料應如何進入福利 Catalog。"} /></label>
-      <button className="button button-small">{opportunity ? "儲存活動確認結果" : "儲存處理方式"}</button>
+      <label>Rationale<textarea name="rationale" required minLength={10} maxLength={1_000} defaultValue={item.classification_rationale ?? ""} placeholder="說明這筆資料應如何進入福利 Catalog。" /></label>
+      <button className="button button-small">儲存處理方式</button>
     </form>
   );
+}
+
+function ActivityReportCard({ report }: { report: ActivityReportRow }) {
+  const opportunity = opportunityBySlug.get(report.opportunity_slug);
+  return <article className="decision-card report-review-card">
+    <header><div><span className="review-state state-needs-review">使用者回報</span><small>{dateTime(report.created_at)}</small></div><strong>{activityReportReasonLabels[report.reason]}</strong></header>
+    <h3><a href={`/activities/${report.opportunity_slug}`} target="_blank" rel="noreferrer">{opportunity?.title ?? report.opportunity_slug} ↗</a></h3>
+    <p>{report.detail ?? "使用者未提供補充說明，請直接核對活動資料與官方頁。"}</p>
+    <form className="review-form" action={resolveActivityReportAction}>
+      <input type="hidden" name="reportId" value={report.id} />
+      <label>處理紀錄<textarea name="rationale" required minLength={5} maxLength={1_000} placeholder="例如：已更新截止日期；或官方頁內容與平台一致。" /></label>
+      <div className="review-actions"><button className="button button-small" name="reportStatus" value="resolved">已修正</button><button className="button button-small danger-button" name="reportStatus" value="dismissed">資料無誤</button></div>
+    </form>
+  </article>;
 }
 
 function VersionEvidence({ version }: { version: ProgramVersionRow }) {
@@ -131,11 +144,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   } catch (error) {
     console.error("Admin Supabase review data failed", error);
   }
-  const pendingOpportunityItems = database?.pendingItems.filter(isOpportunityItem) ?? [];
-  const pendingProgramItems = database?.pendingItems.filter((item) => !isOpportunityItem(item)) ?? [];
+  const pendingProgramItems = database?.pendingItems ?? [];
+  const activityReports = database?.activityReports ?? [];
   const pendingVersionCount = database?.pendingVersions.length ?? 0;
   const needsReviewCount = database?.needsReviewPrograms.filter((item) => !item.existingDraft).length ?? 0;
-  const pendingCount = pendingOpportunityItems.length + pendingProgramItems.length + pendingVersionCount + needsReviewCount;
+  const pendingCount = activityReports.length + pendingProgramItems.length + pendingVersionCount + needsReviewCount;
   const blockedSourceCount = sources.filter((source) => database?.sources.get(source.id)?.last_check_error || source.status === "blocked").length;
   return (
     <div className="page-shell admin-page">
@@ -152,7 +165,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       </section>
 
       <section className="admin-section" id="review">
-        <div className="admin-section-title"><div><p className="eyebrow">Today</p><h2>待處理工作</h2></div><span>只有人工確認後才會出現在公開網站</span></div>
+        <div className="admin-section-title"><div><p className="eyebrow">Today</p><h2>待處理工作</h2></div><span>只列出真正需要管理員決定的項目</span></div>
         {pendingCount === 0 ? <div className="empty-review admin-all-clear"><strong>目前沒有待處理資料</strong><p>新的 Source 內容進來後，會依類型出現在這裡。</p></div> : null}
 
         {database?.needsReviewPrograms.length ? <div className="admin-task-block"><div className="admin-task-heading"><h3>資格來源待複核</h3><p>只有 Authority page／PDF 的變更會列在這裡；請開官方頁核對資格、金額與期限，再建立 Draft。</p></div><div className="decision-stack">{database.needsReviewPrograms.map((review) => <NeedsReviewCard key={review.version.id} review={review} />)}</div></div> : null}
@@ -167,16 +180,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           </article>
         ))}</div></div> : null}
 
-        {pendingOpportunityItems.length ? <div className="admin-task-block"><div className="admin-task-heading"><h3>新活動待人工確認</h3><p>請開官方頁核對主辦單位、參加對象、日期、地點、費用與報名狀態；正確就公開，無效、重複或過期就不公開。</p></div><div className="source-review-grid">{pendingOpportunityItems.map((item) => (
-          <article className="source-review-card opportunity-review-card" key={item.id}>
-            <header><code>{item.source_id}</code><span>{item.external_id}</span></header>
-            <h3>{item.title}</h3>
-            <a className="official-review-link" href={officialItemUrl(item)} target="_blank" rel="noreferrer">開啟官方頁核對 ↗</a>
-            <ul className="review-checklist"><li>主辦機關與政府關聯正確</li><li>參加對象、日期與地點仍有效</li><li>費用與報名入口和官方頁一致</li></ul>
-            <details open><summary>查看 Canonical draft</summary><pre>{jsonPreview(item.canonical_draft)}</pre></details>
-            <SourceItemReviewForm item={item} opportunity />
-          </article>
-        ))}</div></div> : null}
+        {activityReports.length ? <div className="admin-task-block"><div className="admin-task-heading"><h3>活動資料回報</h3><p>使用者指出公開活動可能有誤；請依活動 Detail 內的官方連結確認後，修正平台資料或標記資料無誤。</p></div><div className="decision-stack">{activityReports.map((report) => <ActivityReportCard key={report.id} report={report} />)}</div></div> : null}
 
         {pendingProgramItems.length ? <div className="admin-task-block"><div className="admin-task-heading"><h3>未辨識的網頁資料</h3><p>Structured government API 不需要在這裡分類。此區只處理 HTML／人工 Source：可自動初篩、只公開官方說明，或因無效、重複、過期而不公開。</p></div><div className="source-review-grid">{pendingProgramItems.map((item) => (
           <article className="source-review-card" key={item.id}>

@@ -3,6 +3,7 @@ import test from "node:test";
 import { reviewedOpportunities } from "../data/opportunities";
 import { sources } from "../data/sources";
 import { getOpportunityStatus, opportunityMatchesAudience, opportunityMatchesRegion } from "../lib/opportunity-store";
+import { parseActivityReport } from "../lib/activity-reports";
 
 test("Reviewed Opportunity manifest 具有唯一穩定鍵與必要公開欄位", () => {
   assert.ok(reviewedOpportunities.length >= 6);
@@ -59,4 +60,16 @@ test("非政府主辦或政府支應待證明的活動不得冒充官方補助",
   assert.equal(trail?.governmentSupportStatus, "claimed_pending_evidence");
   assert.equal(airCamp?.organizerType, "foundation");
   assert.equal(airCamp?.governmentSupportStatus, "not_applicable");
+});
+
+test("匿名活動回報只接受已公開活動與允許的原因", () => {
+  const slug = reviewedOpportunities[0].slug;
+  assert.deepEqual(parseActivityReport({ opportunitySlug: slug, reason: "broken_link", detail: "官方頁顯示 404", website: "" }), {
+    opportunitySlug: slug,
+    reason: "broken_link",
+    detail: "官方頁顯示 404",
+  });
+  assert.throws(() => parseActivityReport({ opportunitySlug: "unknown", reason: "expired" }), /找不到/);
+  assert.throws(() => parseActivityReport({ opportunitySlug: slug, reason: "other", detail: "太短" }), /簡單說明/);
+  assert.throws(() => parseActivityReport({ opportunitySlug: slug, reason: "expired", website: "spam" }), /未通過/);
 });

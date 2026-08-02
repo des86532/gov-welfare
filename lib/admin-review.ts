@@ -94,6 +94,15 @@ export type ReviewRow = {
   created_at: string;
 };
 
+export type ActivityReportRow = {
+  id: string;
+  opportunity_slug: string;
+  reason: "expired" | "broken_link" | "incorrect_info" | "incorrect_eligibility" | "other";
+  detail: string | null;
+  status: "open" | "resolved" | "dismissed";
+  created_at: string;
+};
+
 export type ItemChange = {
   externalId: string;
   title: string;
@@ -256,12 +265,13 @@ export function refreshProgramEvidence(
 export async function loadAdminReviewData() {
   const config = supabaseConfig(true);
   if (!config) return null;
-  const [databaseSources, snapshots, items, versions, reviews] = await Promise.all([
+  const [databaseSources, snapshots, items, versions, reviews, activityReports] = await Promise.all([
     supabaseRest<DatabaseSource[]>(config, "sources?select=id,automation_level,status,last_checked_at,last_successful_fetch_at,last_check_error"),
     supabaseRest<SnapshotRow[]>(config, "source_snapshots?select=id,source_id,observed_at,content_hash,http_status,fetch_error&order=observed_at.desc"),
     supabaseRest<SourceItemRow[]>(config, "source_items?select=id,source_id,snapshot_id,external_id,title,canonical_draft,unknown_fields,classification,classification_rationale,review_status&order=created_at.desc"),
     supabaseRest<ProgramVersionRow[]>(config, `program_versions?select=${PROGRAM_VERSION_SELECT}&order=version.desc`),
     supabaseRest<ReviewRow[]>(config, "reviews?select=id,program_version_id,source_item_id,reviewer_name,action,rationale,created_at&order=created_at.desc&limit=30"),
+    supabaseRest<ActivityReportRow[]>(config, "activity_reports?select=id,opportunity_slug,reason,detail,status,created_at&status=eq.open&order=created_at.desc&limit=100"),
   ]);
   const latestSnapshots = latestSnapshotsBySource(snapshots);
   const latestSnapshotIds = new Set([...latestSnapshots.values()].map((snapshot) => snapshot.id));
@@ -292,11 +302,13 @@ export async function loadAdminReviewData() {
         && reviewableSources.has(item.source_id)
         && latestSnapshotIds.has(item.snapshot_id)
         && item.review_status === "draft"
-        && (item.canonical_draft.entityType === "opportunity" || !publishedProgramSourceIds.has(item.source_id));
+        && item.canonical_draft.entityType !== "opportunity"
+        && !publishedProgramSourceIds.has(item.source_id);
     }),
     pendingVersions: versions.filter((version) => version.status === "draft" || version.status === "in_review"),
     rollbackCandidates: [...rollbackByProgram.values()],
     reviews,
+    activityReports,
     published: versions.filter((version) => version.status === "published"),
   };
 }

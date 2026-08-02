@@ -19,6 +19,7 @@
 - Dry-run／persistent ingestion CLI、GitHub Actions Scheduled source checks。
 - Supabase PostgreSQL migration：Sources、Snapshots、Source items、Programs、Versions、Evidence、Reviews、Relationships 與 RLS。
 - Basic Auth 保護的 `/admin`：`needs_review` Queue 只處理 Authority page／PDF 的資格、金額或期限異動；Structured government API 採 descriptive passthrough 並附官方連結。Source history、Rollback 與 Audit trail 收進進階管理。
+- 活動使用平台維護的 Activity data 與官方連結直接公開，不要求逐筆 Snapshot Review；Detail page 提供匿名錯誤回報，Admin 只處理使用者回報。
 - 公開 Profile 僅存在同一分頁的 `sessionStorage`，關閉分頁後即消失；沒有帳號、MyData 或 `POST /api/match`。
 
 ## 本機執行

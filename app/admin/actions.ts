@@ -286,3 +286,22 @@ export async function classifySourceItemAction(formData: FormData) {
   revalidatePath("/api/opportunities");
   redirect(`/admin?notice=${encodeURIComponent("Source item 已分類")}`);
 }
+
+export async function resolveActivityReportAction(formData: FormData) {
+  await requireAdmin();
+  try {
+    const reportId = idField(formData, "reportId");
+    const status = String(formData.get("reportStatus") ?? "");
+    if (status !== "resolved" && status !== "dismissed") throw new Error("回報處理狀態不正確");
+    const rationale = textField(formData, "rationale", 5, 1_000);
+    await supabaseRest(adminConfig(), `activity_reports?id=eq.${reportId}&status=eq.open`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, resolution_note: rationale, resolved_at: new Date().toISOString() }),
+      headers: { Prefer: "return=minimal" },
+    });
+  } catch (error) {
+    redirect(`/admin?error=${encodeURIComponent(message(error))}`);
+  }
+  revalidatePath("/admin");
+  redirect(`/admin?notice=${encodeURIComponent("活動資料回報已處理")}`);
+}

@@ -37,9 +37,9 @@ export default async function ActivitiesPage({ searchParams }: { searchParams: P
     <div className="page-shell catalog-page activities-page">
       <header className="page-title catalog-title">
         <div>
-          <p className="eyebrow">Reviewed opportunities</p>
+          <p className="eyebrow">Platform activity data</p>
           <h1>活動與體驗營</h1>
-          <p>收錄政府、Foundation 與具有政府計畫關聯的限時活動。每筆都先經人工 Review；活動地點、報名狀態與適用對象分開保存，不把社群貼文當成正式資格。</p>
+          <p>收錄本平台整理的政府、Foundation 與政府計畫相關活動，並附官方參考連結。活動資訊可能臨時調整，請以主辦單位公告為準；發現錯誤可直接回報。</p>
         </div>
         <span className="catalog-count"><strong>{visible.length}</strong> 個結果</span>
       </header>

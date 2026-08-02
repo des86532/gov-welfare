@@ -49,7 +49,7 @@ export default async function HomePage() {
       </section>
 
       <section className="activity-home-section">
-        <header className="section-header"><div><p className="eyebrow">不只現金補助</p><h2>限時活動與體驗機會</h2></div><div><p>政府營隊、青年培力、工作假期與減免費用活動，資格、地點及報名期限分開 Review。</p><Link className="text-link" href="/activities">查看全部活動 →</Link></div></header>
+        <header className="section-header"><div><p className="eyebrow">不只現金補助</p><h2>限時活動與體驗機會</h2></div><div><p>平台整理政府營隊、青年培力、工作假期與減免費用活動，附官方連結並接受使用者回報修正。</p><Link className="text-link" href="/activities">查看全部活動 →</Link></div></header>
         <div className="opportunity-grid home-opportunity-grid">{opportunities.filter((item) => item.status !== "ended").slice(0, 3).map((item) => <OpportunityCard key={item.slug} opportunity={item} />)}</div>
       </section>
 

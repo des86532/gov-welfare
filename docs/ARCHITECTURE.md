@@ -77,7 +77,8 @@ flowchart LR
 | `/activities/[slug]` | SSG，5 分鐘 revalidate | 活動資格、日期、費用、Evidence 與官方入口。 |
 | `/admin` | Dynamic SSR、private `no-store` | Authority-only `needs_review` Queue、Evidence refresh、Draft、Publish、Reject、Rollback；Source history 僅供進階診斷。 |
 | `/api/programs` | Dynamic API | Public Program payload；HTTP response 不快取，但底層 Program store 快取 5 分鐘。 |
-| `/api/opportunities` | Dynamic API | Public activity payload；CDN cache 5 分鐘。 |
+| `/api/opportunities` | Dynamic API | 平台維護的 Public activity payload；CDN cache 5 分鐘。 |
+| `/api/activity-reports` | Dynamic POST API | 匿名活動錯誤回報；Server validation 後以 Service Role 寫入 Supabase。 |
 | `/api/health` | Dynamic API、`no-store` | Database、Source failure 與 `needs_review` 摘要。 |
 
 ### Cache behavior
@@ -94,7 +95,7 @@ flowchart LR
 - Source fetch 失敗時保留上一個 Published version，不刪除 Public data。
 - Authority page／PDF 的最新 successful Snapshot 與 Published Evidence 不一致時，Program Runtime state 會降為 `needs_review`。
 - Structured government API 的 Snapshot 更新不會觸發人工 Review；它只更新 descriptive data，公開內容附官方連結，也不會自動改寫資格 Rules。
-- Activity Source 異動時仍可顯示上一個 Reviewed content，但停用直接報名按鈕並要求使用者核對官方頁。
+- Activity 使用 Repository 內平台維護的 data 顯示，Crawler 只作 Discovery，不因 Snapshot 變動產生人工 Queue。每筆附官方連結與資料整理日期，使用者可匿名回報錯誤。
 
 ### `needs_review` Admin workflow
 
@@ -118,6 +119,7 @@ Database **不是拿來保存使用者性別、年齡或 Questionnaire answers**
 | `program_versions` | Versioned canonical content、Rule tree、Coverage、申請期間與 Publish state。 |
 | `field_evidence` | 每個重要欄位及 Atomic rule 對應的 Source、Snapshot、locator、extracted value 與 Review 時間。 |
 | `reviews` | Publish、Reject、Classification、Rollback 的 Reviewer、時間與 Rationale。 |
+| `activity_reports` | 使用者回報的活動過期、官方連結失效、內容或資格錯誤，以及 Admin 處理狀態。 |
 | `program_relationships` | 中央與地方版本、加碼、執行或取代關係的 Data structure；Schema 已具備。 |
 
 `source_snapshots.storage_path` 已預留給 Supabase Storage，但目前 ingestion 實際把 raw payload 寫在 `raw_body`；PDF 會以 base64 保存。資料量繼續成長前需要制定 retention／Storage policy。
@@ -197,7 +199,7 @@ Workflow 雖然每天喚醒，但 CLI 會讀取 `last_checked_at` 與 `checkEver
 
 若上次 check 失敗，下一次 workflow 會優先重試。手動 `workflow_dispatch` 會加上 `--force`，檢查全部 active Sources。
 
-只有手動執行 workflow 並勾選 `publish_reviewed_programs` 時，才會執行 Repository-reviewed import 與 `data:audit`。這不是全自動 Publish；維護者仍需先在 Repository 或 Admin 完成 Review。
+只有手動執行 workflow 並勾選 `publish_reviewed_programs` 時，才會執行 Repository-reviewed Program import 與 `data:audit`。Activity data 由 Repository 直接提供，Crawler 結果不參與 Publish gate；使用者回報另在 Admin 處理。
 
 ### 不存在的 cron pieces
 
@@ -237,7 +239,7 @@ Workflow 雖然每天喚醒，但 CLI 會讀取 `last_checked_at` 與 `checkEver
 
 ### P1 — Coverage 與 Operations
 
-1. **活動 Coverage 還很小**：Production 只有 4 筆，且目前 3 筆已截止、1 筆已結束；需要更多官方活動 listing adapters 與年度更新流程。
+1. **活動 Coverage 還很小**：目前平台維護 6 筆 Activity data；Crawler 只協助 Discovery，不會自動公開。使用者回報可修正錯誤，但新增活動仍需更新 Repository data。
 2. **地方 Coverage 只有四市 Pilot**：選縣市會顯示中央 + 該縣市，但目前其他 18 縣市幾乎只有中央 Programs，不能宣稱全臺完整。
 3. **Daily workflow 不跑完整 data audit**：scheduled run 成功只代表 ingestion 成功，不代表 Published Evidence 全部最新；應新增 read-only acceptance audit 並讓 `attention` 狀態可通知維護者。
 4. **Monitoring 不完整**：目前只有 GitHub Issue 和 `/api/health`，沒有 uptime check、error tracing、latency／Database size alert。

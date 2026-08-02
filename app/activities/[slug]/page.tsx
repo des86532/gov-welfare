@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BackLink } from "@/components/back-link";
+import { ActivityReportForm } from "@/components/activity-report-form";
 import { opportunityStatusLabels } from "@/components/opportunity-card";
 import { sourceById } from "@/data/sources";
 import { getOpportunities, getOpportunityBySlug } from "@/lib/opportunity-store";
@@ -34,7 +35,7 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
   const item = await getOpportunityBySlug(slug);
   if (!item) notFound();
   const source = sourceById.get(item.sourceId);
-  const canApply = item.status === "open" && item.reviewState !== "needs_review" && item.applicationUrl;
+  const canApply = item.status === "open" && item.applicationUrl;
 
   return (
     <div className="page-shell detail-page activity-detail-page">
@@ -49,7 +50,7 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
         <aside className="benefit-ticket activity-ticket"><small>費用與支持</small><strong>{item.feeSummary}</strong><span>{supportLabels[item.governmentSupportStatus]}</span></aside>
       </header>
 
-      {item.reviewState === "needs_review" ? <div className="activity-review-warning" role="status"><strong>官方 Source 已異動</strong><span>目前保留上一個 Reviewed version 供查閱，請在報名前再次核對官方頁；此筆暫不顯示直接報名按鈕。</span></div> : null}
+      <div className="activity-review-warning" role="status"><strong>報名前請核對官方頁</strong><span>活動內容由本平台整理，日期、名額與報名方式可能臨時調整；官方主辦頁資訊優先。</span></div>
 
       <div className="detail-layout">
         <div className="detail-main">
@@ -59,9 +60,10 @@ export default async function ActivityDetailPage({ params }: { params: Promise<{
           <section><p className="eyebrow">Field-level provenance</p><h2>逐欄 Evidence</h2><div className="activity-evidence-list">{item.evidence.map((evidence) => <a key={`${evidence.field}-${evidence.locator}`} href={evidence.sourceUrl} target="_blank" rel="noreferrer"><code>{evidence.field}</code><div><strong>{evidence.extractedValue}</strong><span>{evidence.locator}</span></div><span aria-hidden="true">↗</span></a>)}</div></section>
         </div>
         <aside className="detail-aside">
-          <dl><div><dt>主辦單位</dt><dd>{item.organizer}</dd></div><div><dt>活動性質</dt><dd>{supportLabels[item.governmentSupportStatus]}</dd></div><div><dt>決定方式</dt><dd>{selectionLabels[item.selectionType]}</dd></div><div><dt>Source</dt><dd>{source?.name ?? item.sourceId}</dd></div><div><dt>最後人工驗證</dt><dd>{item.verifiedAt}</dd></div></dl>
+          <dl><div><dt>主辦單位</dt><dd>{item.organizer}</dd></div><div><dt>活動性質</dt><dd>{supportLabels[item.governmentSupportStatus]}</dd></div><div><dt>決定方式</dt><dd>{selectionLabels[item.selectionType]}</dd></div><div><dt>Source</dt><dd>{source?.name ?? item.sourceId}</dd></div><div><dt>資料整理日期</dt><dd>{item.verifiedAt}</dd></div></dl>
           <a className="button full-button" href={canApply ? item.applicationUrl : item.officialUrl} target="_blank" rel="noreferrer">{canApply ? "前往報名" : "查看官方最新資訊"} <span aria-hidden="true">↗</span></a>
           <p>本平台整理基本條件與官方 Evidence；主辦單位保有活動異動、資格審查、錄取與費用認定權。</p>
+          <ActivityReportForm opportunitySlug={item.slug} />
         </aside>
       </div>
     </div>

@@ -32,17 +32,13 @@ function atomicPaths(rule: RuleNode, path = "/rule"): string[] {
 
 async function main() {
   const config = requiredConfig();
-  const opportunitySourceIds = [...new Set(reviewedOpportunities.map((item) => item.sourceId))];
-  const opportunitySourceFilter = opportunitySourceIds.map(encodeURIComponent).join(",");
-  const [databaseSources, snapshots, taoyuanItems, newTaipeiItems, taipeiItems, taichungItems, opportunityItems, opportunityReviews, versions, drafts] = await Promise.all([
+  const [databaseSources, snapshots, taoyuanItems, newTaipeiItems, taipeiItems, taichungItems, versions, drafts] = await Promise.all([
     supabaseRest<Array<{ id: string; automation_level: string; status: string; last_check_error: unknown }>>(config, "sources?select=id,automation_level,status,last_check_error"),
     supabaseRest<Snapshot[]>(config, "source_snapshots?select=id,source_id&content_hash=not.is.null&order=observed_at.desc"),
     supabaseRest<Array<ReviewedTaoyuanItem & { classification: string | null; review_status: string }>>(config, "source_items?select=title,snapshot_id,canonical_draft,classification,review_status&source_id=eq.taoyuan-welfare-open-data"),
     supabaseRest<Array<{ title: string; snapshot_id: string; classification: string | null; review_status: string }>>(config, "source_items?select=title,snapshot_id,classification,review_status&source_id=eq.new-taipei-welfare-open-data"),
     supabaseRest<Array<{ title: string; snapshot_id: string; classification: string | null; review_status: string }>>(config, "source_items?select=title,snapshot_id,classification,review_status&source_id=eq.taipei-social-aid-open-data"),
     supabaseRest<Array<{ title: string; snapshot_id: string; classification: string | null; review_status: string }>>(config, "source_items?select=title,snapshot_id,classification,review_status&source_id=eq.taichung-social-aid-open-data"),
-    supabaseRest<Array<{ id: string; source_id: string; external_id: string; snapshot_id: string; classification: string | null; review_status: string }>>(config, `source_items?select=id,source_id,external_id,snapshot_id,classification,review_status&source_id=in.(${opportunitySourceFilter})`),
-    supabaseRest<Array<{ source_item_id: string }>>(config, "reviews?select=source_item_id&source_item_id=not.is.null&action=eq.classify"),
     supabaseRest<Version[]>(config, "program_versions?select=status,coverage,canonical_content,field_evidence(field_path,source_id,snapshot_id,reviewed_at)&status=eq.published"),
     supabaseRest<Array<{ id: string }>>(config, "program_versions?select=id&status=eq.draft"),
   ]);
@@ -59,7 +55,6 @@ async function main() {
   const taichungSnapshotId = latest.get("taichung-social-aid-open-data")?.id;
   const latestTaichungItems = taichungItems.filter((item) => item.snapshot_id === taichungSnapshotId);
   const reviewedTaoyuanItems = latestTaoyuanItems.filter((item) => item.classification !== "excluded" && item.review_status === "published");
-  const latestOpportunityItems = opportunityItems.filter((item) => latest.get(item.source_id)?.id === item.snapshot_id);
   const expectedPrograms = [...programs, ...buildTaoyuanReviewedPrograms(reviewedTaoyuanItems, "2026-07-27")];
   const expected = expectedPrograms.filter((program) => program.evidence.every((item) => latest.has(item.sourceId)));
 
@@ -96,15 +91,6 @@ async function main() {
     new Map(taichungSourceClassifications.map((item) => [item.title, item.classification])),
     "Taichung classification drift",
   );
-  const latestOpportunityByKey = new Map(latestOpportunityItems.map((item) => [`${item.source_id}\n${item.external_id}`, item]));
-  const reviewedOpportunityIds = new Set(opportunityReviews.map((review) => review.source_item_id));
-  for (const expected of reviewedOpportunities) {
-    const item = latestOpportunityByKey.get(`${expected.sourceId}\n${expected.externalId}`);
-    assert.ok(item, `${expected.slug}: missing latest Source item`);
-    assert.equal(item.classification, "descriptive_only", `${expected.slug}: classification`);
-    assert.equal(item.review_status, "published", `${expected.slug}: Review status`);
-    assert.ok(reviewedOpportunityIds.has(item.id), `${expected.slug}: missing Review audit trail`);
-  }
   assert.equal(versions.length, expected.length, "Published Program count");
   assert.equal(drafts.length, 0, "Unreviewed Program drafts");
 
@@ -132,7 +118,7 @@ async function main() {
     newTaipeiItems: latestNewTaipeiItems.length,
     taipeiItems: latestTaipeiItems.length,
     taichungItems: latestTaichungItems.length,
-    reviewedOpportunities: reviewedOpportunities.length,
+    platformActivities: reviewedOpportunities.length,
     publishedPrograms: versions.length,
     matchablePrograms: versions.filter((version) => version.coverage === "matchable").length,
     draftVersions: drafts.length,
