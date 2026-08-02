@@ -1,8 +1,8 @@
 import { programs } from "@/data/programs";
 import { DataMethodContent } from "@/components/data-method-content";
 import { sources } from "@/data/sources";
-import { loadAdminReviewData, type ProgramVersionRow, type SourceItemRow } from "@/lib/admin-review";
-import { classifySourceItemAction, publishVersionAction, rejectVersionAction, rollbackVersionAction } from "@/app/admin/actions";
+import { loadAdminReviewData, type NeedsReviewProgram, type ProgramVersionRow, type SourceDiff, type SourceItemRow } from "@/lib/admin-review";
+import { classifySourceItemAction, createNeedsReviewDraftAction, publishVersionAction, rejectVersionAction, rollbackVersionAction } from "@/app/admin/actions";
 
 export const metadata = { title: "資料管理" };
 export const dynamic = "force-dynamic";
@@ -71,6 +71,51 @@ function VersionForm({ version, mode }: { version: ProgramVersionRow; mode: "rev
   );
 }
 
+function SourceDiffDetails({ diff }: { diff: SourceDiff }) {
+  const source = sourceById.get(diff.sourceId);
+  const changes = [...diff.added, ...diff.changed, ...diff.removed];
+  return <details className="diff-card">
+    <summary><span><strong>{source?.name ?? diff.sourceId}</strong><small>{dateTime(diff.current.observed_at)} · {diff.current.content_hash?.slice(0, 12)}</small></span><span className={changes.length ? "diff-count changed" : "diff-count"}>{diff.previous ? `${changes.length} changes` : "baseline"}</span></summary>
+    <div className="diff-meta"><code>current {diff.current.id}</code>{diff.previous ? <code>previous {diff.previous.id}</code> : <span>尚無前一版 Snapshot</span>}<span>{diff.unchanged} unchanged items</span></div>
+    {changes.map((change) => <details className="item-diff" key={`${change.externalId}-${change.fields.join("-")}`}><summary><span>{change.title}</span><code>{change.fields.join(", ")}</code></summary><div>{change.before ? <section><strong>Before</strong><pre>{jsonPreview(change.before)}</pre></section> : null}{change.after ? <section><strong>After</strong><pre>{jsonPreview(change.after)}</pre></section> : null}</div></details>)}
+  </details>;
+}
+
+function NeedsReviewCard({ review }: { review: NeedsReviewProgram }) {
+  const refreshable = review.issues.filter((issue) => issue.latestSnapshot && issue.latestSnapshot.id !== issue.evidence.snapshot_id);
+  return <details className="decision-card needs-review-card">
+    <summary className="needs-review-summary"><span><span className="review-state state-needs-review">needs_review</span><span><strong>{review.version.title}</strong><small>{review.version.programs.stable_key} · Published v{review.version.version}</small></span></span><b>{review.issues.length} Evidence issues</b></summary>
+    <div className="needs-review-content"><p>Published Evidence 已不是最新 successful Snapshot。先核對官方 Source 與差異，再建立 Draft；Public 會維持待複核狀態直到新版 Publish。</p>
+    <div className="needs-review-sources">{[...new Set(review.issues.map((issue) => issue.evidence.source_id))].map((sourceId) => {
+      const source = sourceById.get(sourceId);
+      const issue = review.issues.find((item) => item.evidence.source_id === sourceId)!;
+      return <a key={sourceId} href={source?.publicUrl ?? source?.url} target="_blank" rel="noreferrer"><strong>{source?.name ?? sourceId} ↗</strong><small>{issue.sourceError ?? `最新 Snapshot：${issue.latestSnapshot?.id.slice(0, 8) ?? "missing"}`}</small></a>;
+    })}</div>
+    {review.sourceDiffs.length ? <div className="needs-review-diffs"><strong>Source diff</strong>{review.sourceDiffs.map((diff) => <SourceDiffDetails key={diff.sourceId} diff={diff} />)}</div> : null}
+    {review.existingDraft ? <div className="admin-notice"><strong>已建立 Draft v{review.existingDraft.version}</strong><span>請到下方「福利方案待審核」確認 Evidence 後 Publish 或 Reject。</span></div> : (
+      <form className="review-form needs-review-form" action={createNeedsReviewDraftAction}>
+        <input type="hidden" name="versionId" value={review.version.id} />
+        <div className="evidence-refresh-grid">{refreshable.map((issue) => {
+          const source = sourceById.get(issue.evidence.source_id);
+          return <fieldset key={issue.evidence.id} disabled={review.blocked}>
+            <legend><code>{issue.evidence.field_path}</code> · {source?.name ?? issue.evidence.source_id}</legend>
+            <small>舊 Snapshot {issue.evidence.snapshot_id.slice(0, 8)} → 新 Snapshot {issue.latestSnapshot?.id.slice(0, 8)}</small>
+            <label>Locator<input name={`locator_${issue.evidence.id}`} required minLength={2} maxLength={500} defaultValue={issue.evidence.locator} /></label>
+            <label>Extracted value<textarea name={`value_${issue.evidence.id}`} required minLength={2} maxLength={4_000} defaultValue={issue.evidence.extracted_value} /></label>
+          </fieldset>;
+        })}</div>
+        <div className="needs-review-decision">
+          <label>Reviewer<input name="reviewer" required minLength={2} maxLength={80} defaultValue="Admin reviewer" /></label>
+          <label>Rationale<textarea name="rationale" required minLength={10} maxLength={1_000} placeholder="說明已核對的官方內容、差異是否影響資格，以及建立 Draft 的理由。" /></label>
+          <button className="button button-small" disabled={review.blocked}>{review.blocked ? "Source 異常，暫停建立" : "建立 Evidence Draft"}</button>
+        </div>
+        <label className="canonical-confirmation"><input type="checkbox" name="canonicalUnchanged" value="true" required />我已確認這次 Source 變動不影響資格 Rule、Benefit、金額與期限；若有影響，應先更新 Canonical content，不可只更新 Evidence。</label>
+      </form>
+    )}
+    </div>
+  </details>;
+}
+
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ notice?: string; error?: string }> }) {
   const feedback = await searchParams;
   let database = null;
@@ -82,7 +127,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   const pendingOpportunityItems = database?.pendingItems.filter(isOpportunityItem) ?? [];
   const pendingProgramItems = database?.pendingItems.filter((item) => !isOpportunityItem(item)) ?? [];
   const pendingVersionCount = database?.pendingVersions.length ?? 0;
-  const pendingCount = pendingOpportunityItems.length + pendingProgramItems.length + pendingVersionCount;
+  const needsReviewCount = database?.needsReviewPrograms.filter((item) => !item.existingDraft).length ?? 0;
+  const pendingCount = pendingOpportunityItems.length + pendingProgramItems.length + pendingVersionCount + needsReviewCount;
   const blockedSourceCount = sources.filter((source) => database?.sources.get(source.id)?.last_check_error || source.status === "blocked").length;
   return (
     <div className="page-shell admin-page">
@@ -102,8 +148,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <div className="admin-section-title"><div><p className="eyebrow">Today</p><h2>待處理工作</h2></div><span>只有人工確認後才會出現在公開網站</span></div>
         {pendingCount === 0 ? <div className="empty-review admin-all-clear"><strong>目前沒有待處理資料</strong><p>新的 Source 內容進來後，會依類型出現在這裡。</p></div> : null}
 
+        {database?.needsReviewPrograms.length ? <div className="admin-task-block"><div className="admin-task-heading"><h3>官方資料異動待複核</h3><p>直接核對受影響 Program、Source diff 與 Evidence，建立 Draft 後再進行 Publish。</p></div><div className="decision-stack">{database.needsReviewPrograms.map((review) => <NeedsReviewCard key={review.version.id} review={review} />)}</div></div> : null}
+
         {pendingVersionCount ? <div className="admin-task-block"><div className="admin-task-heading"><h3>福利方案待審核</h3><p>確認資格 Rules 與 Evidence 後，決定 Publish 或退回。</p></div><div className="decision-stack">{database?.pendingVersions.map((version) => (
-          <article className="decision-card" key={version.id}>
+          <article className="decision-card" id={`pending-version-${version.id}`} key={version.id}>
             <header><div><span className="review-state state-descriptive_only">{version.status}</span><small>{version.programs.stable_key} · v{version.version}</small></div><strong>{version.coverage}</strong></header>
             <h3>{version.title}</h3><p>{version.summary}</p>
             <dl className="version-facts"><div><dt>Benefit</dt><dd>{version.benefit_type}</dd></div><div><dt>Decision</dt><dd>{version.decision_type}</dd></div><div><dt>Verified</dt><dd>{dateTime(version.last_verified_at)}</dd></div></dl>
@@ -138,15 +186,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             <summary><span><strong>資料來源與更新狀態</strong><small>查看全部 {sources.length} 個 Sources 與最近內容變更</small></span><b>{blockedSourceCount} 異常</b></summary>
             <div className="admin-tool-content">
               <h3>最近兩個有效 Snapshot 的差異</h3>
-              <div className="diff-stack">{database?.sourceDiffs.map((diff) => {
-          const source = sourceById.get(diff.sourceId);
-          const changeCount = diff.added.length + diff.removed.length + diff.changed.length;
-          return <details className="diff-card" key={diff.sourceId}>
-            <summary><span><strong>{source?.name ?? diff.sourceId}</strong><small>{dateTime(diff.current.observed_at)} · {diff.current.content_hash?.slice(0, 12)}</small></span><span className={changeCount ? "diff-count changed" : "diff-count"}>{diff.previous ? `${changeCount} changes` : "baseline"}</span></summary>
-            <div className="diff-meta"><code>current {diff.current.id}</code>{diff.previous ? <code>previous {diff.previous.id}</code> : <span>尚無前一版 Snapshot</span>}<span>{diff.unchanged} unchanged items</span></div>
-            {[...diff.added, ...diff.changed, ...diff.removed].map((change) => <details className="item-diff" key={`${change.externalId}-${change.fields.join("-")}`}><summary><span>{change.title}</span><code>{change.fields.join(", ")}</code></summary><div>{change.before ? <section><strong>Before</strong><pre>{jsonPreview(change.before)}</pre></section> : null}{change.after ? <section><strong>After</strong><pre>{jsonPreview(change.after)}</pre></section> : null}</div></details>)}
-          </details>;
-              })}</div>
+              <div className="diff-stack">{database?.sourceDiffs.map((diff) => <SourceDiffDetails key={diff.sourceId} diff={diff} />)}</div>
               <h3>網站使用的資料來源</h3>
               <div className="table-wrap"><table><thead><tr><th>Source</th><th>地區與用途</th><th>Status</th><th>檢查</th></tr></thead><tbody>{sources.map((source) => {
         const live = database?.sources.get(source.id);

@@ -75,7 +75,7 @@ flowchart LR
 | `/programs/[slug]` | SSG，5 分鐘 revalidate | Program detail、Rule tree、Evidence 與官方入口。 |
 | `/activities` | Dynamic SSR | 活動地點、對象、類型、報名狀態與關鍵字篩選。 |
 | `/activities/[slug]` | SSG，5 分鐘 revalidate | 活動資格、日期、費用、Evidence 與官方入口。 |
-| `/admin` | Dynamic SSR、private `no-store` | Source status、Review、Publish、Reject、Rollback 與 Audit trail。 |
+| `/admin` | Dynamic SSR、private `no-store` | `needs_review` Queue、Source diff、Evidence refresh、Draft、Publish、Reject、Rollback 與 Audit trail。 |
 | `/api/programs` | Dynamic API | Public Program payload；HTTP response 不快取，但底層 Program store 快取 5 分鐘。 |
 | `/api/opportunities` | Dynamic API | Public activity payload；CDN cache 5 分鐘。 |
 | `/api/health` | Dynamic API、`no-store` | Database、Source failure 與 `needs_review` 摘要。 |
@@ -94,6 +94,15 @@ flowchart LR
 - Source fetch 失敗時保留上一個 Published version，不刪除 Public data。
 - 最新 successful Snapshot 與 Published Evidence 不一致，Program Runtime state 會降為 `needs_review`。
 - Activity Source 異動時仍可顯示上一個 Reviewed content，但停用直接報名按鈕並要求使用者核對官方頁。
+
+### `needs_review` Admin workflow
+
+1. Admin 會比較每個 Published Program 的 `field_evidence.snapshot_id` 與各 Source 最新 successful Snapshot。
+2. 不一致的 Program 直接進入「官方資料異動待複核」，並顯示受影響 Evidence、官方連結與 Source diff。
+3. Reviewer 可修正 locator／extracted value，填寫 Reviewer 與 Rationale，確認 Canonical content／Rules 未受影響後建立新 Draft。
+4. Draft 會複製完整 Program version，只把已複核 Evidence 指向最新 Snapshot；建立動作記錄為 `resolve_conflict` Audit event。
+5. Draft 仍須在「福利方案待審核」再次 Publish；既有 PostgreSQL Publish gate 會重新驗證所有 Evidence 與 Source state。
+6. 若資格 Rule、Benefit、金額或期限真的改變，不允許只更新 Evidence，必須先更新 Canonical content 再 Publish。
 
 ## Database 保存什麼
 
@@ -205,8 +214,8 @@ Workflow 雖然每天喚醒，但 CLI 會讀取 `last_checked_at` 與 `checkEver
 
 ### P0 — 下一輪應先完成
 
-1. **清理 8 個 `needs_review` Programs**  
-   Production 沒有 Source fetch failure，但最新 Snapshot 已不同於 Published Evidence。這些 Programs 已安全降級，不會被當成 confirmed match；仍需要人工核對 diff、更新 Evidence 後重新 Publish。
+1. **透過 Admin Queue 清理 8 個 `needs_review` Programs**
+   Production 沒有 Source fetch failure，但最新 Snapshot 已不同於 Published Evidence。Queue 與 Draft workflow 已完成；這些 Programs 仍需管理員逐筆核對 diff、更新 Evidence 並 Publish，才會恢復 confirmed matching。
 
    2026-08-02 的 8 筆皆來自新北市：新北市兒童卡、新北市鮮奶幸福週、新北市公費腸病毒疫苗、新北市生育獎勵金、新北市好孕專車、新北市長者健康檢查加值服務、新北市身心障礙者生活補助、115 年新北市青年租金補貼。
 

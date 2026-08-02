@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { isAdminAuthorization } from "../lib/admin-auth";
-import { buildSourceDiffs, requiredEvidencePaths, type SnapshotRow, type SourceItemRow } from "../lib/admin-review";
+import { buildNeedsReviewPrograms, buildSourceDiffs, refreshProgramEvidence, requiredEvidencePaths, type DatabaseSource, type ProgramVersionRow, type SnapshotRow, type SourceItemRow } from "../lib/admin-review";
 import type { Program } from "../lib/domain";
 
 const snapshots: SnapshotRow[] = [
@@ -63,4 +63,35 @@ test("Publish gate 要求 Program evidence 與每個 Atomic rule path", () => {
     "/rule/all/1/any/0",
     "/rule/all/1/any/1",
   ]);
+});
+
+test("needs_review Queue 找出 stale Evidence 並關聯既有 Draft", () => {
+  const source: DatabaseSource = { id: "source-a", status: "active", last_checked_at: null, last_successful_fetch_at: null, last_check_error: null };
+  const published = {
+    id: "published", program_id: "program-a", version: 1, status: "published",
+    field_evidence: [{ id: "evidence-a", field_path: "/evidence/0", source_id: "source-a", snapshot_id: "old", locator: "資格", extracted_value: "年滿 18 歲", reviewed_at: "2026-07-26" }],
+  } as ProgramVersionRow;
+  const draft = { id: "draft", program_id: "program-a", version: 2, status: "draft", field_evidence: [] } as unknown as ProgramVersionRow;
+  const queue = buildNeedsReviewPrograms([source], snapshots, [published, draft], []);
+  assert.equal(queue.length, 1);
+  assert.equal(queue[0].issues[0].latestSnapshot?.id, "new");
+  assert.equal(queue[0].existingDraft?.id, "draft");
+  assert.equal(queue[0].blocked, false);
+});
+
+test("Evidence refresh 同步更新 Program Evidence 與 Atomic rule 且不修改舊物件", () => {
+  const oldEvidence = { sourceId: "source-a", snapshotId: "old", locator: "舊資格", extractedValue: "年滿 18 歲", reviewedAt: "2026-07-26" };
+  const nextEvidence = { ...oldEvidence, snapshotId: "new", locator: "新資格", reviewedAt: "2026-08-02" };
+  const program = {
+    evidence: [oldEvidence],
+    rule: { field: "age", operator: "gte", value: 18, label: "年滿 18 歲", evidence: oldEvidence },
+  } as Program;
+  const refreshed = refreshProgramEvidence(program, [
+    { fieldPath: "/evidence/0", evidence: nextEvidence },
+    { fieldPath: "/rule", evidence: nextEvidence },
+  ]);
+  assert.equal(refreshed.evidence[0].snapshotId, "new");
+  assert.ok(refreshed.rule && !("all" in refreshed.rule) && !("any" in refreshed.rule));
+  if (refreshed.rule && !("all" in refreshed.rule) && !("any" in refreshed.rule)) assert.equal(refreshed.rule.evidence.locator, "新資格");
+  assert.equal(program.evidence[0].snapshotId, "old");
 });

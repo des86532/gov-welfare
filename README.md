@@ -18,7 +18,7 @@
 - 臺中 10 筆急難、災害與食物銀行項目已逐項核對社會局現行頁面，全部建立人工驗證 Rules；專業訪查型方案只顯示可申請門檻。
 - Dry-run／persistent ingestion CLI、GitHub Actions Scheduled source checks。
 - Supabase PostgreSQL migration：Sources、Snapshots、Source items、Programs、Versions、Evidence、Reviews、Relationships 與 RLS。
-- Basic Auth 保護的 `/admin`：待處理工作優先，資料方法、完整 Source registry、Source diff、Rollback 與 Audit trail 收進進階管理。
+- Basic Auth 保護的 `/admin`：`needs_review` Queue 可直接核對 Source diff、更新 Evidence、建立 Draft，再經既有 Publish gate 發布；完整 Source registry、Rollback 與 Audit trail 收進進階管理。
 - 公開 Profile 僅存在同一分頁的 `sessionStorage`，關閉分頁後即消失；沒有帳號、MyData 或 `POST /api/match`。
 
 ## 本機執行

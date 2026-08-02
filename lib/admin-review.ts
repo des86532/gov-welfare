@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
-import type { Program, RuleNode } from "@/lib/domain";
+import type { Evidence, Program, RuleNode } from "@/lib/domain";
 import { supabaseConfig, supabaseRest } from "@/lib/supabase-rest";
 
 export type DatabaseSource = {
@@ -33,6 +33,7 @@ export type SnapshotRow = {
 };
 
 export type EvidenceRow = {
+  id: string;
   field_path: string;
   source_id: string;
   snapshot_id: string;
@@ -54,11 +55,32 @@ export type ProgramVersionRow = {
   canonical_content: Program;
   rule_tree: RuleNode | null;
   application_url: string | null;
+  effective_from: string | null;
+  effective_to: string | null;
+  application_open: string | null;
+  application_close: string | null;
   last_verified_at: string | null;
+  next_review_at: string | null;
   created_at: string;
   published_at: string | null;
   programs: { stable_key: string; slug: string };
   field_evidence: EvidenceRow[];
+};
+
+export const PROGRAM_VERSION_SELECT = "id,program_id,version,status,coverage,title,summary,benefit_type,decision_type,canonical_content,rule_tree,effective_from,effective_to,application_open,application_close,application_url,last_verified_at,next_review_at,created_at,published_at,programs(stable_key,slug),field_evidence(id,field_path,source_id,snapshot_id,locator,extracted_value,reviewed_at)";
+
+export type EvidenceIssue = {
+  evidence: EvidenceRow;
+  latestSnapshot: SnapshotRow | null;
+  sourceError: string | null;
+};
+
+export type NeedsReviewProgram = {
+  version: ProgramVersionRow;
+  issues: EvidenceIssue[];
+  sourceDiffs: SourceDiff[];
+  existingDraft?: ProgramVersionRow;
+  blocked: boolean;
 };
 
 export type ReviewRow = {
@@ -152,6 +174,88 @@ export function requiredEvidencePaths(program: Program): string[] {
   ];
 }
 
+export function latestSnapshotsBySource(snapshots: SnapshotRow[]): Map<string, SnapshotRow> {
+  const latest = new Map<string, SnapshotRow>();
+  for (const snapshot of snapshots) {
+    if (!snapshot.content_hash) continue;
+    const current = latest.get(snapshot.source_id);
+    if (!current || snapshot.observed_at > current.observed_at) latest.set(snapshot.source_id, snapshot);
+  }
+  return latest;
+}
+
+export function buildNeedsReviewPrograms(
+  databaseSources: DatabaseSource[],
+  snapshots: SnapshotRow[],
+  versions: ProgramVersionRow[],
+  sourceDiffs: SourceDiff[],
+): NeedsReviewProgram[] {
+  const sourceById = new Map(databaseSources.map((source) => [source.id, source]));
+  const latestBySource = latestSnapshotsBySource(snapshots);
+  const diffBySource = new Map(sourceDiffs.map((diff) => [diff.sourceId, diff]));
+  const draftsByProgram = new Map<string, ProgramVersionRow>();
+  for (const version of versions) {
+    if (["draft", "in_review"].includes(version.status) && !draftsByProgram.has(version.program_id)) draftsByProgram.set(version.program_id, version);
+  }
+  return versions.filter((version) => version.status === "published").flatMap((version) => {
+    const issues = version.field_evidence.flatMap((evidence): EvidenceIssue[] => {
+      const source = sourceById.get(evidence.source_id);
+      const latestSnapshot = latestBySource.get(evidence.source_id) ?? null;
+      const sourceError = source?.last_check_error?.message ?? (!source ? "Source registry 不存在" : null);
+      return sourceError || !latestSnapshot || latestSnapshot.id !== evidence.snapshot_id
+        ? [{ evidence, latestSnapshot, sourceError }]
+        : [];
+    });
+    if (issues.length === 0) return [];
+    const impactedSourceIds = new Set(issues.map((issue) => issue.evidence.source_id));
+    return [{
+      version,
+      issues,
+      sourceDiffs: [...impactedSourceIds].flatMap((sourceId) => diffBySource.get(sourceId) ?? []),
+      existingDraft: draftsByProgram.get(version.program_id),
+      blocked: issues.some((issue) => issue.sourceError || !issue.latestSnapshot),
+    }];
+  });
+}
+
+function replaceRuleEvidence(rule: RuleNode, path: string[], evidence: Evidence): RuleNode {
+  if (path.length === 0) {
+    if ("all" in rule || "any" in rule) throw new Error("Evidence path 沒有指向 Atomic rule");
+    return { ...rule, evidence };
+  }
+  const [operator, rawIndex, ...rest] = path;
+  const index = Number(rawIndex);
+  if (!Number.isInteger(index) || index < 0) throw new Error("Evidence path index 不正確");
+  if (operator === "all" && "all" in rule && rule.all[index]) {
+    return { all: rule.all.map((child, childIndex) => childIndex === index ? replaceRuleEvidence(child, rest, evidence) : child) };
+  }
+  if (operator === "any" && "any" in rule && rule.any[index]) {
+    return { any: rule.any.map((child, childIndex) => childIndex === index ? replaceRuleEvidence(child, rest, evidence) : child) };
+  }
+  throw new Error("Evidence path 與 Rule tree 不一致");
+}
+
+export function refreshProgramEvidence(
+  program: Program,
+  updates: Array<{ fieldPath: string; evidence: Evidence }>,
+): Program {
+  const allowed = new Set(requiredEvidencePaths(program));
+  let evidenceRows = [...program.evidence];
+  let rule = program.rule;
+  for (const update of updates) {
+    if (!allowed.has(update.fieldPath)) throw new Error(`Unknown Evidence path: ${update.fieldPath}`);
+    const path = update.fieldPath.split("/").filter(Boolean);
+    if (path[0] === "evidence") {
+      const index = Number(path[1]);
+      if (path.length !== 2 || !Number.isInteger(index) || !evidenceRows[index]) throw new Error("Program Evidence path 不正確");
+      evidenceRows = evidenceRows.map((item, itemIndex) => itemIndex === index ? update.evidence : item);
+    } else if (path[0] === "rule" && rule) {
+      rule = replaceRuleEvidence(rule, path.slice(1), update.evidence);
+    } else throw new Error("Evidence path 不正確");
+  }
+  return { ...program, evidence: evidenceRows, ...(rule ? { rule } : {}) };
+}
+
 export async function loadAdminReviewData() {
   const config = supabaseConfig(true);
   if (!config) return null;
@@ -159,17 +263,11 @@ export async function loadAdminReviewData() {
     supabaseRest<DatabaseSource[]>(config, "sources?select=id,status,last_checked_at,last_successful_fetch_at,last_check_error"),
     supabaseRest<SnapshotRow[]>(config, "source_snapshots?select=id,source_id,observed_at,content_hash,http_status,fetch_error&order=observed_at.desc"),
     supabaseRest<SourceItemRow[]>(config, "source_items?select=id,source_id,snapshot_id,external_id,title,canonical_draft,unknown_fields,classification,classification_rationale,review_status&order=created_at.desc"),
-    supabaseRest<ProgramVersionRow[]>(config, "program_versions?select=id,program_id,version,status,coverage,title,summary,benefit_type,decision_type,canonical_content,rule_tree,application_url,last_verified_at,created_at,published_at,programs(stable_key,slug),field_evidence(field_path,source_id,snapshot_id,locator,extracted_value,reviewed_at)&order=version.desc"),
+    supabaseRest<ProgramVersionRow[]>(config, `program_versions?select=${PROGRAM_VERSION_SELECT}&order=version.desc`),
     supabaseRest<ReviewRow[]>(config, "reviews?select=id,program_version_id,source_item_id,reviewer_name,action,rationale,created_at&order=created_at.desc&limit=30"),
   ]);
-  const latestSnapshotIds = new Set<string>();
-  const seenSources = new Set<string>();
-  for (const snapshot of snapshots) {
-    if (snapshot.content_hash && !seenSources.has(snapshot.source_id)) {
-      latestSnapshotIds.add(snapshot.id);
-      seenSources.add(snapshot.source_id);
-    }
-  }
+  const latestSnapshots = latestSnapshotsBySource(snapshots);
+  const latestSnapshotIds = new Set([...latestSnapshots.values()].map((snapshot) => snapshot.id));
   const publishedPrograms = new Set(versions.filter((version) => version.status === "published").map((version) => version.program_id));
   const reviewableSources = new Set(databaseSources
     .filter((source) => source.status === "active" && source.last_check_error == null)
@@ -180,11 +278,13 @@ export async function loadAdminReviewData() {
       rollbackByProgram.set(version.program_id, version);
     }
   }
+  const sourceDiffs = buildSourceDiffs(snapshots, items);
   return {
     sources: new Map(databaseSources.map((source) => [source.id, source])),
     snapshots,
     items,
-    sourceDiffs: buildSourceDiffs(snapshots, items),
+    sourceDiffs,
+    needsReviewPrograms: buildNeedsReviewPrograms(databaseSources, snapshots, versions, sourceDiffs),
     pendingItems: items.filter((item) => reviewableSources.has(item.source_id) && latestSnapshotIds.has(item.snapshot_id) && item.review_status === "draft"),
     pendingVersions: versions.filter((version) => version.status === "draft" || version.status === "in_review"),
     rollbackCandidates: [...rollbackByProgram.values()],
