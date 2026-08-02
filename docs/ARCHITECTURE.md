@@ -1,0 +1,274 @@
+# Gov Welfare Architecture 與 Production Gap
+
+> 最後核對：2026-08-02（Asia/Taipei）  
+> 本文件描述 Repository 與 Production **實際已實作**的狀態，不是最初 PRD 或未完成的 Roadmap。
+
+## 結論
+
+目前是一個可運作的 Source-first MVP：Next.js 部署在 Vercel、Supabase PostgreSQL 保存官方 Source 歷史與人工 Review 結果、GitHub Actions cron 定期抓取官方資料。Public questionnaire 不會把個人回答送到 Server 或 Database。
+
+系統有 cron job，但它是 **GitHub Actions Scheduled workflow**，不是 Vercel Cron。它每天被排程喚醒，只檢查到期的 Sources、保存 immutable Snapshot 與 Draft，**不會自動 Publish**。正式公開仍需人工 Review。
+
+Production 現在可用，但還不是「全臺完整福利平台」。最優先的缺口是處理 8 個 `needs_review` Programs、補上一般 CI quality gate、改善 Admin identity／Audit attribution，以及建立 Backup／restore 與 monitoring 的正式作業方式。
+
+## Operational snapshot
+
+以下數字是 2026-08-02 的實際核對結果，會隨 Source check 與人工 Review 改變：
+
+| 項目 | Production 狀態 |
+| --- | ---: |
+| Public Programs | 80 |
+| `matchable` | 52 |
+| `descriptive_only` | 20 |
+| `needs_review` | 8 |
+| 中央／地方分布 | 中央 30、桃園 22、新北 8、臺北 10、臺中 10 |
+| Source registry | 70 |
+| Active Sources | 65 |
+| Blocked Sources | 5 |
+| Active Source fetch failure | 0 |
+| Public activities | 4 |
+| Public health | `attention`，原因是 8 個 Programs 待複核 |
+
+Production URL：<https://gov-welfare-iota.vercel.app>
+
+## System architecture
+
+```mermaid
+flowchart LR
+  U["Public Browser"] --> V["Vercel / Next.js App Router"]
+  U --> S["sessionStorage\nQuestionnaire state only"]
+  V --> C["Next.js Data Cache\n300 seconds"]
+  C --> DB["Supabase PostgreSQL"]
+  A["Admin Browser\nHTTP Basic Auth"] --> V
+
+  G["GitHub Actions cron"] --> CLI["Node ingestion CLI"]
+  CLI --> O["Official government Sources\nJSON / CSV / HTML / PDF / ODS"]
+  CLI --> DB
+  DB --> R["Draft / Review queue"]
+  R -->|"Human Review + Publish"| DB
+  DB --> C
+```
+
+### Runtime components
+
+| Layer | 目前實作 | Rationale |
+| --- | --- | --- |
+| Web | Next.js 16 App Router、React 19、TypeScript | Public UI、Server rendering、API、Admin 都留在同一 Repository，避免 Microservices overhead。 |
+| Hosting | Vercel Production | 負責 Next.js build、Server Functions、Static assets 與 deployment。 |
+| Database | Supabase PostgreSQL + PostgREST | 保存 Source registry、Snapshot、Draft、Published Program version、Evidence 與 Review history。 |
+| Ingestion | 同 Repository 的 Node CLI | Scheduled workflow 可在 Web request timeout 之外抓取與解析官方資料。 |
+| Scheduler | GitHub Actions Scheduled workflow | 每日喚醒後依 Source frequency 檢查；沒有 Vercel Cron。 |
+| Search | PostgreSQL index + 目前 Catalog 的 in-memory filtering | MVP 資料量只有數十筆，暫不需要 Elasticsearch。 |
+| Public profile | Browser `sessionStorage` | 不建立帳號、不保存個人答案，降低 Privacy 與 Security 風險。 |
+
+目前沒有 Redis、Queue、Elasticsearch、Vector database、LLM Runtime、獨立 CMS 或 Microservices。
+
+## Public request 與 rendering flow
+
+### Routes
+
+| Route | Rendering | 說明 |
+| --- | --- | --- |
+| `/` | Static，5 分鐘 revalidate | 首頁與精選 Programs／activities。 |
+| `/find` | Static，5 分鐘 revalidate + Client matching | Server 只提供 Programs；回答與 Rule evaluation 在 Browser 執行。 |
+| `/programs` | Dynamic SSR | Query string 負責關鍵字、Category、縣市、Benefit、狀態、排序、分頁與 view mode。 |
+| `/programs/[slug]` | SSG，5 分鐘 revalidate | Program detail、Rule tree、Evidence 與官方入口。 |
+| `/activities` | Dynamic SSR | 活動地點、對象、類型、報名狀態與關鍵字篩選。 |
+| `/activities/[slug]` | SSG，5 分鐘 revalidate | 活動資格、日期、費用、Evidence 與官方入口。 |
+| `/admin` | Dynamic SSR、private `no-store` | Source status、Review、Publish、Reject、Rollback 與 Audit trail。 |
+| `/api/programs` | Dynamic API | Public Program payload；HTTP response 不快取，但底層 Program store 快取 5 分鐘。 |
+| `/api/opportunities` | Dynamic API | Public activity payload；CDN cache 5 分鐘。 |
+| `/api/health` | Dynamic API、`no-store` | Database、Source failure 與 `needs_review` 摘要。 |
+
+### Cache behavior
+
+- `getPrograms()` 與 `getOpportunities()` 使用 `unstable_cache`，TTL 為 300 秒。
+- Public request 在同一個 5 分鐘 window 內不會每次都重新查 Supabase。
+- Admin Publish／Rollback 後使用 `updateTag()` 立即 invalidation，不必等待 TTL。
+- `programs` 與 `activities` Catalog 因為依賴 `searchParams`，仍是 Dynamic SSR；慢的主因通常是 Server round trip 與 page navigation，不是每次重新抓完整 Database。
+- Detail page 使用 Browser history 返回，因此 URL query、分頁與 view mode 會恢復；`/find` 的 step 與 answers 另外保存在同一分頁的 `sessionStorage`。
+
+### Failure behavior
+
+- Supabase 讀取失敗時，Public Programs 回到 Repository reviewed Seed，不讓整站中斷。
+- Source fetch 失敗時保留上一個 Published version，不刪除 Public data。
+- 最新 successful Snapshot 與 Published Evidence 不一致，Program Runtime state 會降為 `needs_review`。
+- Activity Source 異動時仍可顯示上一個 Reviewed content，但停用直接報名按鈕並要求使用者核對官方頁。
+
+## Database 保存什麼
+
+Database **不是拿來保存使用者性別、年齡或 Questionnaire answers**。它保存的是政府資料的版本、來源和人工決策：
+
+| Table | 保存內容 |
+| --- | --- |
+| `sources` | Source registry、主管機關、Jurisdiction、URL、Adapter、frequency、最後檢查與錯誤狀態。 |
+| `source_snapshots` | 每次成功或失敗的 fetch 紀錄、HTTP metadata、content hash 與 raw response。 |
+| `source_items` | 從一個 JSON row、HTML page 或 document 擷取出的 Draft、unknown fields、Classification 與 Review state。 |
+| `programs` | Program 的 stable identity、slug、主管機關、Jurisdiction 與 Primary category。 |
+| `program_versions` | Versioned canonical content、Rule tree、Coverage、申請期間與 Publish state。 |
+| `field_evidence` | 每個重要欄位及 Atomic rule 對應的 Source、Snapshot、locator、extracted value 與 Review 時間。 |
+| `reviews` | Publish、Reject、Classification、Rollback 的 Reviewer、時間與 Rationale。 |
+| `program_relationships` | 中央與地方版本、加碼、執行或取代關係的 Data structure；Schema 已具備。 |
+
+`source_snapshots.storage_path` 已預留給 Supabase Storage，但目前 ingestion 實際把 raw payload 寫在 `raw_body`；PDF 會以 base64 保存。資料量繼續成長前需要制定 retention／Storage policy。
+
+## Source ingestion pipeline
+
+```mermaid
+flowchart TD
+  SR["Source registry"] --> DUE{"Active and due?"}
+  DUE -->|"No"| SKIP["Skip this run"]
+  DUE -->|"Yes"| F["Fetch: timeout + retry"]
+  F --> H["Normalize and content hash"]
+  H --> E["Source-specific Adapter extract"]
+  E --> SS["Immutable source_snapshot"]
+  SS --> SI["Draft source_items"]
+  SI --> RV["Admin Review"]
+  RV -->|"Reject / Exclude"| KEEP["Keep history only"]
+  RV -->|"Approve"| PV["Published program_version or activity Classification"]
+  PV --> PUB["Public website"]
+```
+
+### Adapter boundary
+
+- Structured adapters：桃園 JSON、新北／臺北 CSV、臺中 JSON、ODS。
+- MyEGov HTML adapter：解析 service sections 並去除申辦方式的重複內容。
+- Official page adapter：只擷取標題、日期、正文與 links，不自動建立正式 Rules。
+- Document monitor：PDF／document 只做 format check、download 與 content hash；異動後進 Review。
+- Unknown fields 會保留在 `unknown_fields`，不會因 canonical schema 不認得就丟失。
+- 每個 fetch 最多嘗試 3 次，單次預設 timeout 20 秒。
+
+### Publish safety gate
+
+Program Publish 前，Server 與 PostgreSQL function 會再次檢查：
+
+- Reviewer 與至少 10 字的 Rationale。
+- 官方 application URL 與 `last_verified_at`。
+- Required Evidence 是否存在且已 Review。
+- Evidence 是否指向該 Source 最新 successful Snapshot。
+- Source 最近一次 check 是否成功。
+- 同一 Program 同時間只能有一個 Published version；舊版轉為 `superseded`，可做 Rollback。
+
+Open Data、HTML 或 PDF 的自動擷取結果都不能直接越過這個 gate。
+
+## Cron job
+
+### 有，而且目前有正常執行
+
+設定檔：`.github/workflows/source-check.yml`
+
+| 項目 | 設定／行為 |
+| --- | --- |
+| Scheduler | GitHub Actions `schedule` |
+| Cron expression | `17 1 * * *` |
+| 名義時間 | 每天 01:17 UTC，即台灣時間 09:17 |
+| 實際時間保證 | 無；GitHub Actions 可能延遲數分鐘到數小時 |
+| Job timeout | 15 分鐘 |
+| Concurrency | 同一時間只允許一個 `welfare-source-check`，不取消正在執行的 run |
+| Runtime | Ubuntu + Node.js 22 + `npm ci` |
+| Output | `source-report.json` artifact，保留 30 天 |
+| Failure alert | 建立／更新 `Source monitoring failure` GitHub Issue；恢復後留言並關閉 |
+| Auto Publish | 沒有 |
+
+2026-08-01 最新 scheduled run 成功；實際開始時間為 04:37 UTC（台灣時間 12:37），可看出 schedule 不是精準 Scheduler。當時 Publish 與 data audit steps 都被正確 skip，因為 scheduled run 只負責 Draft ingestion。
+
+### Source frequency
+
+Workflow 雖然每天喚醒，但 CLI 會讀取 `last_checked_at` 與 `checkEveryHours`，只抓到期 Sources：
+
+| Frequency | Sources |
+| --- | ---: |
+| 每 24 小時 | 5 |
+| 每 168 小時 | 62 |
+| 每 720 小時 | 3 |
+
+若上次 check 失敗，下一次 workflow 會優先重試。手動 `workflow_dispatch` 會加上 `--force`，檢查全部 active Sources。
+
+只有手動執行 workflow 並勾選 `publish_reviewed_programs` 時，才會執行 Repository-reviewed import 與 `data:audit`。這不是全自動 Publish；維護者仍需先在 Repository 或 Admin 完成 Review。
+
+### 不存在的 cron pieces
+
+- 沒有 Vercel Cron route 或 `vercel.json` cron 設定。
+- `.env.example` 內的 `CRON_SECRET` 目前沒有任何 Runtime code 使用，是待清理的 stale configuration。
+- 沒有 Queue；Source checks 目前逐筆 sequential 執行。
+
+## Security 與 Privacy boundary
+
+- `/admin` 由 `proxy.ts` 的 HTTP Basic Auth 保護；未設定 `ADMIN_PASSWORD` 時 fail closed，回應 503。
+- Admin Server Actions 會重新驗證 Authorization header，不只依賴頁面入口。
+- Supabase Service Role 只存在 Vercel／GitHub Secrets 與 Server-side code，不會送到 Client bundle。
+- Supabase Tables 啟用 RLS；Public 只可讀 Published Program versions／Evidence 和必要的 Program identity。
+- Public answers 只寫入同一 tab 的 `sessionStorage`，關閉 tab 後消失；沒有 User account、MyData 或 `POST /api/match`。
+- 目前 Admin 使用一組共用 password，`reviews.reviewer_name` 是人工輸入文字，不是可靠的 individual identity。這是正式多人管理前必須補的 gap。
+
+## 目前缺口與優先順序
+
+### P0 — 下一輪應先完成
+
+1. **清理 8 個 `needs_review` Programs**  
+   Production 沒有 Source fetch failure，但最新 Snapshot 已不同於 Published Evidence。這些 Programs 已安全降級，不會被當成 confirmed match；仍需要人工核對 diff、更新 Evidence 後重新 Publish。
+
+   2026-08-02 的 8 筆皆來自新北市：新北市兒童卡、新北市鮮奶幸福週、新北市公費腸病毒疫苗、新北市生育獎勵金、新北市好孕專車、新北市長者健康檢查加值服務、新北市身心障礙者生活補助、115 年新北市青年租金補貼。
+
+2. **新增一般 CI workflow**  
+   現在只有 Source monitoring workflow。Push／Pull Request 沒有獨立執行 `test`、`typecheck`、`lint`、`build` 的 GitHub Actions quality gate；Vercel build 成功不等於全部 data acceptance tests 通過。
+
+3. **把 Admin 改成 individual Auth**  
+   共用 Basic Auth 適合單人 MVP，但無法可靠回答「誰」做了 Publish。正式多人營運應使用 Supabase Auth 或其他 identity provider，把 Review 綁到 immutable user id，並保留 emergency access。
+
+4. **建立 Backup 與 restore runbook**  
+   Repository 有 immutable versions，但沒有記錄 Supabase backup plan、retention、restore drill 與 Recovery Point Objective。需要至少完成一次可驗證的 restore exercise。
+
+5. **強化 scheduled ingestion reliability**  
+   GitHub schedule 是 best-effort；目前 Sources sequential 執行，遇到多個 20 秒 timeout 和 retry 時可能碰到 15 分鐘 job limit。應先做 bounded concurrency、per-Source deadline 與 run summary，再評估是否需要更可靠的 managed scheduler。
+
+### P1 — Coverage 與 Operations
+
+1. **活動 Coverage 還很小**：Production 只有 4 筆，且目前 3 筆已截止、1 筆已結束；需要更多官方活動 listing adapters 與年度更新流程。
+2. **地方 Coverage 只有四市 Pilot**：選縣市會顯示中央 + 該縣市，但目前其他 18 縣市幾乎只有中央 Programs，不能宣稱全臺完整。
+3. **Daily workflow 不跑完整 data audit**：scheduled run 成功只代表 ingestion 成功，不代表 Published Evidence 全部最新；應新增 read-only acceptance audit 並讓 `attention` 狀態可通知維護者。
+4. **Monitoring 不完整**：目前只有 GitHub Issue 和 `/api/health`，沒有 uptime check、error tracing、latency／Database size alert。
+5. **Snapshot lifecycle 未定義**：raw HTML／JSON／PDF base64 長期放在 PostgreSQL，需制定 Storage、retention、checksum 與 legal retention policy。
+6. **Security hardening 未完成**：尚無明確 CSP、rate limit、automated dependency scan 與 Admin brute-force protection。
+7. **Automated E2E／Accessibility gate 缺少**：Unit/data tests 已有，但 CI 沒有 Browser flow、mobile viewport、keyboard navigation、Lighthouse 或 axe gate。
+
+### P2 — 可延後
+
+- Full-text search 可在資料量與查詢需求上升後再移到 PostgreSQL query；目前不需要 Elasticsearch。
+- User account、收藏、跨裝置同步與 MyData 都不是 MVP 必需品，加入前需重新做 Privacy impact assessment。
+- PDF 自動轉正式 Rules 風險高；在 Evidence extraction 品質可量測以前，維持人工 Review 比導入 LLM Runtime 更合理。
+- `program_relationships` 已有 Schema，但 UI 與大部分資料尚未使用，可等中央／地方加碼案例增加後再完成。
+
+## 維運指令
+
+```bash
+# Code quality
+npm test
+npm run typecheck
+npm run lint
+npm run build
+
+# Dry-run，不寫 Database
+npm run sources:check -- --json
+
+# 有 Service Role 才可保存 Snapshot／Draft，仍不 Publish
+npm run sources:persist -- --json
+
+# Production data acceptance
+npm run data:audit
+
+# GitHub Actions 執行紀錄
+gh run list --workflow source-check.yml
+
+# Production health
+curl -fsS https://gov-welfare-iota.vercel.app/api/health
+```
+
+## Architecture decisions
+
+- 以 Source registry + Source-specific Adapter 處理政府資料不一致，不做「萬能 crawler」。
+- 自動化停在 Draft，人工 Review 才能 Publish。
+- Eligibility 使用 `true`／`false`／`unknown`，缺資料不等於不符合。
+- Database 儲存的是政府資料 lineage 與 Review state，不是 Public profile。
+- 保留 Repository Seed fallback，避免 Supabase 短暫故障使 Public site 完全不可用。
+- 維持單一 Next.js Repository；在規模與可靠性需求證明以前，不新增 Microservices、Queue 或搜尋基礎設施。

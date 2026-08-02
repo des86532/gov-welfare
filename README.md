@@ -2,6 +2,8 @@
 
 台灣政府福利的 Source-first MVP。公開端以 Dynamic questionnaire 和三值邏輯做資格初篩；資料端以 Source registry、Source-specific Adapter、immutable snapshots 與人工 Review 隔離不一致的政府資料。
 
+目前實際 Architecture、cron job、Database Data structure、Production 狀態與缺口，請見 [Architecture 與 Production Gap](docs/ARCHITECTURE.md)。
+
 ## 已實作
 
 - Next.js App Router 公開網站：首頁、Category catalog、Dynamic questionnaire、Results 與 Program detail。
