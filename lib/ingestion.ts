@@ -54,6 +54,7 @@ export async function syncSourceRegistry(config: SupabaseConfig, sourceConfigs: 
 
 function persistedItem(source: SourceConfig, snapshotId: string, item: DraftSourceItem) {
   const curated = classificationsBySource.get(source.id)?.get(item.title);
+  const isStructuredApi = source.automation === "structured_extract";
   return {
     source_id: source.id,
     snapshot_id: snapshotId,
@@ -62,8 +63,9 @@ function persistedItem(source: SourceConfig, snapshotId: string, item: DraftSour
     raw_data: item.raw,
     canonical_draft: { ...item.canonicalDraft, extractionWarnings: item.warnings },
     unknown_fields: item.unknownFields,
-    classification: curated?.classification ?? null,
-    classification_rationale: curated?.rationale ?? null,
+    classification: curated?.classification ?? (isStructuredApi ? "descriptive_only" : null),
+    classification_rationale: curated?.rationale ?? (isStructuredApi ? "Structured government API passthrough；保留官方連結，不自動建立資格 Rule。" : null),
+    review_status: isStructuredApi ? "published" : "draft",
   };
 }
 

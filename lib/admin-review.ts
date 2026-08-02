@@ -1,9 +1,11 @@
 import { isDeepStrictEqual } from "node:util";
 import type { Evidence, Program, RuleNode } from "@/lib/domain";
+import { evidenceNeedsReview } from "@/lib/source-freshness";
 import { supabaseConfig, supabaseRest } from "@/lib/supabase-rest";
 
 export type DatabaseSource = {
   id: string;
+  automation_level: string;
   status: "active" | "blocked" | "archived";
   last_checked_at: string | null;
   last_successful_fetch_at: string | null;
@@ -78,7 +80,6 @@ export type EvidenceIssue = {
 export type NeedsReviewProgram = {
   version: ProgramVersionRow;
   issues: EvidenceIssue[];
-  sourceDiffs: SourceDiff[];
   existingDraft?: ProgramVersionRow;
   blocked: boolean;
 };
@@ -188,11 +189,9 @@ export function buildNeedsReviewPrograms(
   databaseSources: DatabaseSource[],
   snapshots: SnapshotRow[],
   versions: ProgramVersionRow[],
-  sourceDiffs: SourceDiff[],
 ): NeedsReviewProgram[] {
   const sourceById = new Map(databaseSources.map((source) => [source.id, source]));
   const latestBySource = latestSnapshotsBySource(snapshots);
-  const diffBySource = new Map(sourceDiffs.map((diff) => [diff.sourceId, diff]));
   const draftsByProgram = new Map<string, ProgramVersionRow>();
   for (const version of versions) {
     if (["draft", "in_review"].includes(version.status) && !draftsByProgram.has(version.program_id)) draftsByProgram.set(version.program_id, version);
@@ -202,16 +201,14 @@ export function buildNeedsReviewPrograms(
       const source = sourceById.get(evidence.source_id);
       const latestSnapshot = latestBySource.get(evidence.source_id) ?? null;
       const sourceError = source?.last_check_error?.message ?? (!source ? "Source registry 不存在" : null);
-      return sourceError || !latestSnapshot || latestSnapshot.id !== evidence.snapshot_id
+      return evidenceNeedsReview(source, evidence.snapshot_id, latestSnapshot?.id)
         ? [{ evidence, latestSnapshot, sourceError }]
         : [];
     });
     if (issues.length === 0) return [];
-    const impactedSourceIds = new Set(issues.map((issue) => issue.evidence.source_id));
     return [{
       version,
       issues,
-      sourceDiffs: [...impactedSourceIds].flatMap((sourceId) => diffBySource.get(sourceId) ?? []),
       existingDraft: draftsByProgram.get(version.program_id),
       blocked: issues.some((issue) => issue.sourceError || !issue.latestSnapshot),
     }];
@@ -260,7 +257,7 @@ export async function loadAdminReviewData() {
   const config = supabaseConfig(true);
   if (!config) return null;
   const [databaseSources, snapshots, items, versions, reviews] = await Promise.all([
-    supabaseRest<DatabaseSource[]>(config, "sources?select=id,status,last_checked_at,last_successful_fetch_at,last_check_error"),
+    supabaseRest<DatabaseSource[]>(config, "sources?select=id,automation_level,status,last_checked_at,last_successful_fetch_at,last_check_error"),
     supabaseRest<SnapshotRow[]>(config, "source_snapshots?select=id,source_id,observed_at,content_hash,http_status,fetch_error&order=observed_at.desc"),
     supabaseRest<SourceItemRow[]>(config, "source_items?select=id,source_id,snapshot_id,external_id,title,canonical_draft,unknown_fields,classification,classification_rationale,review_status&order=created_at.desc"),
     supabaseRest<ProgramVersionRow[]>(config, `program_versions?select=${PROGRAM_VERSION_SELECT}&order=version.desc`),
@@ -268,6 +265,7 @@ export async function loadAdminReviewData() {
   ]);
   const latestSnapshots = latestSnapshotsBySource(snapshots);
   const latestSnapshotIds = new Set([...latestSnapshots.values()].map((snapshot) => snapshot.id));
+  const databaseSourceById = new Map(databaseSources.map((source) => [source.id, source]));
   const publishedPrograms = new Set(versions.filter((version) => version.status === "published").map((version) => version.program_id));
   const reviewableSources = new Set(databaseSources
     .filter((source) => source.status === "active" && source.last_check_error == null)
@@ -280,12 +278,18 @@ export async function loadAdminReviewData() {
   }
   const sourceDiffs = buildSourceDiffs(snapshots, items);
   return {
-    sources: new Map(databaseSources.map((source) => [source.id, source])),
+    sources: databaseSourceById,
     snapshots,
     items,
     sourceDiffs,
-    needsReviewPrograms: buildNeedsReviewPrograms(databaseSources, snapshots, versions, sourceDiffs),
-    pendingItems: items.filter((item) => reviewableSources.has(item.source_id) && latestSnapshotIds.has(item.snapshot_id) && item.review_status === "draft"),
+    needsReviewPrograms: buildNeedsReviewPrograms(databaseSources, snapshots, versions),
+    pendingItems: items.filter((item) => {
+      const source = databaseSourceById.get(item.source_id);
+      return source?.automation_level !== "structured_extract"
+        && reviewableSources.has(item.source_id)
+        && latestSnapshotIds.has(item.snapshot_id)
+        && item.review_status === "draft";
+    }),
     pendingVersions: versions.filter((version) => version.status === "draft" || version.status === "in_review"),
     rollbackCandidates: [...rollbackByProgram.values()],
     reviews,

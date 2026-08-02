@@ -18,7 +18,7 @@
 - 臺中 10 筆急難、災害與食物銀行項目已逐項核對社會局現行頁面，全部建立人工驗證 Rules；專業訪查型方案只顯示可申請門檻。
 - Dry-run／persistent ingestion CLI、GitHub Actions Scheduled source checks。
 - Supabase PostgreSQL migration：Sources、Snapshots、Source items、Programs、Versions、Evidence、Reviews、Relationships 與 RLS。
-- Basic Auth 保護的 `/admin`：`needs_review` Queue 可直接核對 Source diff、更新 Evidence、建立 Draft，再經既有 Publish gate 發布；完整 Source registry、Rollback 與 Audit trail 收進進階管理。
+- Basic Auth 保護的 `/admin`：`needs_review` Queue 只處理 Authority page／PDF 的資格、金額或期限異動；Structured government API 採 descriptive passthrough 並附官方連結。Source history、Rollback 與 Audit trail 收進進階管理。
 - 公開 Profile 僅存在同一分頁的 `sessionStorage`，關閉分頁後即消失；沒有帳號、MyData 或 `POST /api/match`。
 
 ## 本機執行
@@ -59,7 +59,7 @@ npm run sources:check -- --json
 npm run sources:persist -- --json
 ```
 
-核對 Production data coverage、桃園 26/26、新北 151/151、臺北 10/10、臺中 10/10 分類、Published evidence 與最新 Snapshot 是否一致：
+核對 Production data coverage、桃園 26/26、新北 151/151、臺北 10/10、臺中 10/10 資料，以及 Published Authority evidence 是否仍為最新 Snapshot：
 
 ```bash
 npm run data:audit
@@ -79,12 +79,12 @@ Schedule 會依每個 Source 的 `checkEveryHours` 判斷是否到期；手動�
 
 `SUPABASE_SERVICE_ROLE_KEY` 只供 Server-side ingestion 與 Admin 使用，不得放進 Client component 或公開輸出。
 
-Repository 刻意不包含自動 Publish job。CLI 只以 Service Role 寫入 immutable `source_snapshots` 與 Draft `source_items`；初始 reviewed Programs 可由 `npm run data:seed -- --apply --publish-initial` 匯入。後續內容異動只會建立 Draft，必須在 `/admin` 通過最新 Snapshot 與 Field evidence 檢查後才能 Publish。公開網站優先讀取 Supabase Published versions，Database 無法使用時才回到 Repository 中的 reviewed Seed。
+Repository 刻意不包含自動 Publish Program job。CLI 以 Service Role 寫入 immutable `source_snapshots` 與 `source_items`：Structured government API item 以 descriptive passthrough 更新；HTML／PDF 等 Authority Source 異動才建立人工 Review 工作。初始 reviewed Programs 可由 `npm run data:seed -- --apply --publish-initial` 匯入。公開網站優先讀取 Supabase Published versions，Database 無法使用時才回到 Repository 中的 reviewed Seed。
 
 ## 資料與安全邊界
 
-- Open Data 只能建立 Draft，不能直接視為法律或資格依據。
-- Content hash 改變只建立 Review alert；上一個 Published version 保留。
+- Structured Open Data 可直接更新 descriptive content，但不能自動產生 `matchable` Rule；顯示時必須附官方連結。
+- Authority page／PDF 的 Content hash 改變才建立 Review alert；上一個 Published version 保留。
 - `matchable` 的每個 Atomic rule 都必須有 `sourceId`、`snapshotId`、`locator` 和 Review 時間。
 - Competitive selection、Loan、專業評估與官方紀錄查核不會顯示「核准」。
 - Coverage 僅承諾中央 Seed programs，以及桃園、新北、臺北與臺中已完成 Review 的 Pilot 範圍，不宣稱完整涵蓋全臺。

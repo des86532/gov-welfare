@@ -65,18 +65,27 @@ test("Publish gate 要求 Program evidence 與每個 Atomic rule path", () => {
   ]);
 });
 
-test("needs_review Queue 找出 stale Evidence 並關聯既有 Draft", () => {
-  const source: DatabaseSource = { id: "source-a", status: "active", last_checked_at: null, last_successful_fetch_at: null, last_check_error: null };
+test("needs_review Queue 找出 Authority Source 的 stale Evidence 並關聯既有 Draft", () => {
+  const source: DatabaseSource = { id: "source-a", automation_level: "change_detection_only", status: "active", last_checked_at: null, last_successful_fetch_at: null, last_check_error: null };
   const published = {
     id: "published", program_id: "program-a", version: 1, status: "published",
     field_evidence: [{ id: "evidence-a", field_path: "/evidence/0", source_id: "source-a", snapshot_id: "old", locator: "資格", extracted_value: "年滿 18 歲", reviewed_at: "2026-07-26" }],
   } as ProgramVersionRow;
   const draft = { id: "draft", program_id: "program-a", version: 2, status: "draft", field_evidence: [] } as unknown as ProgramVersionRow;
-  const queue = buildNeedsReviewPrograms([source], snapshots, [published, draft], []);
+  const queue = buildNeedsReviewPrograms([source], snapshots, [published, draft]);
   assert.equal(queue.length, 1);
   assert.equal(queue[0].issues[0].latestSnapshot?.id, "new");
   assert.equal(queue[0].existingDraft?.id, "draft");
   assert.equal(queue[0].blocked, false);
+});
+
+test("Structured government API 的 Snapshot 更新不建立人工 Review 工作", () => {
+  const source: DatabaseSource = { id: "source-a", automation_level: "structured_extract", status: "active", last_checked_at: null, last_successful_fetch_at: null, last_check_error: null };
+  const published = {
+    id: "published", program_id: "program-a", version: 1, status: "published",
+    field_evidence: [{ id: "evidence-a", field_path: "/evidence/0", source_id: "source-a", snapshot_id: "old", locator: "API row", extracted_value: "政府 API 原始內容", reviewed_at: "2026-07-26" }],
+  } as ProgramVersionRow;
+  assert.deepEqual(buildNeedsReviewPrograms([source], snapshots, [published]), []);
 });
 
 test("Evidence refresh 同步更新 Program Evidence 與 Atomic rule 且不修改舊物件", () => {

@@ -2,6 +2,7 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { programs as seedPrograms } from "@/data/programs";
 import { CATEGORY_KEYS, type Program } from "@/lib/domain";
+import { evidenceNeedsReview } from "@/lib/source-freshness";
 import { supabaseConfig, supabaseRest } from "@/lib/supabase-rest";
 
 type PublishedVersion = {
@@ -14,7 +15,7 @@ type SnapshotState = {
   source_id: string;
 };
 
-type SourceState = { id: string; last_check_error: unknown };
+type SourceState = { id: string; automation_level: string; last_check_error: unknown };
 
 function isProgram(value: unknown): value is Program {
   if (!value || typeof value !== "object") return false;
@@ -53,18 +54,18 @@ async function loadPrograms(): Promise<Program[]> {
         ),
         supabaseRest<SourceState[]>(
           serviceConfig,
-          `sources?select=id,last_check_error&id=in.(${sourceIds.map(encodeURIComponent).join(",")})`,
+          `sources?select=id,automation_level,last_check_error&id=in.(${sourceIds.map(encodeURIComponent).join(",")})`,
           { cache: "no-store" },
         ),
       ]);
       const latestBySource = new Map<string, SnapshotState>();
       for (const snapshot of latest) if (!latestBySource.has(snapshot.source_id)) latestBySource.set(snapshot.source_id, snapshot);
-      const errors = new Map(sourceStates.map((source) => [source.id, source.last_check_error]));
+      const sourcesById = new Map(sourceStates.map((source) => [source.id, source]));
       for (const item of published) {
         const evidence = item.evidence;
         const stale = evidence.some((item) => {
           const newest = latestBySource.get(item.source_id);
-          return !newest || errors.get(item.source_id) != null || newest.id !== item.snapshot_id;
+          return evidenceNeedsReview(sourcesById.get(item.source_id), item.snapshot_id, newest?.id);
         });
         if (stale) item.program = { ...item.program, coverage: "needs_review" };
       }

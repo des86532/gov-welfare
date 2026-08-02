@@ -17,7 +17,7 @@ export const sources: SourceConfig[] = [
     status: "active",
     resourceModifiedAt: "2026-07-13",
     lastVerifiedAt: "2026-07-26",
-    note: "Open Data Category 僅保存為 raw value；不得自動 Publish。",
+    note: "Open Data row 以 descriptive passthrough 保存並附官方連結；Category 僅保存為 raw value，不自動建立資格 Rule。",
   },
   {
     id: "new-taipei-welfare-open-data",
@@ -35,7 +35,7 @@ export const sources: SourceConfig[] = [
     status: "active",
     catalogModifiedAt: "2025-06-20",
     lastVerifiedAt: "2026-07-27",
-    note: "cont1–cont7 欄位語意不透明，原樣保存並逐筆 Review；不得依欄位位置自動產生 Rules。",
+    note: "cont1–cont7 欄位語意不透明，原樣以 descriptive passthrough 保存並附官方連結；不得依欄位位置自動產生 Rules。",
   },
   {
     id: "new-taipei-child-card",
@@ -193,7 +193,7 @@ export const sources: SourceConfig[] = [
     crawlerRequired: false,
     status: "active",
     lastVerifiedAt: "2026-07-27",
-    note: "Dataset 仍含 109 年門檻文字與混合語意欄位，只建立 Draft；須連回社會局現行頁面後才可 Publish。",
+    note: "Dataset 仍含 109 年門檻文字與混合語意欄位，只作 descriptive passthrough；資格判斷須依社會局現行 Authority page。",
   },
   {
     id: "taipei-social-assistance-115-standard",
@@ -378,7 +378,7 @@ export const sources: SourceConfig[] = [
     crawlerRequired: false,
     status: "active",
     lastVerifiedAt: "2026-07-27",
-    note: "Dataset 目前 10 筆，集中於急難、災害與食物銀行；長文字資格只建立 Draft，須連回社會局現行頁面後才可 Publish。",
+    note: "Dataset 目前 10 筆，集中於急難、災害與食物銀行；長文字只作 descriptive passthrough，資格判斷須依社會局現行 Authority page。",
   },
   {
     id: "taichung-municipal-emergency",

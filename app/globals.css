@@ -388,8 +388,6 @@ td small { color: var(--muted); }
 .needs-review-sources a { display: grid; gap: 5px; min-width: 0; padding: 14px; color: inherit; background: var(--paper); text-decoration: none; }
 .needs-review-sources a:hover strong { color: var(--vermillion); }
 .needs-review-sources small { overflow-wrap: anywhere; color: var(--muted); font-family: ui-monospace, monospace; font-size: .7rem; }
-.needs-review-diffs { display: grid; gap: 10px; margin: 24px 0; }
-.needs-review-diffs > strong { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
 .needs-review-form { display: block; }
 .evidence-refresh-grid { display: grid; gap: 12px; }
 .evidence-refresh-grid fieldset { display: grid; grid-template-columns: minmax(180px,.65fr) minmax(280px,1.35fr); gap: 12px; min-width: 0; margin: 0; padding: 15px; border: 1px solid var(--line); }
@@ -421,18 +419,24 @@ td small { color: var(--muted); }
 .source-review-card > header span { color: var(--muted); font-size: .72rem; }
 .source-review-card pre, .item-diff pre { max-height: 320px; overflow: auto; padding: 15px; color: #dfe9e2; background: var(--ink); font-size: .7rem; white-space: pre-wrap; overflow-wrap: anywhere; }
 .source-review-card .review-form { grid-template-columns: 1fr; }
-.diff-card, .rollback-list > details { border: 1px solid var(--ink); background: var(--paper-light); }
+.official-review-link { display: inline-block; margin: 4px 0 12px; color: var(--vermillion); font-weight: 800; }
+.review-checklist { margin: 0 0 16px; padding-left: 20px; color: var(--muted); font-size: .82rem; }
+.review-checklist li + li { margin-top: 5px; }
+.diff-card, .rollback-list > details { min-width: 0; overflow: hidden; border: 1px solid var(--ink); background: var(--paper-light); }
 .diff-card > summary, .rollback-list > details > summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 20px; cursor: pointer; }
 .diff-card > summary span:first-child, .rollback-list summary span { display: grid; gap: 4px; }
 .diff-card > summary small, .rollback-list summary small { color: var(--muted); font-family: ui-monospace, monospace; font-size: .7rem; }
 .diff-count { padding: 4px 8px; background: var(--line); font-family: ui-monospace, monospace; font-size: .7rem; }
 .diff-count.changed { color: white; background: var(--vermillion); }
 .diff-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 13px 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: .72rem; }
+.diff-meta code { max-width: 100%; overflow-wrap: anywhere; }
 .item-diff { border-top: 1px solid var(--line); }
-.item-diff > summary { display: flex; justify-content: space-between; gap: 15px; padding: 14px 20px; cursor: pointer; }
-.item-diff > div { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1px; background: var(--line); }
+.item-diff > summary { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 15px; min-width: 0; padding: 14px 20px; cursor: pointer; }
+.item-diff > summary span, .item-diff > summary code { max-width: 100%; overflow-wrap: anywhere; }
+.item-diff > div { display: grid; grid-template-columns: minmax(0,1fr); gap: 1px; min-width: 0; background: var(--line); }
 .item-diff section { min-width: 0; padding: 16px; background: var(--paper); }
 .item-diff section > strong { font-size: .72rem; text-transform: uppercase; }
+.item-diff pre { max-width: 100%; }
 .rollback-list > details > .evidence-disclosure, .rollback-list > details > .review-form { margin-right: 20px; margin-left: 20px; }
 .rollback-list > details > .review-form { margin-bottom: 20px; }
 .wrap-cell { min-width: 260px; white-space: normal; }

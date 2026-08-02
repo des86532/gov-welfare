@@ -22,14 +22,22 @@ function isOpportunityItem(item: SourceItemRow) {
   return item.canonical_draft.entityType === "opportunity";
 }
 
+function officialItemUrl(item: SourceItemRow) {
+  const values = ["detailUrl", "applicationUrl", "officialUrl", "url"]
+    .map((key) => item.canonical_draft[key])
+    .filter((value): value is string => typeof value === "string" && /^https?:\/\//.test(value));
+  const source = sourceById.get(item.source_id);
+  return values[0] ?? source?.publicUrl ?? source?.url;
+}
+
 function SourceItemReviewForm({ item, opportunity = false }: { item: SourceItemRow; opportunity?: boolean }) {
   return (
     <form className="review-form" action={classifySourceItemAction}>
       <input type="hidden" name="sourceItemId" value={item.id} />
-      <label>Classification<select name="classification" defaultValue={item.classification ?? "descriptive_only"}>{opportunity ? null : <option value="matchable">matchable</option>}<option value="descriptive_only">descriptive_only</option><option value="excluded">excluded</option></select></label>
+      <label>處理方式<select name="classification" defaultValue={item.classification ?? "descriptive_only"}>{opportunity ? null : <option value="matchable">資格可做自動初篩</option>}<option value="descriptive_only">確認後公開官方說明</option><option value="excluded">不公開（無效／重複／過期）</option></select></label>
       <label>Reviewer<input name="reviewer" required minLength={2} maxLength={80} defaultValue="Admin reviewer" /></label>
       <label>Rationale<textarea name="rationale" required minLength={10} maxLength={1_000} defaultValue={item.classification_rationale ?? ""} placeholder={opportunity ? "記錄資格、日期、費用與政府關聯的 Review 結論。" : "說明這筆資料應如何進入福利 Catalog。"} /></label>
-      <button className="button button-small">{opportunity ? "Publish Activity Review" : "儲存 Classification"}</button>
+      <button className="button button-small">{opportunity ? "儲存活動確認結果" : "儲存處理方式"}</button>
     </form>
   );
 }
@@ -85,13 +93,12 @@ function NeedsReviewCard({ review }: { review: NeedsReviewProgram }) {
   const refreshable = review.issues.filter((issue) => issue.latestSnapshot && issue.latestSnapshot.id !== issue.evidence.snapshot_id);
   return <details className="decision-card needs-review-card">
     <summary className="needs-review-summary"><span><span className="review-state state-needs-review">needs_review</span><span><strong>{review.version.title}</strong><small>{review.version.programs.stable_key} · Published v{review.version.version}</small></span></span><b>{review.issues.length} Evidence issues</b></summary>
-    <div className="needs-review-content"><p>Published Evidence 已不是最新 successful Snapshot。先核對官方 Source 與差異，再建立 Draft；Public 會維持待複核狀態直到新版 Publish。</p>
+    <div className="needs-review-content"><p>Authority page 或 PDF 已變更。請開啟官方頁，核對這筆 Evidence 是否仍正確；Structured government API 的一般 Snapshot 更新不會出現在這裡。</p>
     <div className="needs-review-sources">{[...new Set(review.issues.map((issue) => issue.evidence.source_id))].map((sourceId) => {
       const source = sourceById.get(sourceId);
       const issue = review.issues.find((item) => item.evidence.source_id === sourceId)!;
       return <a key={sourceId} href={source?.publicUrl ?? source?.url} target="_blank" rel="noreferrer"><strong>{source?.name ?? sourceId} ↗</strong><small>{issue.sourceError ?? `最新 Snapshot：${issue.latestSnapshot?.id.slice(0, 8) ?? "missing"}`}</small></a>;
     })}</div>
-    {review.sourceDiffs.length ? <div className="needs-review-diffs"><strong>Source diff</strong>{review.sourceDiffs.map((diff) => <SourceDiffDetails key={diff.sourceId} diff={diff} />)}</div> : null}
     {review.existingDraft ? <div className="admin-notice"><strong>已建立 Draft v{review.existingDraft.version}</strong><span>請到下方「福利方案待審核」確認 Evidence 後 Publish 或 Reject。</span></div> : (
       <form className="review-form needs-review-form" action={createNeedsReviewDraftAction}>
         <input type="hidden" name="versionId" value={review.version.id} />
@@ -148,7 +155,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <div className="admin-section-title"><div><p className="eyebrow">Today</p><h2>待處理工作</h2></div><span>只有人工確認後才會出現在公開網站</span></div>
         {pendingCount === 0 ? <div className="empty-review admin-all-clear"><strong>目前沒有待處理資料</strong><p>新的 Source 內容進來後，會依類型出現在這裡。</p></div> : null}
 
-        {database?.needsReviewPrograms.length ? <div className="admin-task-block"><div className="admin-task-heading"><h3>官方資料異動待複核</h3><p>直接核對受影響 Program、Source diff 與 Evidence，建立 Draft 後再進行 Publish。</p></div><div className="decision-stack">{database.needsReviewPrograms.map((review) => <NeedsReviewCard key={review.version.id} review={review} />)}</div></div> : null}
+        {database?.needsReviewPrograms.length ? <div className="admin-task-block"><div className="admin-task-heading"><h3>資格來源待複核</h3><p>只有 Authority page／PDF 的變更會列在這裡；請開官方頁核對資格、金額與期限，再建立 Draft。</p></div><div className="decision-stack">{database.needsReviewPrograms.map((review) => <NeedsReviewCard key={review.version.id} review={review} />)}</div></div> : null}
 
         {pendingVersionCount ? <div className="admin-task-block"><div className="admin-task-heading"><h3>福利方案待審核</h3><p>確認資格 Rules 與 Evidence 後，決定 Publish 或退回。</p></div><div className="decision-stack">{database?.pendingVersions.map((version) => (
           <article className="decision-card" id={`pending-version-${version.id}`} key={version.id}>
@@ -160,19 +167,22 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           </article>
         ))}</div></div> : null}
 
-        {pendingOpportunityItems.length ? <div className="admin-task-block"><div className="admin-task-heading"><h3>活動待確認</h3><p>Crawler 找到的活動草稿；確認日期、對象、費用與官方關聯後，決定發布或排除。</p></div><div className="source-review-grid">{pendingOpportunityItems.map((item) => (
+        {pendingOpportunityItems.length ? <div className="admin-task-block"><div className="admin-task-heading"><h3>新活動待人工確認</h3><p>請開官方頁核對主辦單位、參加對象、日期、地點、費用與報名狀態；正確就公開，無效、重複或過期就不公開。</p></div><div className="source-review-grid">{pendingOpportunityItems.map((item) => (
           <article className="source-review-card opportunity-review-card" key={item.id}>
             <header><code>{item.source_id}</code><span>{item.external_id}</span></header>
             <h3>{item.title}</h3>
+            <a className="official-review-link" href={officialItemUrl(item)} target="_blank" rel="noreferrer">開啟官方頁核對 ↗</a>
+            <ul className="review-checklist"><li>主辦機關與政府關聯正確</li><li>參加對象、日期與地點仍有效</li><li>費用與報名入口和官方頁一致</li></ul>
             <details open><summary>查看 Canonical draft</summary><pre>{jsonPreview(item.canonical_draft)}</pre></details>
             <SourceItemReviewForm item={item} opportunity />
           </article>
         ))}</div></div> : null}
 
-        {pendingProgramItems.length ? <div className="admin-task-block"><div className="admin-task-heading"><h3>其他資料待分類</h3><p>判斷這筆 Source item 應進入方案 Catalog、只保留說明，或排除。</p></div><div className="source-review-grid">{pendingProgramItems.map((item) => (
+        {pendingProgramItems.length ? <div className="admin-task-block"><div className="admin-task-heading"><h3>未辨識的網頁資料</h3><p>Structured government API 不需要在這裡分類。此區只處理 HTML／人工 Source：可自動初篩、只公開官方說明，或因無效、重複、過期而不公開。</p></div><div className="source-review-grid">{pendingProgramItems.map((item) => (
           <article className="source-review-card" key={item.id}>
             <header><code>{item.source_id}</code><span>{item.external_id}</span></header>
             <h3>{item.title}</h3>
+            <a className="official-review-link" href={officialItemUrl(item)} target="_blank" rel="noreferrer">開啟官方頁核對 ↗</a>
             <details><summary>查看 Canonical draft</summary><pre>{jsonPreview(item.canonical_draft)}</pre></details>
             <SourceItemReviewForm item={item} />
           </article>
@@ -185,7 +195,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           <details id="sources">
             <summary><span><strong>資料來源與更新狀態</strong><small>查看全部 {sources.length} 個 Sources 與最近內容變更</small></span><b>{blockedSourceCount} 異常</b></summary>
             <div className="admin-tool-content">
-              <h3>最近兩個有效 Snapshot 的差異</h3>
+              <h3>Source history（技術診斷）</h3>
+              <p className="admin-tool-description">這裡比較同一個 Source 前後兩次 Snapshot，所以 Source 名稱會相同。它只用來排查 Adapter 或抓取格式問題，不是日常 Review 工作，也不會因 Structured government API 的一般更新而暫停公開方案。</p>
               <div className="diff-stack">{database?.sourceDiffs.map((diff) => <SourceDiffDetails key={diff.sourceId} diff={diff} />)}</div>
               <h3>網站使用的資料來源</h3>
               <div className="table-wrap"><table><thead><tr><th>Source</th><th>地區與用途</th><th>Status</th><th>檢查</th></tr></thead><tbody>{sources.map((source) => {

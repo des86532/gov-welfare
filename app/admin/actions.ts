@@ -51,12 +51,13 @@ async function assertPublishable(config: SupabaseConfig, versionId: string, expe
   const encoded = sourceIds.map(encodeURIComponent).join(",");
   const [snapshots, sources] = await Promise.all([
     supabaseRest<Array<{ id: string; source_id: string }>>(config, `source_snapshots?select=id,source_id&content_hash=not.is.null&source_id=in.(${encoded})&order=observed_at.desc`),
-    supabaseRest<Array<{ id: string; last_check_error: unknown }>>(config, `sources?select=id,last_check_error&id=in.(${encoded})`),
+    supabaseRest<Array<{ id: string; automation_level: string; last_check_error: unknown }>>(config, `sources?select=id,automation_level,last_check_error&id=in.(${encoded})`),
   ]);
   const latest = new Map<string, string>();
   for (const snapshot of snapshots) if (!latest.has(snapshot.source_id)) latest.set(snapshot.source_id, snapshot.id);
-  if (sources.some((source) => source.last_check_error != null)) throw new Error("Source 最近一次檢查失敗，禁止 Publish");
-  if (version.field_evidence.some((item) => latest.get(item.source_id) !== item.snapshot_id)) throw new Error("Evidence 不是最新 Snapshot，禁止 Publish");
+  const sourceState = new Map(sources.map((source) => [source.id, source]));
+  if (sources.some((source) => source.automation_level !== "structured_extract" && source.last_check_error != null)) throw new Error("Authority Source 最近一次檢查失敗，禁止 Publish");
+  if (version.field_evidence.some((item) => sourceState.get(item.source_id)?.automation_level !== "structured_extract" && latest.get(item.source_id) !== item.snapshot_id)) throw new Error("Authority Evidence 不是最新 Snapshot，禁止 Publish");
 }
 
 function taiwanDate(now: Date): string {
@@ -87,30 +88,39 @@ export async function createNeedsReviewDraftAction(formData: FormData) {
     const [snapshots, sources] = await Promise.all([
       supabaseRest<Array<{ id: string; source_id: string }>>(config,
         `source_snapshots?select=id,source_id&content_hash=not.is.null&source_id=in.(${encoded})&order=observed_at.desc`),
-      supabaseRest<Array<{ id: string; last_check_error: unknown }>>(config,
-        `sources?select=id,last_check_error&id=in.(${encoded})`),
+      supabaseRest<Array<{ id: string; automation_level: string; last_check_error: unknown }>>(config,
+        `sources?select=id,automation_level,last_check_error&id=in.(${encoded})`),
     ]);
     const latest = new Map<string, string>();
     for (const snapshot of snapshots) if (!latest.has(snapshot.source_id)) latest.set(snapshot.source_id, snapshot.id);
     const sourceState = new Map(sources.map((source) => [source.id, source]));
-    if (sourceIds.some((sourceId) => !sourceState.has(sourceId) || sourceState.get(sourceId)?.last_check_error != null || !latest.has(sourceId))) {
-      throw new Error("Source 缺少最新 successful Snapshot 或最近檢查失敗");
+    if (sourceIds.some((sourceId) => {
+      const source = sourceState.get(sourceId);
+      return !source || (source.automation_level !== "structured_extract" && (source.last_check_error != null || !latest.has(sourceId)));
+    })) {
+      throw new Error("Authority Source 缺少最新 successful Snapshot 或最近檢查失敗");
     }
 
-    const staleEvidence = version.field_evidence.filter((item) => latest.get(item.source_id) !== item.snapshot_id);
+    const staleEvidence = version.field_evidence.filter((item) => {
+      const latestSnapshotId = latest.get(item.source_id);
+      return latestSnapshotId != null && latestSnapshotId !== item.snapshot_id;
+    });
     if (staleEvidence.length === 0) throw new Error("Evidence 已是最新版本，不需要建立 Draft");
     const reviewedAt = new Date();
     const reviewedAtIso = reviewedAt.toISOString();
-    const evidenceUpdates = staleEvidence.map((item) => ({
-      fieldPath: item.field_path,
-      evidence: {
-        sourceId: item.source_id,
-        snapshotId: latest.get(item.source_id)!,
-        locator: textField(formData, `locator_${item.id}`, 2, 500),
-        extractedValue: textField(formData, `value_${item.id}`, 2, 4_000),
-        reviewedAt: reviewedAtIso,
-      } satisfies Evidence,
-    }));
+    const evidenceUpdates = staleEvidence.map((item) => {
+      const isStructured = sourceState.get(item.source_id)?.automation_level === "structured_extract";
+      return {
+        fieldPath: item.field_path,
+        evidence: {
+          sourceId: item.source_id,
+          snapshotId: latest.get(item.source_id)!,
+          locator: isStructured ? item.locator : textField(formData, `locator_${item.id}`, 2, 500),
+          extractedValue: isStructured ? item.extracted_value : textField(formData, `value_${item.id}`, 2, 4_000),
+          reviewedAt: isStructured ? item.reviewed_at ?? reviewedAtIso : reviewedAtIso,
+        } satisfies Evidence,
+      };
+    });
     const canonical = refreshProgramEvidence(version.canonical_content, evidenceUpdates);
     canonical.verifiedAt = taiwanDate(reviewedAt);
     const evidenceByPath = new Map(evidenceUpdates.map((item) => [item.fieldPath, item.evidence]));

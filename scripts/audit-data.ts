@@ -35,7 +35,7 @@ async function main() {
   const opportunitySourceIds = [...new Set(reviewedOpportunities.map((item) => item.sourceId))];
   const opportunitySourceFilter = opportunitySourceIds.map(encodeURIComponent).join(",");
   const [databaseSources, snapshots, taoyuanItems, newTaipeiItems, taipeiItems, taichungItems, opportunityItems, opportunityReviews, versions, drafts] = await Promise.all([
-    supabaseRest<Array<{ id: string; status: string; last_check_error: unknown }>>(config, "sources?select=id,status,last_check_error"),
+    supabaseRest<Array<{ id: string; automation_level: string; status: string; last_check_error: unknown }>>(config, "sources?select=id,automation_level,status,last_check_error"),
     supabaseRest<Snapshot[]>(config, "source_snapshots?select=id,source_id&content_hash=not.is.null&order=observed_at.desc"),
     supabaseRest<Array<ReviewedTaoyuanItem & { classification: string | null; review_status: string }>>(config, "source_items?select=title,snapshot_id,canonical_draft,classification,review_status&source_id=eq.taoyuan-welfare-open-data"),
     supabaseRest<Array<{ title: string; snapshot_id: string; classification: string | null; review_status: string }>>(config, "source_items?select=title,snapshot_id,classification,review_status&source_id=eq.new-taipei-welfare-open-data"),
@@ -49,6 +49,7 @@ async function main() {
 
   const latest = new Map<string, Snapshot>();
   for (const snapshot of snapshots) if (!latest.has(snapshot.source_id)) latest.set(snapshot.source_id, snapshot);
+  const automationBySource = new Map(databaseSources.map((source) => [source.id, source.automation_level]));
   const taoyuanSnapshotId = latest.get("taoyuan-welfare-open-data")?.id;
   const latestTaoyuanItems = taoyuanItems.filter((item) => item.snapshot_id === taoyuanSnapshotId);
   const newTaipeiSnapshotId = latest.get("new-taipei-welfare-open-data")?.id;
@@ -113,7 +114,7 @@ async function main() {
     assert.match(program.applicationUrl ?? program.officialUrl, /^https:\/\//, `${program.title}: official application URL`);
     for (const item of version.field_evidence) {
       const newest = latest.get(item.source_id);
-      assert.ok(newest && newest.id === item.snapshot_id, `${program.title}: stale ${item.source_id}`);
+      assert.ok(automationBySource.get(item.source_id) === "structured_extract" || (newest && newest.id === item.snapshot_id), `${program.title}: stale ${item.source_id}`);
       assert.ok(item.reviewed_at, `${program.title}: unreviewed evidence ${item.field_path}`);
     }
     if (version.coverage === "matchable") {

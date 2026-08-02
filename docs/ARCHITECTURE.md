@@ -7,7 +7,7 @@
 
 目前是一個可運作的 Source-first MVP：Next.js 部署在 Vercel、Supabase PostgreSQL 保存官方 Source 歷史與人工 Review 結果、GitHub Actions cron 定期抓取官方資料。Public questionnaire 不會把個人回答送到 Server 或 Database。
 
-系統有 cron job，但它是 **GitHub Actions Scheduled workflow**，不是 Vercel Cron。它每天被排程喚醒，只檢查到期的 Sources、保存 immutable Snapshot 與 Draft，**不會自動 Publish**。正式公開仍需人工 Review。
+系統有 cron job，但它是 **GitHub Actions Scheduled workflow**，不是 Vercel Cron。它每天被排程喚醒，只檢查到期的 Sources 並保存 immutable Snapshot。Structured government API row 會更新為 descriptive passthrough；Program Rules 不會自動 Publish，Authority page／PDF 的變更仍需人工 Review。
 
 Production 現在可用，但還不是「全臺完整福利平台」。最優先的缺口是處理 8 個 `needs_review` Programs、補上一般 CI quality gate、改善 Admin identity／Audit attribution，以及建立 Backup／restore 與 monitoring 的正式作業方式。
 
@@ -75,7 +75,7 @@ flowchart LR
 | `/programs/[slug]` | SSG，5 分鐘 revalidate | Program detail、Rule tree、Evidence 與官方入口。 |
 | `/activities` | Dynamic SSR | 活動地點、對象、類型、報名狀態與關鍵字篩選。 |
 | `/activities/[slug]` | SSG，5 分鐘 revalidate | 活動資格、日期、費用、Evidence 與官方入口。 |
-| `/admin` | Dynamic SSR、private `no-store` | `needs_review` Queue、Source diff、Evidence refresh、Draft、Publish、Reject、Rollback 與 Audit trail。 |
+| `/admin` | Dynamic SSR、private `no-store` | Authority-only `needs_review` Queue、Evidence refresh、Draft、Publish、Reject、Rollback；Source history 僅供進階診斷。 |
 | `/api/programs` | Dynamic API | Public Program payload；HTTP response 不快取，但底層 Program store 快取 5 分鐘。 |
 | `/api/opportunities` | Dynamic API | Public activity payload；CDN cache 5 分鐘。 |
 | `/api/health` | Dynamic API、`no-store` | Database、Source failure 與 `needs_review` 摘要。 |
@@ -92,16 +92,17 @@ flowchart LR
 
 - Supabase 讀取失敗時，Public Programs 回到 Repository reviewed Seed，不讓整站中斷。
 - Source fetch 失敗時保留上一個 Published version，不刪除 Public data。
-- 最新 successful Snapshot 與 Published Evidence 不一致，Program Runtime state 會降為 `needs_review`。
+- Authority page／PDF 的最新 successful Snapshot 與 Published Evidence 不一致時，Program Runtime state 會降為 `needs_review`。
+- Structured government API 的 Snapshot 更新不會觸發人工 Review；它只更新 descriptive data，公開內容附官方連結，也不會自動改寫資格 Rules。
 - Activity Source 異動時仍可顯示上一個 Reviewed content，但停用直接報名按鈕並要求使用者核對官方頁。
 
 ### `needs_review` Admin workflow
 
-1. Admin 會比較每個 Published Program 的 `field_evidence.snapshot_id` 與各 Source 最新 successful Snapshot。
-2. 不一致的 Program 直接進入「官方資料異動待複核」，並顯示受影響 Evidence、官方連結與 Source diff。
+1. Admin 只比較 Authority page／PDF 等非 `structured_extract` Source 的 `field_evidence.snapshot_id` 與最新 successful Snapshot。
+2. 不一致的 Program 進入「資格來源待複核」，顯示受影響 Evidence 與官方連結；Structured API 的一般 Dataset 更新不產生待辦。
 3. Reviewer 可修正 locator／extracted value，填寫 Reviewer 與 Rationale，確認 Canonical content／Rules 未受影響後建立新 Draft。
 4. Draft 會複製完整 Program version，只把已複核 Evidence 指向最新 Snapshot；建立動作記錄為 `resolve_conflict` Audit event。
-5. Draft 仍須在「福利方案待審核」再次 Publish；既有 PostgreSQL Publish gate 會重新驗證所有 Evidence 與 Source state。
+5. Draft 仍須在「福利方案待審核」再次 Publish；PostgreSQL Publish gate 會重新驗證 Authority Evidence 與 Source state。Structured API Evidence 不參與 freshness gate。
 6. 若資格 Rule、Benefit、金額或期限真的改變，不允許只更新 Evidence，必須先更新 Canonical content 再 Publish。
 
 ## Database 保存什麼
@@ -131,11 +132,14 @@ flowchart TD
   F --> H["Normalize and content hash"]
   H --> E["Source-specific Adapter extract"]
   E --> SS["Immutable source_snapshot"]
-  SS --> SI["Draft source_items"]
+  SS --> KIND{"structured_extract?"}
+  KIND -->|"Yes"| PASS["descriptive passthrough + official link"]
+  KIND -->|"No"| SI["Draft source_items"]
   SI --> RV["Admin Review"]
   RV -->|"Reject / Exclude"| KEEP["Keep history only"]
   RV -->|"Approve"| PV["Published program_version or activity Classification"]
-  PV --> PUB["Public website"]
+  PASS --> PUB["Public website"]
+  PV --> PUB
 ```
 
 ### Adapter boundary
@@ -154,11 +158,11 @@ Program Publish 前，Server 與 PostgreSQL function 會再次檢查：
 - Reviewer 與至少 10 字的 Rationale。
 - 官方 application URL 與 `last_verified_at`。
 - Required Evidence 是否存在且已 Review。
-- Evidence 是否指向該 Source 最新 successful Snapshot。
-- Source 最近一次 check 是否成功。
+- Authority Evidence 是否指向該 Source 最新 successful Snapshot；`structured_extract` Source 不參與這個 freshness gate。
+- Authority Source 最近一次 check 是否成功；Structured API fetch failure 不會撤下上一個可用內容。
 - 同一 Program 同時間只能有一個 Published version；舊版轉為 `superseded`，可做 Rollback。
 
-Open Data、HTML 或 PDF 的自動擷取結果都不能直接越過這個 gate。
+HTML 或 PDF 的自動擷取結果不能直接越過這個 gate；Structured Open Data 只可作 descriptive passthrough，不能自動建立或修改 `matchable` Rules。
 
 ## Cron job
 
@@ -215,7 +219,7 @@ Workflow 雖然每天喚醒，但 CLI 會讀取 `last_checked_at` 與 `checkEver
 ### P0 — 下一輪應先完成
 
 1. **透過 Admin Queue 清理 8 個 `needs_review` Programs**
-   Production 沒有 Source fetch failure，但最新 Snapshot 已不同於 Published Evidence。Queue 與 Draft workflow 已完成；這些 Programs 仍需管理員逐筆核對 diff、更新 Evidence 並 Publish，才會恢復 confirmed matching。
+   Structured API Snapshot 不再造成假 `needs_review`；仍需持續驗證 Authority page／PDF 變更能在一次 Scheduled run 內進 Queue，且完成核對與 Publish 後恢復 confirmed matching。
 
    2026-08-02 的 8 筆皆來自新北市：新北市兒童卡、新北市鮮奶幸福週、新北市公費腸病毒疫苗、新北市生育獎勵金、新北市好孕專車、新北市長者健康檢查加值服務、新北市身心障礙者生活補助、115 年新北市青年租金補貼。
 
@@ -276,7 +280,7 @@ curl -fsS https://gov-welfare-iota.vercel.app/api/health
 ## Architecture decisions
 
 - 以 Source registry + Source-specific Adapter 處理政府資料不一致，不做「萬能 crawler」。
-- 自動化停在 Draft，人工 Review 才能 Publish。
+- Structured API 自動化只到 descriptive passthrough；任何 `matchable` Rule 或 Authority content 都停在 Draft，人工 Review 後才能 Publish。
 - Eligibility 使用 `true`／`false`／`unknown`，缺資料不等於不符合。
 - Database 儲存的是政府資料 lineage 與 Review state，不是 Public profile。
 - 保留 Repository Seed fallback，避免 Supabase 短暫故障使 Public site 完全不可用。
