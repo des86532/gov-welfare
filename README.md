@@ -70,7 +70,7 @@ npm run data:audit
 
 Repository-reviewed Rules 可由 GitHub Actions 的 `Scheduled source checks` 手動執行，勾選 `publish_reviewed_programs` 後才會建立並發布新版；每日 Schedule 只擷取 Draft，不會自動 Publish。單一 Source 失敗不會阻止其他已審核、Evidence Source 正常的 Program 發布，但 workflow 最後仍會保留失敗狀態供追蹤。
 
-Schedule 會依每個 Source 的 `checkEveryHours` 判斷是否到期；手動執行則強制檢查全部 active Sources。失敗時會建立或更新 GitHub Issue，恢復後自動關閉。
+Schedule 會依每個 Source 的 `checkEveryHours` 判斷是否到期；手動執行預設強制檢查全部 active Sources。若只要恢復暫時失敗的 Source，可勾選 `retry_failed_only`，只重試失敗或已到期項目。失敗時會建立或更新 GitHub Issue，恢復後自動關閉。
 
 ## Supabase
 

@@ -198,7 +198,7 @@ Workflow 雖然每天喚醒，但 CLI 會讀取 `last_checked_at` 與 `checkEver
 | 每 168 小時 | 56 |
 | 每 720 小時 | 3 |
 
-若上次 check 失敗，下一次 workflow 會優先重試。手動 `workflow_dispatch` 會加上 `--force`，檢查全部 active Sources。
+若上次 check 失敗，下一次 workflow 會優先重試。手動 `workflow_dispatch` 預設加上 `--force`，檢查全部 active Sources；勾選 `retry_failed_only` 時不加 `--force`，只處理失敗或已到期 Sources。
 
 只有手動執行 workflow 並勾選 `publish_reviewed_programs` 時，才會執行 Repository-reviewed Program import 與 `data:audit`。Activity data 由 Repository 直接提供，Crawler 結果不參與 Publish gate；使用者回報另在 Admin 處理。
 

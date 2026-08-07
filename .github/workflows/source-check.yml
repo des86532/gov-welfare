@@ -10,6 +10,11 @@ on:
         required: false
         default: false
         type: boolean
+      retry_failed_only:
+        description: Retry only failed or currently due Sources instead of forcing all active Sources
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -36,7 +41,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx --no-install tsx scripts/check-sources.ts --persist --json ${{ github.event_name == 'workflow_dispatch' && '--force' || '' }} > source-report.json
+        run: npx --no-install tsx scripts/check-sources.ts --persist --json ${{ github.event_name == 'workflow_dispatch' && !inputs.retry_failed_only && '--force' || '' }} > source-report.json
       - name: Publish Repository-reviewed Program and Activity updates
         if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.publish_reviewed_programs }}
         env:
