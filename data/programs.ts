@@ -1,4 +1,5 @@
 import type { Evidence, Program } from "@/lib/domain";
+import { enterprisePrograms } from "@/data/enterprise-programs";
 
 const VERIFIED_AT = "2026-07-26";
 
@@ -1817,6 +1818,7 @@ export const programs: Program[] = [
     methods: ["臨櫃", "委託", "郵寄"],
     evidence: [taoyuanReward],
   },
+  ...enterprisePrograms,
 ];
 
 export const programBySlug = new Map(programs.map((program) => [program.slug, program]));

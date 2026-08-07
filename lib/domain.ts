@@ -4,6 +4,7 @@ export const CATEGORY_KEYS = [
   "education",
   "youth_overseas",
   "startup",
+  "business_upgrade",
   "family",
   "housing",
   "social_aid",
@@ -19,6 +20,7 @@ export const CATEGORY_LABELS: Record<CategoryKey, string> = {
   education: "教育與進修",
   youth_overseas: "青年與海外",
   startup: "創業與融資",
+  business_upgrade: "企業升級與研發",
   family: "育兒與家庭",
   housing: "住宅與生活",
   social_aid: "社會救助",
@@ -112,12 +114,22 @@ export type ApplicationWindow = {
   label: string;
 };
 
+export const APPLICANT_TYPE_KEYS = ["individual", "startup", "business"] as const;
+export type ApplicantType = (typeof APPLICANT_TYPE_KEYS)[number];
+
+export const APPLICANT_TYPE_LABELS: Record<ApplicantType, string> = {
+  individual: "一般民眾／家庭",
+  startup: "準備創業／個人創業",
+  business: "已設立公司／商業",
+};
+
 export type Program = {
   id: string;
   slug: string;
   title: string;
   summary: string;
   category: CategoryKey;
+  applicantTypes?: ApplicantType[];
   tags: string[];
   benefitType: BenefitType;
   benefitSummary: string;

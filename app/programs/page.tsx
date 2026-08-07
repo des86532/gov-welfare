@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { ProgramCard } from "@/components/program-card";
 import { taiwanCityOptions } from "@/data/facts";
-import { BENEFIT_TYPE_KEYS, BENEFIT_TYPE_LABELS, CATEGORY_KEYS, CATEGORY_LABELS, type BenefitType, type CategoryKey, type CoverageLevel } from "@/lib/domain";
-import { appliesToRegion, getProgramAvailability, paginatePrograms, PROGRAM_AVAILABILITY_KEYS, PROGRAM_SORT_KEYS, sortProgramsForCatalog, type ProgramAvailability, type ProgramSort } from "@/lib/program-filters";
+import { APPLICANT_TYPE_KEYS, APPLICANT_TYPE_LABELS, BENEFIT_TYPE_KEYS, BENEFIT_TYPE_LABELS, CATEGORY_KEYS, CATEGORY_LABELS, type ApplicantType, type BenefitType, type CategoryKey, type CoverageLevel } from "@/lib/domain";
+import { appliesToApplicant, appliesToRegion, getProgramAvailability, paginatePrograms, PROGRAM_AVAILABILITY_KEYS, PROGRAM_SORT_KEYS, sortProgramsForCatalog, type ProgramAvailability, type ProgramSort } from "@/lib/program-filters";
 import { getPrograms } from "@/lib/program-store";
 import { todayInTaiwan } from "@/lib/rules";
 
 export const metadata = { title: "方案清單" };
-type CatalogSearchParams = { availability?: string; benefit?: string; category?: string; coverage?: string; page?: string; q?: string; region?: string; sort?: string; view?: string };
+type CatalogSearchParams = { applicant?: string; availability?: string; benefit?: string; category?: string; coverage?: string; page?: string; q?: string; region?: string; sort?: string; view?: string };
 
 const coverageOptions: Array<{ value: CoverageLevel; label: string }> = [
   { value: "matchable", label: "已驗證，可資格初篩" },
@@ -34,6 +34,7 @@ function catalogHref(params: CatalogSearchParams, changes: Partial<CatalogSearch
   const query = new URLSearchParams();
   if (next.q?.trim()) query.set("q", next.q.trim());
   if (next.category) query.set("category", next.category);
+  if (next.applicant) query.set("applicant", next.applicant);
   if (next.region) query.set("region", next.region);
   if (next.benefit) query.set("benefit", next.benefit);
   if (next.availability) query.set("availability", next.availability);
@@ -48,6 +49,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
   const params = await searchParams;
   const programs = await getPrograms();
   const category = CATEGORY_KEYS.includes(params.category as CategoryKey) ? params.category as CategoryKey : undefined;
+  const applicant = APPLICANT_TYPE_KEYS.includes(params.applicant as ApplicantType) ? params.applicant as ApplicantType : undefined;
   const region = taiwanCityOptions.find((city) => city.value === params.region);
   const benefit = BENEFIT_TYPE_KEYS.includes(params.benefit as BenefitType) ? params.benefit as BenefitType : undefined;
   const coverage = coverageOptions.find((item) => item.value === params.coverage)?.value;
@@ -58,6 +60,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
   const query = params.q?.trim().toLocaleLowerCase("zh-Hant") ?? "";
   const visible = sortProgramsForCatalog(programs.filter((program) => {
     if (category && program.category !== category) return false;
+    if (!appliesToApplicant(program, applicant)) return false;
     if (!appliesToRegion(program, region?.label)) return false;
     if (benefit && program.benefitType !== benefit) return false;
     if (coverage && program.coverage !== coverage) return false;
@@ -67,8 +70,8 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
   }), sort, asOf);
   const requestedPage = Number.parseInt(params.page ?? "1", 10);
   const pagination = paginatePrograms(visible, requestedPage);
-  const normalizedParams = { ...params, availability, benefit, category, coverage, region: region?.value, sort, view };
-  const advancedCount = [availability, benefit, category, coverage, region, sort === "category" ? undefined : sort].filter(Boolean).length;
+  const normalizedParams = { ...params, applicant, availability, benefit, category, coverage, region: region?.value, sort, view };
+  const advancedCount = [applicant, availability, benefit, category, coverage, region, sort === "category" ? undefined : sort].filter(Boolean).length;
   const hasFilters = Boolean(query || advancedCount);
 
   return (
@@ -81,11 +84,12 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
         <div className="catalog-filter-primary">
           <label><span>關鍵字</span><input type="search" name="q" defaultValue={params.q} placeholder="例如：女性、租屋、三年十萬…" autoComplete="off" /></label>
           <button className="button button-small" type="submit">套用篩選</button>
-          {hasFilters ? <Link className="text-link" href={catalogHref(normalizedParams, { availability: undefined, benefit: undefined, category: undefined, coverage: undefined, page: undefined, q: undefined, region: undefined, sort: undefined })}>清除全部</Link> : null}
+          {hasFilters ? <Link className="text-link" href={catalogHref(normalizedParams, { applicant: undefined, availability: undefined, benefit: undefined, category: undefined, coverage: undefined, page: undefined, q: undefined, region: undefined, sort: undefined })}>清除全部</Link> : null}
         </div>
         <details className="catalog-filter-details" open={advancedCount > 0}>
           <summary><span>更多篩選與排序</span>{advancedCount > 0 ? <strong>{advancedCount} 項已套用</strong> : <small>Category、地區、Benefit、狀態</small>}</summary>
           <div className="catalog-filter-grid">
+            <label><span>申請對象</span><select name="applicant" defaultValue={applicant ?? ""}><option value="">全部申請對象</option>{APPLICANT_TYPE_KEYS.map((key) => <option key={key} value={key}>{APPLICANT_TYPE_LABELS[key]}</option>)}</select></label>
             <label><span>Primary category</span><select name="category" defaultValue={category ?? ""}><option value="">全部類別</option>{CATEGORY_KEYS.map((key) => <option key={key} value={key}>{CATEGORY_LABELS[key]}</option>)}</select></label>
             <label><span>適用地區</span><select name="region" defaultValue={region?.value ?? ""}><option value="">全部地區</option>{taiwanCityOptions.map((city) => <option key={city.value} value={city.value}>{city.label}（含中央方案）</option>)}</select></label>
             <label><span>Benefit type</span><select name="benefit" defaultValue={benefit ?? ""}><option value="">全部 Benefit</option>{BENEFIT_TYPE_KEYS.map((key) => <option key={key} value={key}>{BENEFIT_TYPE_LABELS[key]}</option>)}</select></label>

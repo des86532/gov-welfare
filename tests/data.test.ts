@@ -10,7 +10,7 @@ import { taichungSourceClassifications } from "../data/taichung-source-items";
 import { buildTaoyuanReviewedPrograms, taoyuanProgramCurations } from "../data/taoyuan-programs";
 import type { AtomicRule, RuleNode } from "../lib/domain";
 import { parseFinderSession } from "../lib/finder-session";
-import { appliesToRegion, getProgramAvailability, paginatePrograms, PROGRAMS_PER_PAGE, sortProgramsForCatalog } from "../lib/program-filters";
+import { appliesToApplicant, appliesToRegion, getProgramApplicantTypes, getProgramAvailability, paginatePrograms, PROGRAMS_PER_PAGE, sortProgramsForCatalog } from "../lib/program-filters";
 import { isSourceDue } from "../lib/ingestion";
 
 function atomicRules(rule: RuleNode): AtomicRule[] {
@@ -117,6 +117,51 @@ test("所有 Published Seed Programs 有必要欄位與官方入口", () => {
 test("所有 Evidence 都能找到 Source registry", () => {
   const ids = new Set(sources.map((source) => source.id));
   for (const program of programs) for (const item of program.evidence) assert.ok(ids.has(item.sourceId), `${program.title}: ${item.sourceId}`);
+});
+
+test("企業升級方案只作 descriptive catalog 並標示企業申請對象", () => {
+  const enterprise = programs.filter((program) => program.category === "business_upgrade");
+  assert.equal(enterprise.length, 8);
+  assert.ok(enterprise.every((program) => program.coverage === "descriptive_only"));
+  assert.ok(enterprise.every((program) => program.applicantTypes?.length === 1 && program.applicantTypes[0] === "business"));
+  assert.ok(enterprise.every((program) => program.rule === undefined));
+  assert.ok(enterprise.every((program) => program.evidence.every((item) => item.reviewedAt === "2026-08-07")));
+});
+
+test("申請對象篩選區分一般民眾、準備創業與已設立企業", () => {
+  const health = programs.find((program) => program.slug === "adult-preventive-care");
+  const startup = programs.find((program) => program.category === "startup");
+  const business = programs.find((program) => program.category === "business_upgrade");
+  assert.ok(health && startup && business);
+  assert.deepEqual(getProgramApplicantTypes(health), ["individual"]);
+  assert.deepEqual(getProgramApplicantTypes(startup), ["individual", "startup"]);
+  assert.deepEqual(getProgramApplicantTypes(business), ["business"]);
+  assert.equal(appliesToApplicant(health, "business"), false);
+  assert.equal(appliesToApplicant(startup, "startup"), true);
+  assert.equal(appliesToApplicant(business, "business"), true);
+});
+
+test("限時企業方案依官方申請期間顯示申請狀態", () => {
+  const cloud = programs.find((program) => program.slug === "industrial-cloud-solution-points-115");
+  const energy = programs.find((program) => program.slug === "commercial-service-system-energy-saving-115");
+  const succession = programs.find((program) => program.slug === "business-succession-ai-digital-transformation-115");
+  assert.ok(cloud && energy && succession);
+  assert.equal(getProgramAvailability(cloud, "2026-08-07"), "open");
+  assert.equal(getProgramAvailability(energy, "2026-08-07"), "open");
+  assert.equal(getProgramAvailability(succession, "2026-08-07"), "closed");
+});
+
+test("企業補助 Authority Sources 每日監測且不自動產生 Rules", () => {
+  const enterpriseSourceIds = new Set(programs
+    .filter((program) => program.category === "business_upgrade")
+    .flatMap((program) => program.evidence.map((item) => item.sourceId)));
+  for (const source of sources.filter((item) => enterpriseSourceIds.has(item.id))) {
+    assert.equal(source.adapterKey, "official_page", source.id);
+    assert.equal(source.automation, "change_detection_only", source.id);
+    assert.equal(source.checkEveryHours, 24, source.id);
+    assert.equal(source.status, "active", source.id);
+  }
+  assert.equal(enterpriseSourceIds.size, 8);
 });
 
 test("新北、臺北與臺中地方 Dataset 已使用 Source-specific adapters", () => {

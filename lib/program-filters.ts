@@ -1,4 +1,4 @@
-import { CATEGORY_KEYS, type Program } from "@/lib/domain";
+import { CATEGORY_KEYS, type ApplicantType, type Program } from "@/lib/domain";
 
 export const PROGRAMS_PER_PAGE = 12;
 
@@ -10,6 +10,15 @@ export type ProgramSort = (typeof PROGRAM_SORT_KEYS)[number];
 
 export function appliesToRegion(program: Program, regionLabel?: string) {
   return !regionLabel || program.jurisdiction === "中央" || program.jurisdiction === regionLabel;
+}
+
+export function getProgramApplicantTypes(program: Program): ApplicantType[] {
+  return program.applicantTypes
+    ?? (program.category === "startup" ? ["individual", "startup"] : ["individual"]);
+}
+
+export function appliesToApplicant(program: Program, applicant?: ApplicantType) {
+  return !applicant || getProgramApplicantTypes(program).includes(applicant);
 }
 
 export function getProgramAvailability(program: Program, asOf: string): ProgramAvailability {

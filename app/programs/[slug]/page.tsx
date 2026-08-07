@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BackLink } from "@/components/back-link";
 import { sourceById } from "@/data/sources";
-import { CATEGORY_LABELS, type RuleNode } from "@/lib/domain";
+import { APPLICANT_TYPE_LABELS, CATEGORY_LABELS, type RuleNode } from "@/lib/domain";
+import { getProgramApplicantTypes } from "@/lib/program-filters";
 import { getProgramBySlug, getPrograms } from "@/lib/program-store";
 
 export const revalidate = 300;
@@ -69,7 +70,7 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
           <section><p className="eyebrow">Field-level provenance</p><h2>官方 Sources</h2><div className="source-list">{sources.map((source) => <a key={source.id} href={source.publicUrl ?? source.url} target="_blank" rel="noreferrer"><span>{source.authority}</span><strong>{source.name}</strong><small>最後人工驗證：{program.verifiedAt} · 開啟官方頁 ↗</small></a>)}</div></section>
         </div>
         <aside className="detail-aside">
-          <dl><div><dt>主管機關</dt><dd>{program.authority}</dd></div><div><dt>Jurisdiction</dt><dd>{program.jurisdiction}</dd></div><div><dt>官方決策方式</dt><dd>{decisionLabels[program.decisionType]}</dd></div><div><dt>最後人工驗證</dt><dd>{program.verifiedAt}</dd></div>{program.applicationWindow ? <div><dt>申請期間</dt><dd>{program.applicationWindow.label}</dd></div> : null}</dl>
+          <dl><div><dt>主管機關</dt><dd>{program.authority}</dd></div><div><dt>Jurisdiction</dt><dd>{program.jurisdiction}</dd></div><div><dt>申請對象</dt><dd>{getProgramApplicantTypes(program).map((type) => APPLICANT_TYPE_LABELS[type]).join("、")}</dd></div><div><dt>官方決策方式</dt><dd>{decisionLabels[program.decisionType]}</dd></div><div><dt>最後人工驗證</dt><dd>{program.verifiedAt}</dd></div>{program.applicationWindow ? <div><dt>申請期間</dt><dd>{program.applicationWindow.label}</dd></div> : null}</dl>
           <a className="button full-button" href={program.applicationUrl ?? program.officialUrl} target="_blank" rel="noreferrer">前往官方網站 <span aria-hidden="true">↗</span></a>
           <p>本平台僅做初步整理，主管機關保有最終資格、甄選、授信與核定權。</p>
         </aside>

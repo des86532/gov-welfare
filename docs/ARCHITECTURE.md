@@ -1,6 +1,6 @@
 # Gov Welfare Architecture 與 Production Gap
 
-> 最後核對：2026-08-02（Asia/Taipei）  
+> 最後核對：2026-08-07（Asia/Taipei）
 > 本文件描述 Repository 與 Production **實際已實作**的狀態，不是最初 PRD 或未完成的 Roadmap。
 
 ## 結論
@@ -9,21 +9,21 @@
 
 系統有 cron job，但它是 **GitHub Actions Scheduled workflow**，不是 Vercel Cron。它每天被排程喚醒，只檢查到期的 Sources 並保存 immutable Snapshot。Structured government API row 會更新為 descriptive passthrough；Program Rules 不會自動 Publish，Authority page／PDF 的變更仍需人工 Review。
 
-Production 現在可用，但還不是「全臺完整福利平台」。目前 `needs_review` 已清空，Push／Pull Request 有一般 CI quality gate，Activity report 也會建立不含使用者內容的 GitHub Issue 提醒。接下來最重要的是改善 Admin identity／Audit attribution，以及建立 Backup／restore 與 monitoring 的正式作業方式。
+Production 現在可用，但還不是「全臺完整福利平台」。Catalog 已另外支援企業申請對象與第一批企業升級方案；這些企業方案只做 `descriptive_only` 官方導流，不參與自然人資格 Matching。接下來最重要的是改善 Admin identity／Audit attribution，以及建立 Backup／restore 與 monitoring 的正式作業方式。
 
 ## Operational snapshot
 
-以下數字是 2026-08-02 的實際核對結果，會隨 Source check 與人工 Review 改變：
+以下數字是 2026-08-07 Repository-reviewed data 發布後的基準，會隨 Source check 與人工 Review 改變：
 
 | 項目 | Production 狀態 |
 | --- | ---: |
-| Public Programs | 80 |
+| Public Programs | 88 |
 | `matchable` | 58 |
-| `descriptive_only` | 22 |
+| `descriptive_only` | 30 |
 | `needs_review` | 0 |
-| 中央／地方分布 | 中央 30、桃園 22、新北 8、臺北 10、臺中 10 |
-| Source registry | 70 |
-| Active Sources | 65 |
+| 中央／地方分布 | 中央 38、桃園 22、新北 8、臺北 10、臺中 10 |
+| Source registry | 78 |
+| Active Sources | 73 |
 | Blocked Sources | 5 |
 | Active Source fetch failure | 0 |
 | Public activities | 6 |
@@ -72,7 +72,7 @@ flowchart LR
 | --- | --- | --- |
 | `/` | Static，5 分鐘 revalidate | 首頁與精選 Programs／activities。 |
 | `/find` | Static，5 分鐘 revalidate + Client matching | Server 只提供 Programs；回答與 Rule evaluation 在 Browser 執行。 |
-| `/programs` | Dynamic SSR | Query string 負責關鍵字、Category、縣市、Benefit、狀態、排序、分頁與 view mode。 |
+| `/programs` | Dynamic SSR | Query string 負責關鍵字、申請對象、Category、縣市、Benefit、狀態、排序、分頁與 view mode。 |
 | `/programs/[slug]` | SSG，5 分鐘 revalidate | Program detail、Rule tree、Evidence 與官方入口。 |
 | `/activities` | Dynamic SSR | 活動地點、對象、類型、報名狀態與關鍵字篩選。 |
 | `/activities/[slug]` | SSG，5 分鐘 revalidate | 活動資格、日期、費用、Evidence 與官方入口。 |
@@ -194,8 +194,8 @@ Workflow 雖然每天喚醒，但 CLI 會讀取 `last_checked_at` 與 `checkEver
 
 | Frequency | Sources |
 | --- | ---: |
-| 每 24 小時 | 5 |
-| 每 168 小時 | 62 |
+| 每 24 小時 | 13 |
+| 每 168 小時 | 57 |
 | 每 720 小時 | 3 |
 
 若上次 check 失敗，下一次 workflow 會優先重試。手動 `workflow_dispatch` 會加上 `--force`，檢查全部 active Sources。

@@ -11,6 +11,7 @@
 - 桃園 Open Data 26 筆 Source items 的完整 `matchable`／`descriptive_only`／`excluded` 分類。
 - 桃園共 5 個 `matchable`、17 個 `descriptive_only` 福利進入公開 Catalog；自然語言資格尚未結構化前不參與 Matching。
 - 戶籍與居住地可選擇臺灣全部 22 縣市，為後續地方 Coverage 保留一致 Fact values。
+- 全部方案可依申請對象區分一般民眾、準備創業者與已設立企業；新增「企業升級與研發」Category，第一批 8 個中央企業方案全部以 `descriptive_only` 顯示並連回官方入口。
 - `all`、`any`、比較、日期間隔與 `true`／`false`／`unknown` Rule engine。
 - 桃園 JSON、新北／臺北 CSV、MyEGov HTML、Official page、Document monitor 與 Manual adapters。
 - 新北 151 筆已全數分類為 6 筆 `matchable`、140 筆 `descriptive_only`、5 筆 `excluded`；8 個 Programs 已補 Authority page，其中 6 個可執行 Rules。
@@ -89,6 +90,7 @@ Repository 刻意不包含自動 Publish Program job。CLI 以 Service Role 寫�
 - Authority page／PDF 的 Content hash 改變才建立 Review alert；上一個 Published version 保留。
 - `matchable` 的每個 Atomic rule 都必須有 `sourceId`、`snapshotId`、`locator` 和 Review 時間。
 - Competitive selection、Loan、專業評估與官方紀錄查核不會顯示「核准」。
+- 企業補助不進入自然人 Dynamic questionnaire；申請期限明確的 Authority page 每 24 小時檢查，但內容異動只建立 Draft，不能自動改寫補助金額或資格。
 - Coverage 僅承諾中央 Seed programs，以及桃園、新北、臺北與臺中已完成 Review 的 Pilot 範圍，不宣稱完整涵蓋全臺。
 - 主管機關保有最終資格、甄選、授信及核定權。
 
