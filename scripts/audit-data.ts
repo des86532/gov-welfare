@@ -32,13 +32,9 @@ function atomicPaths(rule: RuleNode, path = "/rule"): string[] {
 
 async function main() {
   const config = requiredConfig();
-  const [databaseSources, snapshots, taoyuanItems, newTaipeiItems, taipeiItems, taichungItems, versions, drafts] = await Promise.all([
+  const [databaseSources, snapshots, versions, drafts] = await Promise.all([
     supabaseRest<Array<{ id: string; automation_level: string; status: string; last_check_error: unknown }>>(config, "sources?select=id,automation_level,status,last_check_error"),
     supabaseRest<Snapshot[]>(config, "source_snapshots?select=id,source_id&content_hash=not.is.null&order=observed_at.desc"),
-    supabaseRest<Array<ReviewedTaoyuanItem & { classification: string | null; review_status: string }>>(config, "source_items?select=title,snapshot_id,canonical_draft,classification,review_status&source_id=eq.taoyuan-welfare-open-data"),
-    supabaseRest<Array<{ title: string; snapshot_id: string; classification: string | null; review_status: string }>>(config, "source_items?select=title,snapshot_id,classification,review_status&source_id=eq.new-taipei-welfare-open-data"),
-    supabaseRest<Array<{ title: string; snapshot_id: string; classification: string | null; review_status: string }>>(config, "source_items?select=title,snapshot_id,classification,review_status&source_id=eq.taipei-social-aid-open-data"),
-    supabaseRest<Array<{ title: string; snapshot_id: string; classification: string | null; review_status: string }>>(config, "source_items?select=title,snapshot_id,classification,review_status&source_id=eq.taichung-social-aid-open-data"),
     supabaseRest<Version[]>(config, "program_versions?select=status,coverage,canonical_content,field_evidence(field_path,source_id,snapshot_id,reviewed_at)&status=eq.published"),
     supabaseRest<Array<{ id: string }>>(config, "program_versions?select=id&status=eq.draft"),
   ]);
@@ -47,13 +43,16 @@ async function main() {
   for (const snapshot of snapshots) if (!latest.has(snapshot.source_id)) latest.set(snapshot.source_id, snapshot);
   const automationBySource = new Map(databaseSources.map((source) => [source.id, source.automation_level]));
   const taoyuanSnapshotId = latest.get("taoyuan-welfare-open-data")?.id;
-  const latestTaoyuanItems = taoyuanItems.filter((item) => item.snapshot_id === taoyuanSnapshotId);
   const newTaipeiSnapshotId = latest.get("new-taipei-welfare-open-data")?.id;
-  const latestNewTaipeiItems = newTaipeiItems.filter((item) => item.snapshot_id === newTaipeiSnapshotId);
   const taipeiSnapshotId = latest.get("taipei-social-aid-open-data")?.id;
-  const latestTaipeiItems = taipeiItems.filter((item) => item.snapshot_id === taipeiSnapshotId);
   const taichungSnapshotId = latest.get("taichung-social-aid-open-data")?.id;
-  const latestTaichungItems = taichungItems.filter((item) => item.snapshot_id === taichungSnapshotId);
+  assert.ok(taoyuanSnapshotId && newTaipeiSnapshotId && taipeiSnapshotId && taichungSnapshotId, "Missing latest structured Source snapshot");
+  const [latestTaoyuanItems, latestNewTaipeiItems, latestTaipeiItems, latestTaichungItems] = await Promise.all([
+    supabaseRest<Array<ReviewedTaoyuanItem & { classification: string | null; review_status: string }>>(config, `source_items?select=title,snapshot_id,canonical_draft,classification,review_status&snapshot_id=eq.${taoyuanSnapshotId}`),
+    supabaseRest<Array<{ title: string; snapshot_id: string; classification: string | null; review_status: string }>>(config, `source_items?select=title,snapshot_id,classification,review_status&snapshot_id=eq.${newTaipeiSnapshotId}`),
+    supabaseRest<Array<{ title: string; snapshot_id: string; classification: string | null; review_status: string }>>(config, `source_items?select=title,snapshot_id,classification,review_status&snapshot_id=eq.${taipeiSnapshotId}`),
+    supabaseRest<Array<{ title: string; snapshot_id: string; classification: string | null; review_status: string }>>(config, `source_items?select=title,snapshot_id,classification,review_status&snapshot_id=eq.${taichungSnapshotId}`),
+  ]);
   const reviewedTaoyuanItems = latestTaoyuanItems.filter((item) => item.classification !== "excluded" && item.review_status === "published");
   const expectedPrograms = [...programs, ...buildTaoyuanReviewedPrograms(reviewedTaoyuanItems, "2026-07-27")];
   const expected = expectedPrograms.filter((program) => program.evidence.every((item) => latest.has(item.sourceId)));
