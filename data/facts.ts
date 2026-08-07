@@ -220,6 +220,7 @@ export const factDefinitions: FactDefinition[] = [
   { key: "business_registration_years", type: "number", label: "事業設立與稅籍登記至今幾年", sensitive: false, help: "不足 1 年可填 0；微型創業鳳凰貸款以未超過 5 年為基本條件。" },
   { key: "business_employee_count", type: "number", label: "事業員工人數（不含負責人）", sensitive: false },
   { key: "startup_course_18_hours_within_3_years", type: "boolean", label: "近 3 年完成政府創業研習課程至少 18 小時", sensitive: false, options: yesNoUnknown },
+  { key: "completed_startup_consultation", type: "boolean", label: "已完成政府創業諮詢輔導", sensitive: false, options: yesNoUnknown },
   { key: "business_tax_registered_in_taoyuan", type: "boolean", label: "營業稅籍設於桃園市", sensitive: false, options: yesNoUnknown },
   { key: "has_child_under_2", type: "boolean", label: "家中有未滿 2 歲兒童", sensitive: true, options: yesNoUnknown },
   { key: "child_age", type: "number", label: "要申請福利的兒童目前幾歲", sensitive: true },

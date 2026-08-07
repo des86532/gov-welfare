@@ -126,6 +126,7 @@ test("微型創業鳳凰貸款保留身分路徑與授信審查", () => {
     business_registration_years: 5,
     business_employee_count: 4,
     startup_course_18_hours_within_3_years: true,
+    completed_startup_consultation: true,
   };
   assert.equal(matchProgram(program, {
     ...business,
@@ -148,6 +149,13 @@ test("微型創業鳳凰貸款保留身分路徑與授信審查", () => {
   assert.equal(matchProgram(program, {
     ...business,
     business_employee_count: 5,
+    birth_date: "1990-07-27",
+    registered_sex: "female",
+    household_city: "taipei",
+  }, "2026-07-27").status, "ineligible");
+  assert.equal(matchProgram(program, {
+    ...business,
+    completed_startup_consultation: false,
     birth_date: "1990-07-27",
     registered_sex: "female",
     household_city: "taipei",

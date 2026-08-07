@@ -23,7 +23,7 @@ Production 現在可用，但還不是「全臺完整福利平台」。Catalog �
 | `needs_review` | 0 |
 | 中央／地方分布 | 中央 38、桃園 22、新北 8、臺北 10、臺中 10 |
 | Source registry | 78 |
-| Active Sources | 73 |
+| Active Sources | 72 |
 | Blocked Sources | 5 |
 | Active Source fetch failure | 0 |
 | Public activities | 6 |
@@ -195,7 +195,7 @@ Workflow 雖然每天喚醒，但 CLI 會讀取 `last_checked_at` 與 `checkEver
 | Frequency | Sources |
 | --- | ---: |
 | 每 24 小時 | 13 |
-| 每 168 小時 | 57 |
+| 每 168 小時 | 56 |
 | 每 720 小時 | 3 |
 
 若上次 check 失敗，下一次 workflow 會優先重試。手動 `workflow_dispatch` 會加上 `--force`，檢查全部 active Sources。

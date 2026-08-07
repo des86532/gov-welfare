@@ -39,14 +39,14 @@ const moeTop100115 = evidence("moe-top100-115-guide", "PDF 第1、7至10頁／�
 const moeEu115 = evidence("moe-eu-115-guide", "PDF 第1至3頁／金額、資格與期間", "每年1.6萬美元至多2年；限當年度Erasmus Mundus聯合碩士課程獎學金備取生或自費生，並符合戶籍、學歷、語言、年齡及獎助限制", "2026-07-27");
 const ydaAge = evidence("yda-overseas-dream-115-guide", "PDF 第 1 頁／第三點", "具中華民國國籍之15歲至30歲青年");
 const ydaOverview = evidence("yda-overseas-dream", "計畫簡介", "透過海外見習、培訓與自主提案協助青年拓展國際經驗");
-const childcareEvidence = evidence("myegov-childcare-under-2", "申辦資格", "未滿2歲、完成登記、未接受公費安置且未接受公共化或準公共托育服務");
-const childcareTwoToSix = evidence("myegov-childcare-2-to-6", "申辦資格", "2至未滿5歲及5歲至入國民小學前之我國籍幼兒", "2026-07-27");
+const childcareEvidence = evidence("myegov-childcare-under-2", "育兒津貼／補助資格", "未滿2歲、完成出生或初設戶籍登記、未接受公費安置且未同時請領托育補助", "2026-08-07");
+const childcareTwoToSix = evidence("myegov-childcare-2-to-6", "補助對象與作業要點", "2至未滿5歲及5歲至入國民小學前之我國籍幼兒，未接受公共化或準公共教保服務", "2026-08-07");
 const childcareTwoToSixAmount = evidence("moe-childcare-2-to-6-benefit", "育兒津貼及5歲就學補助", "依子女序每月發給5,000元、6,000元或7,000元", "2026-07-27");
-const childcareSubsidy = evidence("myegov-childcare-subsidy", "發放金額與申辦資格", "未滿2歲我國籍兒童送托政府簽約單位每週30小時以上；公共化每月7,000元、準公共每月13,000元起", "2026-07-27");
-const phoenixLoan = evidence("myegov-phoenix-loan", "措施內容與申辦資格", "成年女性、45至65歲國民或20至65歲離島居民，事業登記未超過5年、員工未滿5人並完成近3年18小時創業課程", "2026-07-27");
+const childcareSubsidy = evidence("myegov-childcare-under-2", "托育補助與官方問答集", "未滿2歲我國籍兒童送托政府簽約單位每週30小時以上；公共化每月7,000元、準公共每月13,000元起", "2026-08-07");
+const phoenixLoan = evidence("myegov-phoenix-loan", "第三點、第六點、第九點至第十二點", "未滿45歲成年女性、45至65歲國民或65歲以下成年離島居民，近3年完成18小時創業課程及創業諮詢；事業登記未超過5年且員工未滿5人", "2026-08-07");
 const longTermCare = evidence("mohw-long-term-care", "長照服務對象、流程與給付額度", "經評估長照需要等級2級以上，且符合65歲以上、55歲以上原住民、失智、失能身障或急性後期照護收案身分之一", "2026-07-27");
-const rentEvidence = evidence("myegov-rent-115-guide", "申請資格與家庭年所得限制", "有租賃住宅事實、家庭成員無自有房屋且所得符合所在地門檻");
-const rentWindow = evidence("myegov-rent-115-guide", "受理申請期間", "115年1月1日上午9點至115年12月31日下午5點");
+const rentEvidence = evidence("myegov-rent-115-guide", "公告事項第二點／申請資格", "有租賃住宅事實、家庭成員無自有房屋且所得符合所在地門檻", "2026-08-07");
+const rentWindow = evidence("myegov-rent-115-guide", "公告事項第三點／受理申請期間", "115年1月1日上午9點至115年12月31日下午5點", "2026-08-07");
 const taoyuanReward = evidence("taoyuan-welfare-open-data", "$[0].eligibilityCriteria", "16至65歲、設籍桃園、持身障證明、證照生效12個月內");
 const newTaipeiChildCard = evidence("new-taipei-child-card", "服務說明／申請對象", "設籍新北市6歲以上未滿12歲，或就讀新北市公私立小學的兒童", "2026-07-27");
 const newTaipeiChildCardDataset = evidence("new-taipei-welfare-open-data", "row id=268436998 / service_desc", "提供設籍本市6歲以上未滿12歲兒童或於本市公私立小學就讀之兒童搭乘捷運票價優惠", "2026-07-27");
@@ -814,10 +814,10 @@ export const programs: Program[] = [
     decisionType: "loan_credit_review",
     jurisdiction: "中央",
     authority: "勞動部勞動力發展署",
-    officialUrl: "https://www.gov.tw/News_Content_2_392722",
-    applicationUrl: "https://www.gov.tw/News_Content_2_392722",
-    verifiedAt: "2026-07-27",
-    requestedFacts: ["birth_date", "registered_sex", "nationality", "household_city", "is_registered_business_owner", "business_registration_years", "business_employee_count", "startup_course_18_hours_within_3_years"],
+    officialUrl: "https://laws.mol.gov.tw/FLAW/FLAWDAT0202.aspx?id=FL048022",
+    applicationUrl: "https://beboss.wda.gov.tw/",
+    verifiedAt: "2026-08-07",
+    requestedFacts: ["birth_date", "registered_sex", "nationality", "household_city", "is_registered_business_owner", "business_registration_years", "business_employee_count", "startup_course_18_hours_within_3_years", "completed_startup_consultation"],
     rule: { all: [
       { field: "nationality", operator: "eq", value: "taiwan", label: "具有中華民國國籍", evidence: phoenixLoan },
       { any: [
@@ -828,13 +828,14 @@ export const programs: Program[] = [
         { field: "age", operator: "between", value: [45, 65], label: "年齡為 45–65 歲", evidence: phoenixLoan },
         { all: [
           { field: "household_city", operator: "in", value: ["penghu", "kinmen", "lienchiang"], label: "設籍澎湖、金門或連江離島", evidence: phoenixLoan },
-          { field: "age", operator: "between", value: [20, 65], label: "年齡為 20–65 歲", evidence: phoenixLoan },
+          { field: "age", operator: "between", value: [18, 65], label: "已成年且 65 歲以下", evidence: phoenixLoan },
         ] },
       ] },
       { field: "is_registered_business_owner", operator: "eq", value: true, label: "為申請事業的負責人", evidence: phoenixLoan },
       { field: "business_registration_years", operator: "lte", value: 5, label: "事業設立及稅籍登記未超過 5 年", evidence: phoenixLoan },
       { field: "business_employee_count", operator: "lt", value: 5, label: "員工人數不含負責人未滿 5 人", evidence: phoenixLoan },
       { field: "startup_course_18_hours_within_3_years", operator: "eq", value: true, label: "近 3 年完成政府創業研習課程 18 小時", evidence: phoenixLoan },
+      { field: "completed_startup_consultation", operator: "eq", value: true, label: "已完成創業諮詢輔導", evidence: phoenixLoan },
     ] },
     caveats: ["符合基本資格只代表可提出申請，不代表貸款核准；實際額度仍由勞動力發展署審查與承貸金融機構授信。"],
     documents: ["創業計畫及貸款申請書", "事業設立與稅籍證明", "身分證明", "個人及事業信用報告", "創業研習課程證明"],
@@ -875,9 +876,9 @@ export const programs: Program[] = [
     decisionType: "official_record_check",
     jurisdiction: "中央",
     authority: "衛生福利部社會及家庭署",
-    officialUrl: "https://www.gov.tw/News_Content_2_375315",
-    applicationUrl: "https://www.gov.tw/News_Content_2_375315",
-    verifiedAt: "2026-07-27",
+    officialUrl: "https://www.mohw.gov.tw/www/cp-5130-58003-1.html",
+    applicationUrl: "https://twbaby.sfaa.gov.tw/",
+    verifiedAt: "2026-08-07",
     requestedFacts: ["has_child_under_2", "child_is_taiwanese", "child_in_public_placement", "uses_public_childcare"],
     rule: { all: [
       { field: "has_child_under_2", operator: "eq", value: true, label: "家中有未滿 2 歲兒童", evidence: childcareEvidence },
@@ -903,9 +904,9 @@ export const programs: Program[] = [
     decisionType: "official_record_check",
     jurisdiction: "中央",
     authority: "教育部國民及學前教育署",
-    officialUrl: "https://www.gov.tw/News_Content_2_524816",
+    officialUrl: "https://www.k12ea.gov.tw/Tw/PublickInfo/EdufundDetail?filter=588AEF47-226C-4164-95A8-EE5EA941567F&id=0067b2d2-7c00-44b0-b957-b01ba6e1206f",
     applicationUrl: "https://e-service.k12ea.gov.tw/",
-    verifiedAt: "2026-07-27",
+    verifiedAt: "2026-08-07",
     requestedFacts: ["child_age", "child_is_taiwanese", "child_not_in_elementary_school", "uses_public_or_quasi_public_preschool"],
     rule: { all: [
       { field: "child_age", operator: "between", value: [2, 5], label: "幼兒年滿 2 歲且尚未滿 6 歲", evidence: childcareTwoToSix },
@@ -931,9 +932,9 @@ export const programs: Program[] = [
     decisionType: "official_record_check",
     jurisdiction: "中央",
     authority: "衛生福利部社會及家庭署",
-    officialUrl: "https://www.gov.tw/News_Content_2_745216",
-    applicationUrl: "https://www.gov.tw/News_Content_2_745216",
-    verifiedAt: "2026-07-27",
+    officialUrl: "https://www.mohw.gov.tw/www/cp-5130-58003-1.html",
+    applicationUrl: "https://www.mohw.gov.tw/www/cp-5130-58003-1.html",
+    verifiedAt: "2026-08-07",
     requestedFacts: ["has_child_under_2", "child_is_taiwanese", "uses_public_childcare", "weekly_childcare_hours", "receives_childcare_allowance", "child_in_public_placement", "one_to_one_childcare_without_exception"],
     rule: { all: [
       { field: "has_child_under_2", operator: "eq", value: true, label: "兒童實際年齡未滿 2 歲", evidence: childcareSubsidy },
@@ -962,9 +963,9 @@ export const programs: Program[] = [
     decisionType: "official_record_check",
     jurisdiction: "中央",
     authority: "內政部國土管理署",
-    officialUrl: "https://pip.moi.gov.tw/Publicize/Info/B1020?y=115",
+    officialUrl: "https://www.nlma.gov.tw/ch/legislation/law%26regunu/7243",
     applicationUrl: "https://has.nlma.gov.tw/subsidyOnline/house300e/",
-    verifiedAt: "2026-07-27",
+    verifiedAt: "2026-08-07",
     effectiveFrom: "2026-01-01",
     effectiveTo: "2026-12-31",
     applicationWindow: { open: "2026-01-01", close: "2026-12-31", label: "115 年 1 月 1 日至 12 月 31 日" },
