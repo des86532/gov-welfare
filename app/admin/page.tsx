@@ -3,7 +3,7 @@ import { reviewedOpportunities } from "@/data/opportunities";
 import { DataMethodContent } from "@/components/data-method-content";
 import { sources } from "@/data/sources";
 import { activityReportReasonLabels } from "@/lib/activity-report-shared";
-import { loadAdminReviewData, type ActivityReportRow, type NeedsReviewProgram, type ProgramVersionRow, type SourceDiff, type SourceItemRow } from "@/lib/admin-review";
+import { loadAdminReviewData, type ActivityReportRow, type EvidenceIssue, type NeedsReviewProgram, type ProgramVersionRow, type SourceDiff, type SourceItemRow } from "@/lib/admin-review";
 import { classifySourceItemAction, createNeedsReviewDraftAction, publishVersionAction, rejectVersionAction, resolveActivityReportAction, rollbackVersionAction } from "@/app/admin/actions";
 
 export const metadata = { title: "資料管理" };
@@ -19,6 +19,27 @@ function dateTime(value: string | null | undefined) {
 function jsonPreview(value: Record<string, unknown> | undefined) {
   const text = JSON.stringify(value ?? {}, null, 2);
   return text.length > 4_000 ? `${text.slice(0, 4_000)}\n… truncated` : text;
+}
+
+function changedValuePreview(value: Record<string, unknown> | undefined, fields: string[]) {
+  if (!value) return "—";
+  const keys = fields.filter((field) => field.startsWith("canonical_draft.")).map((field) => field.slice("canonical_draft.".length));
+  return jsonPreview(keys.length ? Object.fromEntries(keys.map((key) => [key, value[key]])) : value);
+}
+
+function EvidenceSourceComparison({ issue }: { issue: EvidenceIssue }) {
+  if (issue.sourceChanges.length === 0) {
+    return <div className="evidence-no-text-diff"><strong>沒有可顯示的文字對比</strong><span>Source hash 已變更，但 Adapter 沒有產生可比較的欄位；請開啟上方官方頁人工核對。</span></div>;
+  }
+  return <div className="evidence-source-changes">
+    {issue.sourceChanges.map((change) => <section key={`${change.externalId}-${change.fields.join("-")}`}>
+      <header><strong>{change.title}</strong><code>{change.fields.join(" · ")}</code></header>
+      <div className="evidence-compare-grid">
+        <div><span>舊 Source 擷取</span><pre>{changedValuePreview(change.before, change.fields)}</pre></div>
+        <div><span>新 Source 擷取</span><pre>{changedValuePreview(change.after, change.fields)}</pre></div>
+      </div>
+    </section>)}
+  </div>;
 }
 
 function officialItemUrl(item: SourceItemRow) {
@@ -120,8 +141,10 @@ function NeedsReviewCard({ review }: { review: NeedsReviewProgram }) {
           return <fieldset key={issue.evidence.id} disabled={review.blocked}>
             <legend><code>{issue.evidence.field_path}</code> · {source?.name ?? issue.evidence.source_id}</legend>
             <small>舊 Snapshot {issue.evidence.snapshot_id.slice(0, 8)} → 新 Snapshot {issue.latestSnapshot?.id.slice(0, 8)}</small>
-            <label>Locator<input name={`locator_${issue.evidence.id}`} required minLength={2} maxLength={500} defaultValue={issue.evidence.locator} /></label>
-            <label>Extracted value<textarea name={`value_${issue.evidence.id}`} required minLength={2} maxLength={4_000} defaultValue={issue.evidence.extracted_value} /></label>
+            <EvidenceSourceComparison issue={issue} />
+            <div className="published-evidence"><strong>目前 Published Evidence</strong><span>{issue.evidence.locator}</span><p>{issue.evidence.extracted_value}</p></div>
+            <label>確認後的新 Locator<input name={`locator_${issue.evidence.id}`} required minLength={2} maxLength={500} defaultValue={issue.evidence.locator} /></label>
+            <label>確認後的新 Evidence 值<textarea name={`value_${issue.evidence.id}`} required minLength={2} maxLength={4_000} defaultValue={issue.evidence.extracted_value} /></label>
           </fieldset>;
         })}</div>
         <div className="needs-review-decision">

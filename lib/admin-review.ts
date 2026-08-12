@@ -75,6 +75,7 @@ export type EvidenceIssue = {
   evidence: EvidenceRow;
   latestSnapshot: SnapshotRow | null;
   sourceError: string | null;
+  sourceChanges: ItemChange[];
 };
 
 export type NeedsReviewProgram = {
@@ -122,14 +123,44 @@ export type SourceDiff = {
 };
 
 function changedFields(before: SourceItemRow, after: SourceItemRow): string[] {
-  const values = {
-    title: [before.title, after.title],
-    canonical_draft: [before.canonical_draft, after.canonical_draft],
-    unknown_fields: [before.unknown_fields, after.unknown_fields],
-  } as const;
-  return Object.entries(values)
-    .filter(([, [oldValue, newValue]]) => !isDeepStrictEqual(oldValue, newValue))
-    .map(([key]) => key);
+  const fields = before.title === after.title ? [] : ["title"];
+  for (const [prefix, oldValue, newValue] of [
+    ["canonical_draft", before.canonical_draft, after.canonical_draft],
+    ["unknown_fields", before.unknown_fields, after.unknown_fields],
+  ] as const) {
+    const keys = new Set([...Object.keys(oldValue), ...Object.keys(newValue)]);
+    for (const key of keys) {
+      if (!isDeepStrictEqual(oldValue[key], newValue[key])) fields.push(`${prefix}.${key}`);
+    }
+  }
+  return fields;
+}
+
+export function compareSnapshotItems(
+  sourceId: string,
+  previousSnapshotId: string,
+  currentSnapshotId: string,
+  items: SourceItemRow[],
+): ItemChange[] {
+  const previous = new Map(items
+    .filter((item) => item.source_id === sourceId && item.snapshot_id === previousSnapshotId)
+    .map((item) => [item.external_id, item]));
+  const current = new Map(items
+    .filter((item) => item.source_id === sourceId && item.snapshot_id === currentSnapshotId)
+    .map((item) => [item.external_id, item]));
+  const changes: ItemChange[] = [];
+  for (const item of current.values()) {
+    const old = previous.get(item.external_id);
+    if (!old) changes.push({ externalId: item.external_id, title: item.title, fields: ["new"], after: item.canonical_draft });
+    else {
+      const fields = changedFields(old, item);
+      if (fields.length) changes.push({ externalId: item.external_id, title: item.title, fields, before: old.canonical_draft, after: item.canonical_draft });
+    }
+  }
+  for (const item of previous.values()) {
+    if (!current.has(item.external_id)) changes.push({ externalId: item.external_id, title: item.title, fields: ["removed"], before: item.canonical_draft });
+  }
+  return changes;
 }
 
 export function buildSourceDiffs(snapshots: SnapshotRow[], items: SourceItemRow[]): SourceDiff[] {
@@ -198,6 +229,7 @@ export function buildNeedsReviewPrograms(
   databaseSources: DatabaseSource[],
   snapshots: SnapshotRow[],
   versions: ProgramVersionRow[],
+  items: SourceItemRow[] = [],
 ): NeedsReviewProgram[] {
   const sourceById = new Map(databaseSources.map((source) => [source.id, source]));
   const latestBySource = latestSnapshotsBySource(snapshots);
@@ -211,7 +243,14 @@ export function buildNeedsReviewPrograms(
       const latestSnapshot = latestBySource.get(evidence.source_id) ?? null;
       const sourceError = source?.last_check_error?.message ?? (!source ? "Source registry 不存在" : null);
       return evidenceNeedsReview(source, evidence.snapshot_id, latestSnapshot?.id)
-        ? [{ evidence, latestSnapshot, sourceError }]
+        ? [{
+            evidence,
+            latestSnapshot,
+            sourceError,
+            sourceChanges: latestSnapshot
+              ? compareSnapshotItems(evidence.source_id, evidence.snapshot_id, latestSnapshot.id, items)
+              : [],
+          }]
         : [];
     });
     if (issues.length === 0) return [];
@@ -295,7 +334,7 @@ export async function loadAdminReviewData() {
     snapshots,
     items,
     sourceDiffs,
-    needsReviewPrograms: buildNeedsReviewPrograms(databaseSources, snapshots, versions),
+    needsReviewPrograms: buildNeedsReviewPrograms(databaseSources, snapshots, versions, items),
     pendingItems: items.filter((item) => {
       const source = databaseSourceById.get(item.source_id);
       return source?.automation_level !== "structured_extract"

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { isAdminAuthorization } from "../lib/admin-auth";
-import { buildNeedsReviewPrograms, buildSourceDiffs, refreshProgramEvidence, requiredEvidencePaths, type DatabaseSource, type ProgramVersionRow, type SnapshotRow, type SourceItemRow } from "../lib/admin-review";
+import { buildNeedsReviewPrograms, buildSourceDiffs, compareSnapshotItems, refreshProgramEvidence, requiredEvidencePaths, type DatabaseSource, type ProgramVersionRow, type SnapshotRow, type SourceItemRow } from "../lib/admin-review";
 import type { Program } from "../lib/domain";
 
 const snapshots: SnapshotRow[] = [
@@ -42,7 +42,8 @@ test("Source diff 分開列出新增、移除、變更與未變更項目", () =>
   assert.equal(diff.unchanged, 1);
   assert.deepEqual(diff.added.map((entry) => entry.externalId), ["added"]);
   assert.deepEqual(diff.removed.map((entry) => entry.externalId), ["removed"]);
-  assert.deepEqual(diff.changed.map((entry) => entry.fields), [["canonical_draft"]]);
+  assert.deepEqual(diff.changed.map((entry) => entry.fields), [["canonical_draft.value"]]);
+  assert.deepEqual(compareSnapshotItems("source-a", "old", "new", rows).map((entry) => entry.externalId), ["changed", "added", "removed"]);
 });
 
 test("Publish gate 要求 Program evidence 與每個 Atomic rule path", () => {
@@ -72,11 +73,12 @@ test("needs_review Queue 找出 Authority Source 的 stale Evidence 並關聯既
     field_evidence: [{ id: "evidence-a", field_path: "/evidence/0", source_id: "source-a", snapshot_id: "old", locator: "資格", extracted_value: "年滿 18 歲", reviewed_at: "2026-07-26" }],
   } as ProgramVersionRow;
   const draft = { id: "draft", program_id: "program-a", version: 2, status: "draft", field_evidence: [] } as unknown as ProgramVersionRow;
-  const queue = buildNeedsReviewPrograms([source], snapshots, [published, draft]);
+  const queue = buildNeedsReviewPrograms([source], snapshots, [published, draft], [item("old", "page", "官方頁", "舊內容"), item("new", "page", "官方頁", "新內容")]);
   assert.equal(queue.length, 1);
   assert.equal(queue[0].issues[0].latestSnapshot?.id, "new");
   assert.equal(queue[0].existingDraft?.id, "draft");
   assert.equal(queue[0].blocked, false);
+  assert.deepEqual(queue[0].issues[0].sourceChanges[0].fields, ["canonical_draft.value"]);
 });
 
 test("Structured government API 的 Snapshot 更新不建立人工 Review 工作", () => {
