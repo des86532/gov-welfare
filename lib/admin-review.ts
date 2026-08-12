@@ -122,15 +122,30 @@ export type SourceDiff = {
   unchanged: number;
 };
 
+const nonReviewCanonicalFields = new Set(["links", "url", "detailUrl", "officialUrl", "applicationUrl"]);
+
+function normalizeVisibleValue(value: unknown): unknown {
+  if (typeof value === "string") {
+    return value
+      .replace(/專區瀏覽人次\s*累計[\d,]+\s*今日[\d,]+/g, "專區瀏覽人次")
+      .replace(/累計瀏覽人次：?[\d,]+\s*今日瀏覽人次：?[\d,]+/g, "瀏覽人次")
+      .replace(/(點閱次數|瀏覽人數|瀏覽人次|觀看數|下載次數)\s*[:：]?\s*[\d,]+(?:\s*(?:人|次))?/g, "$1")
+      .replace(/((?:pdf\s*)?下載)\s*[\d,]+\s*次/gi, "$1");
+  }
+  if (Array.isArray(value)) return value.map(normalizeVisibleValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, normalizeVisibleValue(child)]));
+  }
+  return value;
+}
+
 function changedFields(before: SourceItemRow, after: SourceItemRow): string[] {
   const fields = before.title === after.title ? [] : ["title"];
-  for (const [prefix, oldValue, newValue] of [
-    ["canonical_draft", before.canonical_draft, after.canonical_draft],
-    ["unknown_fields", before.unknown_fields, after.unknown_fields],
-  ] as const) {
-    const keys = new Set([...Object.keys(oldValue), ...Object.keys(newValue)]);
-    for (const key of keys) {
-      if (!isDeepStrictEqual(oldValue[key], newValue[key])) fields.push(`${prefix}.${key}`);
+  const keys = new Set([...Object.keys(before.canonical_draft), ...Object.keys(after.canonical_draft)]);
+  for (const key of keys) {
+    if (nonReviewCanonicalFields.has(key)) continue;
+    if (!isDeepStrictEqual(normalizeVisibleValue(before.canonical_draft[key]), normalizeVisibleValue(after.canonical_draft[key]))) {
+      fields.push(`canonical_draft.${key}`);
     }
   }
   return fields;
@@ -242,16 +257,12 @@ export function buildNeedsReviewPrograms(
       const source = sourceById.get(evidence.source_id);
       const latestSnapshot = latestBySource.get(evidence.source_id) ?? null;
       const sourceError = source?.last_check_error?.message ?? (!source ? "Source registry 不存在" : null);
-      return evidenceNeedsReview(source, evidence.snapshot_id, latestSnapshot?.id)
-        ? [{
-            evidence,
-            latestSnapshot,
-            sourceError,
-            sourceChanges: latestSnapshot
-              ? compareSnapshotItems(evidence.source_id, evidence.snapshot_id, latestSnapshot.id, items)
-              : [],
-          }]
+      if (!evidenceNeedsReview(source, evidence.snapshot_id, latestSnapshot?.id)) return [];
+      const sourceChanges = latestSnapshot
+        ? compareSnapshotItems(evidence.source_id, evidence.snapshot_id, latestSnapshot.id, items)
         : [];
+      if (latestSnapshot && !sourceError && sourceChanges.length === 0) return [];
+      return [{ evidence, latestSnapshot, sourceError, sourceChanges }];
     });
     if (issues.length === 0) return [];
     return [{

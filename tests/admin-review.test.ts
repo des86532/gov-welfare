@@ -46,6 +46,27 @@ test("Source diff 分開列出新增、移除、變更與未變更項目", () =>
   assert.deepEqual(compareSnapshotItems("source-a", "old", "new", rows).map((entry) => entry.externalId), ["changed", "added", "removed"]);
 });
 
+test("Source diff 忽略連結與網頁動態計數", () => {
+  const oldItem = item("old", "page", "官方頁", "unused");
+  const newItem = item("new", "page", "官方頁", "unused");
+  oldItem.canonical_draft = {
+    bodyText: "更新日期：2026-06-24 點閱次數：4330 檔案下載 計畫 pdf下載 311 次 觀看數:923",
+    links: ["/old-link"],
+  };
+  newItem.canonical_draft = {
+    bodyText: "更新日期：2026-06-24 點閱次數：4562 檔案下載 計畫 pdf下載 348 次 觀看數:451",
+    links: ["/new-link"],
+  };
+  assert.deepEqual(compareSnapshotItems("source-a", "old", "new", [oldItem, newItem]), []);
+
+  const source: DatabaseSource = { id: "source-a", automation_level: "change_detection_only", status: "active", last_checked_at: null, last_successful_fetch_at: null, last_check_error: null };
+  const published = {
+    id: "published", program_id: "program-a", version: 1, status: "published",
+    field_evidence: [{ id: "evidence-a", field_path: "/evidence/0", source_id: "source-a", snapshot_id: "old", locator: "資格", extracted_value: "原有資格", reviewed_at: "2026-07-26" }],
+  } as ProgramVersionRow;
+  assert.deepEqual(buildNeedsReviewPrograms([source], snapshots, [published], [oldItem, newItem]), []);
+});
+
 test("Publish gate 要求 Program evidence 與每個 Atomic rule path", () => {
   const evidence = { sourceId: "source-a", snapshotId: "new", locator: "資格", extractedValue: "年滿 18 歲", reviewedAt: "2026-07-27" };
   const program = {
