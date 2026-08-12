@@ -1,0 +1,41 @@
+name: Production health
+
+on:
+  schedule:
+    - cron: "11,41 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-health
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check Production and manage alert
+        run: |
+          health_url="https://gov-welfare-iota.vercel.app/api/health"
+          response="$(curl --silent --show-error --max-time 20 "$health_url" || true)"
+          healthy="$(node -e 'try { const value = JSON.parse(process.argv[1]); process.stdout.write(String(value.ok === true && value.status === "healthy")); } catch { process.stdout.write("false"); }' "$response")"
+          title="Production health failure"
+          issue="$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')"
+
+          if [ "$healthy" != "true" ]; then
+            if [ -z "$issue" ]; then
+              gh issue create --title "$title" --body "Production Health API is unavailable or unhealthy: [$health_url]($health_url)\n\nRun: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            fi
+            exit 1
+          fi
+
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --body "Production recovered: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            gh issue close "$issue" --reason completed
+          fi

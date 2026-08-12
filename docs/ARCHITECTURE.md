@@ -1,6 +1,6 @@
 # Gov Welfare Architecture 與 Production Gap
 
-> 最後核對：2026-08-07（Asia/Taipei）
+> 最後核對：2026-08-12（Asia/Taipei）
 > 本文件描述 Repository 與 Production **實際已實作**的狀態，不是最初 PRD 或未完成的 Roadmap。
 
 ## 結論
@@ -42,7 +42,7 @@ flowchart LR
   A["Admin Browser\nHTTP Basic Auth"] --> V
 
   G["GitHub Actions cron"] --> CLI["Node ingestion CLI"]
-  G --> N["Activity report count alert\nGitHub Issue"]
+  G --> N["Source / Activity / Health alerts\nGitHub Issues"]
   CLI --> O["Official government Sources\nJSON / CSV / HTML / PDF / ODS"]
   CLI --> DB
   DB --> R["Draft / Review queue"]
@@ -205,6 +205,8 @@ Workflow 雖然每天喚醒，但 CLI 會讀取 `last_checked_at` 與 `checkEver
 
 另一個 `.github/workflows/activity-report-alert.yml` 每小時檢查一次 `activity_reports`：有未處理回報時建立或更新 `Activity reports need review` Issue，全部處理後自動關閉。Issue 只保存待處理數量與 Admin 連結，不複製使用者提交的內容。
 
+`.github/workflows/production-health.yml` 每 30 分鐘檢查 Production `/api/health`。無法連線或狀態不是 `healthy` 時建立單一 `Production health failure` Issue；持續異常不重複建立 Issue，恢復後自動留言並關閉。是否收到 Email／GitHub App 通知取決於 Repository Watch 與個人 Notifications 設定。
+
 ### 其他 Scheduler 限制
 
 - 沒有 Vercel Cron route 或 `vercel.json` cron 設定。
@@ -237,9 +239,9 @@ Workflow 雖然每天喚醒，但 CLI 會讀取 `last_checked_at` 與 `checkEver
 1. **活動 Coverage 還很小**：目前平台維護 6 筆 Activity data；Crawler 只協助 Discovery，不會自動公開。使用者回報可修正錯誤，但新增活動仍需更新 Repository data。
 2. **地方 Coverage 只有四市 Pilot**：選縣市會顯示中央 + 該縣市，但目前其他 18 縣市幾乎只有中央 Programs，不能宣稱全臺完整。
 3. **Daily workflow 不跑完整 data audit**：scheduled run 成功只代表 ingestion 成功，不代表 Published Evidence 全部最新；應新增 read-only acceptance audit 並讓 `attention` 狀態可通知維護者。
-4. **Monitoring 不完整**：目前有 Source 與 Activity report GitHub Issue、`/api/health`，但沒有 uptime check、error tracing、latency／Database size alert。
+4. **Monitoring 仍不完整**：目前有 Source、Activity report 與 Production health GitHub Issue，但沒有 error tracing、latency／Database size alert。
 5. **Snapshot lifecycle 未定義**：raw HTML／JSON／PDF base64 長期放在 PostgreSQL，需制定 Storage、retention、checksum 與 legal retention policy。
-6. **Security hardening 未完成**：尚無明確 CSP、rate limit、automated dependency scan 與 Admin brute-force protection。
+6. **Security hardening 未完成**：CI 已有 Production dependency audit，但尚無明確 CSP、rate limit 與 Admin brute-force protection。
 7. **Automated E2E／Accessibility gate 缺少**：CI 已執行 Unit/data tests、TypeScript、Lint 與 Build，但沒有 Browser flow、mobile viewport、keyboard navigation、Lighthouse 或 axe gate。
 
 ### P2 — 可延後
@@ -272,6 +274,9 @@ gh run list --workflow source-check.yml
 
 # Production health
 curl -fsS https://gov-welfare-iota.vercel.app/api/health
+
+# Production health monitor 執行紀錄
+gh run list --workflow production-health.yml
 ```
 
 ## Architecture decisions
