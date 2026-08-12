@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { programs as seedPrograms } from "@/data/programs";
-import { compareSnapshotItems, type SourceItemRow } from "@/lib/admin-review";
+import { snapshotReviewState, type SourceItemRow } from "@/lib/admin-review";
 import { CATEGORY_KEYS, type Program } from "@/lib/domain";
 import { evidenceNeedsReview } from "@/lib/source-freshness";
 import { supabaseConfig, supabaseRest } from "@/lib/supabase-rest";
@@ -78,7 +78,7 @@ async function loadPrograms(): Promise<Program[]> {
           const source = sourcesById.get(item.source_id);
           if (!evidenceNeedsReview(source, item.snapshot_id, newest?.id)) return false;
           if (!newest || source?.last_check_error) return true;
-          return compareSnapshotItems(item.source_id, item.snapshot_id, newest.id, sourceItems).length > 0;
+          return snapshotReviewState(item.source_id, item.snapshot_id, newest.id, sourceItems) !== "unchanged";
         });
         if (stale) item.program = { ...item.program, coverage: "needs_review" };
       }

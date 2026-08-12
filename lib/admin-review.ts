@@ -122,6 +122,8 @@ export type SourceDiff = {
   unchanged: number;
 };
 
+export type SnapshotReviewState = "unchanged" | "changed" | "missing";
+
 const nonReviewCanonicalFields = new Set(["links", "url", "detailUrl", "officialUrl", "applicationUrl"]);
 
 function normalizeVisibleValue(value: unknown): unknown {
@@ -176,6 +178,19 @@ export function compareSnapshotItems(
     if (!current.has(item.external_id)) changes.push({ externalId: item.external_id, title: item.title, fields: ["removed"], before: item.canonical_draft });
   }
   return changes;
+}
+
+export function snapshotReviewState(
+  sourceId: string,
+  previousSnapshotId: string,
+  currentSnapshotId: string,
+  items: SourceItemRow[],
+): SnapshotReviewState {
+  if (previousSnapshotId === currentSnapshotId) return "unchanged";
+  const hasPrevious = items.some((item) => item.source_id === sourceId && item.snapshot_id === previousSnapshotId);
+  const hasCurrent = items.some((item) => item.source_id === sourceId && item.snapshot_id === currentSnapshotId);
+  if (!hasPrevious || !hasCurrent) return "missing";
+  return compareSnapshotItems(sourceId, previousSnapshotId, currentSnapshotId, items).length ? "changed" : "unchanged";
 }
 
 export function buildSourceDiffs(snapshots: SnapshotRow[], items: SourceItemRow[]): SourceDiff[] {
@@ -261,7 +276,10 @@ export function buildNeedsReviewPrograms(
       const sourceChanges = latestSnapshot
         ? compareSnapshotItems(evidence.source_id, evidence.snapshot_id, latestSnapshot.id, items)
         : [];
-      if (latestSnapshot && !sourceError && sourceChanges.length === 0) return [];
+      const reviewState = latestSnapshot
+        ? snapshotReviewState(evidence.source_id, evidence.snapshot_id, latestSnapshot.id, items)
+        : "missing";
+      if (!sourceError && reviewState === "unchanged") return [];
       return [{ evidence, latestSnapshot, sourceError, sourceChanges }];
     });
     if (issues.length === 0) return [];

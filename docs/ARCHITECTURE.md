@@ -94,18 +94,19 @@ flowchart LR
 
 - Supabase 讀取失敗時，Public Programs 回到 Repository reviewed Seed，不讓整站中斷。
 - Source fetch 失敗時保留上一個 Published version，不刪除 Public data。
-- Authority page／PDF 的最新 successful Snapshot 與 Published Evidence 不一致時，Program Runtime state 會降為 `needs_review`。
+- Authority page／PDF 的最新 successful Snapshot 與 Published Evidence 之間，若會顯示給使用者的文字確實不同，Program Runtime state 才會降為 `needs_review`；點閱／下載次數與擷取 URL 不觸發 Review。
 - Structured government API 的 Snapshot 更新不會觸發人工 Review；它只更新 descriptive data，公開內容附官方連結，也不會自動改寫資格 Rules。
 - Activity 使用 Repository 內平台維護的 data 顯示，Crawler 只作 Discovery，不因 Snapshot 變動產生人工 Queue。每筆附官方連結與資料整理日期，使用者可匿名回報錯誤。
 
 ### `needs_review` Admin workflow
 
-1. Admin 只比較 Authority page／PDF 等非 `structured_extract` Source 的 `field_evidence.snapshot_id` 與最新 successful Snapshot。
-2. 不一致的 Program 進入「資格來源待複核」，顯示受影響 Evidence 與官方連結；Structured API 的一般 Dataset 更新不產生待辦。
+1. Admin 比較 Authority page／PDF 等非 `structured_extract` Source 的 Evidence Snapshot 與最新 successful Snapshot，並正規化點閱／下載次數、忽略擷取 URL。
+2. 只有公開文字不同的 Program 進入「資格來源待複核」，顯示新舊內容與官方連結；Structured API 的一般 Dataset 更新不產生待辦。
 3. Reviewer 可修正 locator／extracted value，填寫 Reviewer 與 Rationale，確認 Canonical content／Rules 未受影響後建立新 Draft。
 4. Draft 會複製完整 Program version，只把已複核 Evidence 指向最新 Snapshot；建立動作記錄為 `resolve_conflict` Audit event。
 5. Draft 仍須在「福利方案待審核」再次 Publish；PostgreSQL Publish gate 會重新驗證 Authority Evidence 與 Source state。Structured API Evidence 不參與 freshness gate。
 6. 若資格 Rule、Benefit、金額或期限真的改變，不允許只更新 Evidence，必須先更新 Canonical content 再 Publish。
+7. Publish 前的 Server Gate 使用相同可見文字 Diff；PostgreSQL RPC 保留 Evidence 完整、Reviewed 與 Source error Gate，但不再用 Snapshot ID 本身代表內容改變。
 
 ## Database 保存什麼
 

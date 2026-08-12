@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { isAdminAuthorization } from "../lib/admin-auth";
-import { buildNeedsReviewPrograms, buildSourceDiffs, compareSnapshotItems, refreshProgramEvidence, requiredEvidencePaths, type DatabaseSource, type ProgramVersionRow, type SnapshotRow, type SourceItemRow } from "../lib/admin-review";
+import { buildNeedsReviewPrograms, buildSourceDiffs, compareSnapshotItems, refreshProgramEvidence, requiredEvidencePaths, snapshotReviewState, type DatabaseSource, type ProgramVersionRow, type SnapshotRow, type SourceItemRow } from "../lib/admin-review";
 import type { Program } from "../lib/domain";
 
 const snapshots: SnapshotRow[] = [
@@ -65,6 +65,8 @@ test("Source diff 忽略連結與網頁動態計數", () => {
     field_evidence: [{ id: "evidence-a", field_path: "/evidence/0", source_id: "source-a", snapshot_id: "old", locator: "資格", extracted_value: "原有資格", reviewed_at: "2026-07-26" }],
   } as ProgramVersionRow;
   assert.deepEqual(buildNeedsReviewPrograms([source], snapshots, [published], [oldItem, newItem]), []);
+  assert.equal(snapshotReviewState("source-a", "old", "new", [oldItem, newItem]), "unchanged");
+  assert.equal(snapshotReviewState("source-a", "old", "new", [oldItem]), "missing");
 });
 
 test("Publish gate 要求 Program evidence 與每個 Atomic rule path", () => {

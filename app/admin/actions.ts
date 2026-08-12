@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath, updateTag } from "next/cache";
 import { isAdminAuthorization } from "@/lib/admin-auth";
-import { PROGRAM_VERSION_SELECT, refreshProgramEvidence, requiredEvidencePaths, type ProgramVersionRow } from "@/lib/admin-review";
+import { PROGRAM_VERSION_SELECT, refreshProgramEvidence, requiredEvidencePaths, snapshotReviewState, type ProgramVersionRow, type SourceItemRow } from "@/lib/admin-review";
 import type { Evidence } from "@/lib/domain";
 import { supabaseConfig, supabaseRest, type SupabaseConfig } from "@/lib/supabase-rest";
 
@@ -57,7 +57,15 @@ async function assertPublishable(config: SupabaseConfig, versionId: string, expe
   for (const snapshot of snapshots) if (!latest.has(snapshot.source_id)) latest.set(snapshot.source_id, snapshot.id);
   const sourceState = new Map(sources.map((source) => [source.id, source]));
   if (sources.some((source) => source.automation_level !== "structured_extract" && source.last_check_error != null)) throw new Error("Authority Source 最近一次檢查失敗，禁止 Publish");
-  if (version.field_evidence.some((item) => sourceState.get(item.source_id)?.automation_level !== "structured_extract" && latest.get(item.source_id) !== item.snapshot_id)) throw new Error("Authority Evidence 不是最新 Snapshot，禁止 Publish");
+  const snapshotIds = [...new Set([...version.field_evidence.map((item) => item.snapshot_id), ...latest.values()])];
+  const sourceItems = await supabaseRest<SourceItemRow[]>(config,
+    `source_items?select=id,source_id,snapshot_id,external_id,title,canonical_draft,unknown_fields,classification,classification_rationale,review_status&snapshot_id=in.(${snapshotIds.map(encodeURIComponent).join(",")})`);
+  const visibleChange = version.field_evidence.some((item) => {
+    if (sourceState.get(item.source_id)?.automation_level === "structured_extract") return false;
+    const latestSnapshotId = latest.get(item.source_id);
+    return !latestSnapshotId || snapshotReviewState(item.source_id, item.snapshot_id, latestSnapshotId, sourceItems) !== "unchanged";
+  });
+  if (visibleChange) throw new Error("Authority Evidence 的公開文字已變更或缺少可比較資料，禁止 Publish");
 }
 
 function taiwanDate(now: Date): string {
