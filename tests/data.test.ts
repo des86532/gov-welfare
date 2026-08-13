@@ -8,6 +8,7 @@ import { taipeiSourceClassifications } from "../data/taipei-source-items";
 import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
 import { taichungSourceClassifications } from "../data/taichung-source-items";
 import { buildTaoyuanReviewedPrograms, taoyuanProgramCurations } from "../data/taoyuan-programs";
+import { buildTainanPassthroughPrograms } from "../data/tainan-programs";
 import { mapWithConcurrency } from "../lib/concurrency";
 import type { AtomicRule, RuleNode } from "../lib/domain";
 import { parseFinderSession } from "../lib/finder-session";
@@ -108,6 +109,42 @@ test("桃園 21 筆可發布 Source items 都有 Program curation", () => {
   }
 });
 
+test("臺南 structured API 原文自動建立 descriptive Programs", () => {
+  const built = buildTainanPassthroughPrograms([
+    {
+      external_id: "17",
+      title: "醫療補助",
+      snapshot_id: "00000000-0000-4000-8000-000000000017",
+      classification: "descriptive_only",
+      review_status: "published",
+      canonical_draft: {
+        identityText: "低收入戶",
+        householdCondition: "臺南市",
+        otherEligibilityText: "醫療費用造成家庭生活困難",
+        documentsText: "1. 申請表\n2. 醫療收據",
+        authority: "戶籍地區公所",
+        contactText: "06-2991111",
+      },
+    },
+    {
+      external_id: "18",
+      title: "醫療補助",
+      snapshot_id: "00000000-0000-4000-8000-000000000017",
+      classification: "descriptive_only",
+      review_status: "published",
+      canonical_draft: { identityText: "中低收入戶" },
+    },
+  ], "2026-08-13");
+  assert.equal(built.length, 2);
+  assert.equal(built[0].title, "醫療補助（低收入戶）");
+  assert.equal(built[1].title, "醫療補助（中低收入戶）");
+  assert.ok(built.every((program) => program.jurisdiction === "臺南市"));
+  assert.ok(built.every((program) => program.coverage === "descriptive_only" && !program.rule));
+  assert.ok(built.every((program) => program.sourceMode === "government_api_passthrough"));
+  assert.ok(built.every((program) => program.officialUrl === "https://data.gov.tw/dataset/79613"));
+  assert.equal(built[0].documents.length, 2);
+});
+
 test("100% Matchable atomic rules 有 Field-level evidence", () => {
   const facts = new Set(factDefinitions.map((definition) => definition.key));
   for (const program of programs.filter((item) => item.coverage === "matchable")) {
@@ -180,11 +217,12 @@ test("企業補助 Authority Sources 每日監測且不自動產生 Rules", () =
   assert.equal(enterpriseSourceIds.size, 8);
 });
 
-test("新北、臺北與臺中地方 Dataset 已使用 Source-specific adapters", () => {
+test("新北、臺北、臺中與臺南地方 Dataset 已使用 Source-specific adapters", () => {
   const adapters = new Map(sources.map((source) => [source.id, source.adapterKey]));
   assert.equal(adapters.get("new-taipei-welfare-open-data"), "new_taipei_welfare_csv");
   assert.equal(adapters.get("taipei-social-aid-open-data"), "taipei_social_aid_csv");
   assert.equal(adapters.get("taichung-social-aid-open-data"), "taichung_social_aid_json");
+  assert.equal(adapters.get("tainan-social-welfare-open-data"), "tainan_social_welfare_json");
 });
 
 test("限時活動 Sources 使用 Opportunity adapters 且不混入自動發布", () => {

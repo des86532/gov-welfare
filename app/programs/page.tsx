@@ -77,7 +77,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
   return (
     <div className="page-shell catalog-page">
       <header className="page-title catalog-title">
-        <div><p className="eyebrow">Program catalog</p><h1>政府福利方案清單</h1><p>目前 Coverage 是中央 Seed programs，以及桃園、新北、臺北與臺中完成 Review 的 Pilot Programs；不宣稱涵蓋全臺所有福利。</p></div>
+        <div><p className="eyebrow">Program catalog</p><h1>政府福利方案清單</h1><p>目前 Coverage 是中央 Seed programs、桃園、新北、臺北與臺中完成 Review 的 Pilot Programs，以及臺南政府 API descriptive passthrough；不宣稱涵蓋全臺所有福利。</p></div>
         <span className="catalog-count"><strong>{visible.length}</strong> 個結果</span>
       </header>
       <form className="catalog-filter" method="get">

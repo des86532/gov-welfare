@@ -49,6 +49,7 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
   const program = await getProgramBySlug(slug);
   if (!program) notFound();
   const sources = [...new Set(program.evidence.map((item) => item.sourceId))].map((id) => sourceById.get(id)).filter((source) => source !== undefined);
+  const verificationLabel = program.sourceMode === "government_api_passthrough" ? "政府 API 擷取日期" : "最後人工驗證";
 
   return (
     <div className="page-shell detail-page">
@@ -67,10 +68,10 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
           <section><p className="eyebrow">Eligibility rules</p><h2>資格依據</h2>{program.rule ? <RuleTree rule={program.rule} /> : <div className="review-callout"><strong>尚未開放自動比對</strong><p>這個方案的自然語言資格尚未完成逐條 Review，因此只提供官方說明與入口。</p></div>}</section>
           {program.caveats.length > 0 ? <section><p className="eyebrow">Important notes</p><h2>判斷限制</h2><ul className="plain-list">{program.caveats.map((item) => <li key={item}>{item}</li>)}</ul></section> : null}
           <section className="two-column-section"><div><p className="eyebrow">Prepare</p><h2>可能需要的文件</h2>{program.documents.length ? <ul className="plain-list">{program.documents.map((item) => <li key={item}>{item}</li>)}</ul> : <p className="muted">由主管機關依身分資料查核。</p>}</div><div><p className="eyebrow">Apply</p><h2>受理方式</h2><ul className="plain-list">{program.methods.map((item) => <li key={item}>{item}</li>)}</ul></div></section>
-          <section><p className="eyebrow">Field-level provenance</p><h2>官方 Sources</h2><div className="source-list">{sources.map((source) => <a key={source.id} href={source.publicUrl ?? source.url} target="_blank" rel="noreferrer"><span>{source.authority}</span><strong>{source.name}</strong><small>最後人工驗證：{program.verifiedAt} · 開啟官方頁 ↗</small></a>)}</div></section>
+          <section><p className="eyebrow">Field-level provenance</p><h2>官方 Sources</h2><div className="source-list">{sources.map((source) => <a key={source.id} href={source.publicUrl ?? source.url} target="_blank" rel="noreferrer"><span>{source.authority}</span><strong>{source.name}</strong><small>{verificationLabel}：{program.verifiedAt} · 開啟官方頁 ↗</small></a>)}</div></section>
         </div>
         <aside className="detail-aside">
-          <dl><div><dt>主管機關</dt><dd>{program.authority}</dd></div><div><dt>Jurisdiction</dt><dd>{program.jurisdiction}</dd></div><div><dt>申請對象</dt><dd>{getProgramApplicantTypes(program).map((type) => APPLICANT_TYPE_LABELS[type]).join("、")}</dd></div><div><dt>官方決策方式</dt><dd>{decisionLabels[program.decisionType]}</dd></div><div><dt>最後人工驗證</dt><dd>{program.verifiedAt}</dd></div>{program.applicationWindow ? <div><dt>申請期間</dt><dd>{program.applicationWindow.label}</dd></div> : null}</dl>
+          <dl><div><dt>主管機關</dt><dd>{program.authority}</dd></div><div><dt>Jurisdiction</dt><dd>{program.jurisdiction}</dd></div><div><dt>申請對象</dt><dd>{getProgramApplicantTypes(program).map((type) => APPLICANT_TYPE_LABELS[type]).join("、")}</dd></div><div><dt>官方決策方式</dt><dd>{decisionLabels[program.decisionType]}</dd></div><div><dt>{verificationLabel}</dt><dd>{program.verifiedAt}</dd></div>{program.applicationWindow ? <div><dt>申請期間</dt><dd>{program.applicationWindow.label}</dd></div> : null}</dl>
           <a className="button full-button" href={program.applicationUrl ?? program.officialUrl} target="_blank" rel="noreferrer">前往官方網站 <span aria-hidden="true">↗</span></a>
           <p>本平台僅做初步整理，主管機關保有最終資格、甄選、授信與核定權。</p>
         </aside>

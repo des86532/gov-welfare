@@ -149,6 +149,7 @@ export type Program = {
   documents: string[];
   methods: string[];
   evidence: Evidence[];
+  sourceMode?: "reviewed" | "government_api_passthrough";
 };
 
 export type FactDefinition = {
@@ -176,6 +177,7 @@ export type SourceConfig = {
     | "new_taipei_welfare_csv"
     | "taipei_social_aid_csv"
     | "taichung_social_aid_json"
+    | "tainan_social_welfare_json"
     | "myegov_html"
     | "official_page"
     | "activity_listing_html"

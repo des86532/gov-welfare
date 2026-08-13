@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { contentHashFor, decodeSourceText, extractMyEGovHtml, extractNewTaipeiRows, extractOfficialPage, extractOpportunityDetail, extractOpportunityListing, extractSpnpActivityRows, extractTaichungRows, extractTaipeiRows, extractTaoyuanRows, parseCsvRecords, validateSnapshotFormat } from "../lib/adapters";
+import { contentHashFor, decodeSourceText, extractMyEGovHtml, extractNewTaipeiRows, extractOfficialPage, extractOpportunityDetail, extractOpportunityListing, extractSpnpActivityRows, extractTaichungRows, extractTainanRows, extractTaipeiRows, extractTaoyuanRows, parseCsvRecords, validateSnapshotFormat } from "../lib/adapters";
 import type { SourceConfig } from "../lib/domain";
 
 const monitoredPdf: SourceConfig = {
@@ -84,6 +84,30 @@ test("臺中 JSON 保留未知欄位且長文字不自動產生 Rules", () => {
   assert.equal(item.unknownFields.futureField, "保留我");
   assert.equal("rule" in item.canonicalDraft, false);
   assert.ok(item.warnings.includes("long_text_eligibility_requires_review"));
+});
+
+test("臺南 JSON envelope 轉成 descriptive passthrough 且不採用舊 Detail URL", () => {
+  const item = extractTainanRows(JSON.stringify({ success: true, data: [{
+    補助流水號: "39",
+    補助名稱: "中低收入老人生活津貼",
+    補助對象年齡下限: "65",
+    設籍條件: "臺南市",
+    身份1: "中低收入戶",
+    其他條件: "符合財稅標準",
+    應備文件: "1. 申請表\n2. 戶籍資料",
+    收件洽辦單位: "戶籍地區公所",
+    聯絡電話: "06-2991111",
+    "詳細資訊[連結]": "http://social.tainan.gov.tw/legacy",
+    futureField: "保留我",
+  }] }))[0];
+  assert.equal(item.externalId, "39");
+  assert.equal(item.canonicalDraft.ageLowerText, "65");
+  assert.equal(item.canonicalDraft.identityText, "中低收入戶");
+  assert.equal(item.canonicalDraft.legacyDetailUrl, "http://social.tainan.gov.tw/legacy");
+  assert.equal("applicationUrl" in item.canonicalDraft, false);
+  assert.equal(item.unknownFields.futureField, "保留我");
+  assert.ok(item.warnings.includes("government_api_passthrough"));
+  assert.throws(() => extractTainanRows("[]"), /format changed/);
 });
 
 test("MyEGov 重複申辦段落去重", () => {

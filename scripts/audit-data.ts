@@ -4,12 +4,13 @@ import { reviewedOpportunities } from "../data/opportunities";
 import { sources } from "../data/sources";
 import { taipeiSourceClassifications } from "../data/taipei-source-items";
 import { taichungSourceClassifications } from "../data/taichung-source-items";
+import { buildTainanPassthroughPrograms, type TainanSourceItem } from "../data/tainan-programs";
 import { buildTaoyuanReviewedPrograms, type ReviewedTaoyuanItem } from "../data/taoyuan-programs";
 import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
 import type { Program, RuleNode } from "../lib/domain";
 import { supabaseConfig, supabaseRest, type SupabaseConfig } from "../lib/supabase-rest";
 
-type Snapshot = { id: string; source_id: string };
+type Snapshot = { id: string; source_id: string; observed_at: string };
 type Version = {
   status: string;
   coverage: string;
@@ -33,7 +34,7 @@ async function main() {
   const config = requiredConfig();
   const [databaseSources, snapshots, versions, drafts] = await Promise.all([
     supabaseRest<Array<{ id: string; automation_level: string; status: string; last_check_error: unknown }>>(config, "sources?select=id,automation_level,status,last_check_error"),
-    supabaseRest<Snapshot[]>(config, "source_snapshots?select=id,source_id&content_hash=not.is.null&order=observed_at.desc"),
+    supabaseRest<Snapshot[]>(config, "source_snapshots?select=id,source_id,observed_at&content_hash=not.is.null&order=observed_at.desc"),
     supabaseRest<Version[]>(config, "program_versions?select=status,coverage,canonical_content,field_evidence(field_path,source_id,snapshot_id,reviewed_at)&status=eq.published"),
     supabaseRest<Array<{ id: string }>>(config, "program_versions?select=id&status=eq.draft"),
   ]);
@@ -45,16 +46,21 @@ async function main() {
   const newTaipeiSnapshotId = latest.get("new-taipei-welfare-open-data")?.id;
   const taipeiSnapshotId = latest.get("taipei-social-aid-open-data")?.id;
   const taichungSnapshotId = latest.get("taichung-social-aid-open-data")?.id;
-  assert.ok(taoyuanSnapshotId && newTaipeiSnapshotId && taipeiSnapshotId && taichungSnapshotId, "Missing latest structured Source snapshot");
-  const [latestTaoyuanItems, latestNewTaipeiItems, latestTaipeiItems, latestTaichungItems] = await Promise.all([
+  const tainanSnapshot = latest.get("tainan-social-welfare-open-data");
+  const tainanSnapshotId = tainanSnapshot?.id;
+  assert.ok(taoyuanSnapshotId && newTaipeiSnapshotId && taipeiSnapshotId && taichungSnapshotId && tainanSnapshotId, "Missing latest structured Source snapshot");
+  const [latestTaoyuanItems, latestNewTaipeiItems, latestTaipeiItems, latestTaichungItems, latestTainanItems] = await Promise.all([
     supabaseRest<Array<ReviewedTaoyuanItem & { classification: string | null; review_status: string }>>(config, `source_items?select=title,snapshot_id,canonical_draft,classification,review_status&snapshot_id=eq.${taoyuanSnapshotId}`),
     supabaseRest<Array<{ title: string; snapshot_id: string; classification: string | null; review_status: string }>>(config, `source_items?select=title,snapshot_id,classification,review_status&snapshot_id=eq.${newTaipeiSnapshotId}`),
     supabaseRest<Array<{ title: string; snapshot_id: string; classification: string | null; review_status: string }>>(config, `source_items?select=title,snapshot_id,classification,review_status&snapshot_id=eq.${taipeiSnapshotId}`),
     supabaseRest<Array<{ title: string; snapshot_id: string; classification: string | null; review_status: string }>>(config, `source_items?select=title,snapshot_id,classification,review_status&snapshot_id=eq.${taichungSnapshotId}`),
+    supabaseRest<TainanSourceItem[]>(config, `source_items?select=external_id,title,snapshot_id,canonical_draft,classification,review_status&snapshot_id=eq.${tainanSnapshotId}`),
   ]);
   const reviewedTaoyuanItems = latestTaoyuanItems.filter((item) => item.classification !== "excluded" && item.review_status === "published");
-  const expectedPrograms = [...programs, ...buildTaoyuanReviewedPrograms(reviewedTaoyuanItems, "2026-07-27")];
+  const tainanPrograms = buildTainanPassthroughPrograms(latestTainanItems, tainanSnapshot.observed_at.slice(0, 10));
+  const expectedPrograms = [...programs, ...buildTaoyuanReviewedPrograms(reviewedTaoyuanItems, "2026-07-27"), ...tainanPrograms];
   const expected = expectedPrograms.filter((program) => program.evidence.every((item) => latest.has(item.sourceId)));
+  const visibleVersions = versions.filter((version) => version.coverage !== "archived");
 
   assert.deepEqual(new Set(databaseSources.map((source) => source.id)), new Set(sources.map((source) => source.id)), "Source registry drift");
   assert.equal(databaseSources.filter((source) => source.status === "active" && source.last_check_error).length, 0, "Active Source check errors");
@@ -84,10 +90,15 @@ async function main() {
     new Map(taichungSourceClassifications.map((item) => [item.title, item.classification])),
     "Taichung classification drift",
   );
-  assert.equal(versions.length, expected.length, "Published Program count");
+  assert.ok(latestTainanItems.length > 0, "Missing Tainan items");
+  assert.ok(latestTainanItems.every((item) => item.classification === "descriptive_only"), "Tainan items must remain descriptive passthrough");
+  assert.ok(latestTainanItems.every((item) => item.review_status === "published"), "Unpublished Tainan passthrough items");
+  assert.equal(tainanPrograms.length, latestTainanItems.length, "Tainan passthrough Program count");
+  assert.ok(tainanPrograms.every((program) => program.sourceMode === "government_api_passthrough" && !program.rule), "Tainan passthrough generated Eligibility Rules");
+  assert.equal(visibleVersions.length, expected.length, "Published visible Program count");
   assert.equal(drafts.length, 0, "Unreviewed Program drafts");
 
-  for (const version of versions) {
+  for (const version of visibleVersions) {
     const program = version.canonical_content;
     assert.ok(program.authority && program.jurisdiction && program.benefitType && program.decisionType, `${program.title}: required fields`);
     assert.match(program.applicationUrl ?? program.officialUrl, /^https:\/\//, `${program.title}: official application URL`);
@@ -111,9 +122,11 @@ async function main() {
     newTaipeiItems: latestNewTaipeiItems.length,
     taipeiItems: latestTaipeiItems.length,
     taichungItems: latestTaichungItems.length,
+    tainanItems: latestTainanItems.length,
     platformActivities: reviewedOpportunities.length,
-    publishedPrograms: versions.length,
-    matchablePrograms: versions.filter((version) => version.coverage === "matchable").length,
+    publishedPrograms: visibleVersions.length,
+    archivedPrograms: versions.filter((version) => version.coverage === "archived").length,
+    matchablePrograms: visibleVersions.filter((version) => version.coverage === "matchable").length,
     draftVersions: drafts.length,
     staleEvidence: 0,
   }, null, 2));

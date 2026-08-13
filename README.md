@@ -17,6 +17,7 @@
 - 新北 151 筆已全數分類為 6 筆 `matchable`、140 筆 `descriptive_only`、5 筆 `excluded`；8 個 Programs 已補 Authority page，其中 6 個可執行 Rules。
 - 臺北 10 筆已逐項用現行 Authority page 與 115 年公告複核，全部建立人工驗證 Rules；Dataset 內 109 年舊門檻只保留作 Discovery evidence。
 - 臺中 10 筆急難、災害與食物銀行項目已逐項核對社會局現行頁面，全部建立人工驗證 Rules；專業訪查型方案只顯示可申請門檻。
+- 臺南政府 API 47 筆以 `descriptive_only` passthrough 自動公開；保留政府原文、受理單位與電話，不使用已失效的舊 Detail URL，也不產生 Eligibility Rules。
 - Dry-run／persistent ingestion CLI、GitHub Actions Scheduled source checks。
 - Supabase PostgreSQL migration：Sources、Snapshots、Source items、Programs、Versions、Evidence、Reviews、Relationships 與 RLS。
 - Basic Auth 保護的 `/admin`：`needs_review` Queue 只處理 Authority page／PDF 的資格、金額或期限異動；Structured government API 採 descriptive passthrough 並附官方連結。Source history、Rollback 與 Audit trail 收進進階管理。
@@ -62,13 +63,13 @@ npm run sources:check -- --json
 npm run sources:persist -- --json
 ```
 
-核對 Production data coverage、桃園 26/26、新北 151/151、臺北 10/10、臺中 10/10 資料，以及 Published Authority evidence 是否仍為最新 Snapshot：
+核對 Production data coverage、桃園 26/26、新北、臺北 10/10、臺中 10/10、臺南 structured passthrough，以及 Published Authority evidence 是否仍為最新 Snapshot：
 
 ```bash
 npm run data:audit
 ```
 
-Repository-reviewed Rules 可由 GitHub Actions 的 `Scheduled source checks` 手動執行，勾選 `publish_reviewed_programs` 後才會建立並發布新版；每日 Schedule 只擷取 Draft，不會自動 Publish。單一 Source 失敗不會阻止其他已審核、Evidence Source 正常的 Program 發布，但 workflow 最後仍會保留失敗狀態供追蹤。
+Repository-reviewed Rules 只有在 GitHub Actions 的 `Scheduled source checks` 手動執行並勾選 `publish_reviewed_programs` 後才會發布；每日 Schedule 會自動發布 `structured_extract` 的 descriptive passthrough，但不能產生或修改 Eligibility Rules。單一 Source 失敗不會阻止其他已審核、Evidence Source 正常的 Program 發布，但 workflow 最後仍會保留失敗狀態供追蹤。
 
 Schedule 會依每個 Source 的 `checkEveryHours` 判斷是否到期；手動執行預設強制檢查全部 active Sources。若只要恢復暫時失敗的 Source，可勾選 `retry_failed_only`，只重試失敗或已到期項目。失敗時會建立或更新 GitHub Issue，恢復後自動關閉。
 
@@ -82,7 +83,7 @@ Schedule 會依每個 Source 的 `checkEveryHours` 判斷是否到期；手動�
 
 `SUPABASE_SERVICE_ROLE_KEY` 只供 Server-side ingestion 與 Admin 使用，不得放進 Client component 或公開輸出。
 
-Repository 刻意不包含自動 Publish Program job。CLI 以 Service Role 寫入 immutable `source_snapshots` 與 `source_items`：Structured government API item 以 descriptive passthrough 更新；HTML／PDF 等 Authority Source 異動才建立人工 Review 工作。初始 reviewed Programs 可由 `npm run data:seed -- --apply --publish-initial` 匯入。公開網站優先讀取 Supabase Published versions，Database 無法使用時才回到 Repository 中的 reviewed Seed。
+CLI 以 Service Role 寫入 immutable `source_snapshots` 與 `source_items`：Structured government API item 可由 `--publish-structured-passthrough` 自動發布 descriptive Programs；HTML／PDF 等 Authority Source 異動才建立人工 Review 工作。初始 reviewed Programs 可由 `npm run data:seed -- --apply --publish-initial` 匯入。公開網站優先讀取 Supabase Published versions，Database 無法使用時才回到 Repository 中的 reviewed Seed。
 
 ## 資料與安全邊界
 
@@ -91,7 +92,7 @@ Repository 刻意不包含自動 Publish Program job。CLI 以 Service Role 寫�
 - `matchable` 的每個 Atomic rule 都必須有 `sourceId`、`snapshotId`、`locator` 和 Review 時間。
 - Competitive selection、Loan、專業評估與官方紀錄查核不會顯示「核准」。
 - 企業補助不進入自然人 Dynamic questionnaire；申請期限明確的 Authority page 每 24 小時檢查，但內容異動只建立 Draft，不能自動改寫補助金額或資格。
-- Coverage 僅承諾中央 Seed programs，以及桃園、新北、臺北與臺中已完成 Review 的 Pilot 範圍，不宣稱完整涵蓋全臺。
+- Coverage 僅承諾中央 Seed programs、桃園、新北、臺北與臺中 Pilot，以及臺南 structured API descriptive passthrough，不宣稱完整涵蓋全臺。
 - 主管機關保有最終資格、甄選、授信及核定權。
 
 ## Repository map

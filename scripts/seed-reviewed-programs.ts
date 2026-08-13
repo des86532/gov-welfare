@@ -5,12 +5,14 @@ import { taipeiSourceClassifications } from "../data/taipei-source-items";
 import { taichungSourceClassifications } from "../data/taichung-source-items";
 import { buildTaoyuanReviewedPrograms, type ReviewedTaoyuanItem } from "../data/taoyuan-programs";
 import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
+import { buildTainanPassthroughPrograms, type TainanSourceItem } from "../data/tainan-programs";
 import { isDeepStrictEqual } from "node:util";
 import type { Evidence, Program, RuleNode } from "../lib/domain";
 import { supabaseConfig, supabaseRest, type SupabaseConfig } from "../lib/supabase-rest";
 
-type SnapshotRow = { id: string; source_id: string };
+type SnapshotRow = { id: string; source_id: string; observed_at: string };
 type VersionRow = { version: number; canonical_content: Program };
+type VersionWithStatusRow = VersionRow & { status: string };
 type VersionStatusRow = { id: string; program_id: string; version: number };
 type TaoyuanItemRow = ReviewedTaoyuanItem & {
   id: string;
@@ -31,6 +33,7 @@ type EvidenceRow = {
 const apply = process.argv.includes("--apply");
 const publishInitial = process.argv.includes("--publish-initial");
 const publishUpdates = process.argv.includes("--publish-reviewed-updates");
+const publishStructuredPassthrough = process.argv.includes("--publish-structured-passthrough");
 function requiredConfig(): SupabaseConfig {
   const value = supabaseConfig(true);
   if (!value) throw new Error("Seeding requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
@@ -94,10 +97,15 @@ function canonicalProgram(program: Program, snapshots: Map<string, string>) {
 async function main() {
   const snapshotRows = await supabaseRest<SnapshotRow[]>(
     config,
-    "source_snapshots?select=id,source_id&content_hash=not.is.null&order=observed_at.desc",
+    "source_snapshots?select=id,source_id,observed_at&content_hash=not.is.null&order=observed_at.desc",
   );
   const snapshots = new Map<string, string>();
-  for (const row of snapshotRows) if (!snapshots.has(row.source_id)) snapshots.set(row.source_id, row.id);
+  const observedOnBySource = new Map<string, string>();
+  for (const row of snapshotRows) {
+    if (snapshots.has(row.source_id)) continue;
+    snapshots.set(row.source_id, row.id);
+    observedOnBySource.set(row.source_id, row.observed_at.slice(0, 10));
+  }
 
   const manifests = new Map([
     ["taoyuan-welfare-open-data", taoyuanSourceClassifications],
@@ -107,7 +115,7 @@ async function main() {
   ]);
   const opportunitySourceIds = new Set(reviewedOpportunities.map((item) => item.sourceId));
   const sourceItems: TaoyuanItemRow[] = [];
-  for (const sourceId of new Set([...manifests.keys(), ...opportunitySourceIds])) {
+  for (const sourceId of new Set([...manifests.keys(), ...opportunitySourceIds, "tainan-social-welfare-open-data"])) {
     const snapshotId = snapshots.get(sourceId);
     if (!snapshotId) continue;
     sourceItems.push(...await supabaseRest<TaoyuanItemRow[]>(config,
@@ -118,7 +126,14 @@ async function main() {
   const reviewedPrograms = reviewedTaoyuanItems.length > 0
     ? buildTaoyuanReviewedPrograms(reviewedTaoyuanItems, "2026-07-27")
     : [];
-  const allPrograms = [...programs, ...reviewedPrograms];
+  const tainanItems = sourceItems.filter((item) =>
+    item.source_id === "tainan-social-welfare-open-data") as unknown as TainanSourceItem[];
+  const tainanPrograms = tainanItems.length > 0
+    ? buildTainanPassthroughPrograms(tainanItems, observedOnBySource.get("tainan-social-welfare-open-data") ?? new Date().toISOString().slice(0, 10))
+    : [];
+  const allPrograms = publishStructuredPassthrough
+    ? tainanPrograms
+    : [...programs, ...reviewedPrograms, ...tainanPrograms];
   const classificationUpdates = sourceItems.flatMap((item) => {
     const expected = manifests.get(item.source_id)?.find((entry) => entry.title === item.title);
     return expected && (expected.classification !== item.classification || item.review_status !== "published")
@@ -169,6 +184,7 @@ async function main() {
   let created = 0;
   let unchanged = 0;
   let drafted = 0;
+  let archived = 0;
   for (const program of ready) {
     const [{ id: programId }] = await supabaseRest<Array<{ id: string }>>(config, "programs?on_conflict=stable_key", {
       method: "POST",
@@ -191,7 +207,7 @@ async function main() {
       continue;
     }
     const isInitial = previous.length === 0;
-    const status = isInitial && publishInitial ? "published" : "draft";
+    const status = isInitial && (publishInitial || publishStructuredPassthrough) ? "published" : "draft";
     const [version] = await supabaseRest<Array<{ id: string }>>(config, "program_versions", {
       method: "POST",
       body: JSON.stringify({
@@ -225,20 +241,24 @@ async function main() {
         method: "POST",
         body: JSON.stringify({
           program_version_id: version.id,
-          reviewer_name: "Initial curated Seed",
+          reviewer_name: program.sourceMode === "government_api_passthrough" ? "Structured government API passthrough" : "Initial curated Seed",
           action: "publish",
-          rationale: "Imported from the reviewed 2026-07-26 Seed manifest with snapshot-linked Field evidence.",
+          rationale: program.sourceMode === "government_api_passthrough"
+            ? "Published descriptive government API content without generating Eligibility Rules."
+            : "Imported from the reviewed 2026-07-26 Seed manifest with snapshot-linked Field evidence.",
         }),
         headers: { Prefer: "return=minimal" },
       });
       created += 1;
-    } else if (publishUpdates) {
+    } else if (publishUpdates || publishStructuredPassthrough) {
       await supabaseRest(config, "rpc/publish_program_version", {
         method: "POST",
         body: JSON.stringify({
           target_version_id: version.id,
-          reviewer: "Reviewed Seed maintenance",
-          rationale: "Published an explicitly reviewed Repository update with current snapshot-linked evidence.",
+          reviewer: program.sourceMode === "government_api_passthrough" ? "Structured government API passthrough" : "Reviewed Seed maintenance",
+          rationale: program.sourceMode === "government_api_passthrough"
+            ? "Published changed descriptive government API content without generating Eligibility Rules."
+            : "Published an explicitly reviewed Repository update with current snapshot-linked evidence.",
           review_action: "publish",
         }),
         headers: { Prefer: "return=minimal" },
@@ -249,8 +269,88 @@ async function main() {
     }
   }
 
+  if (publishStructuredPassthrough) {
+    const currentIds = new Set(ready.map((program) => program.id));
+    const existing = await supabaseRest<Array<{ id: string; stable_key: string }>>(
+      config,
+      "programs?select=id,stable_key&stable_key=like.tainan-social-welfare-*",
+    );
+    const sourceId = "tainan-social-welfare-open-data";
+    const snapshotId = snapshots.get(sourceId);
+    const observedOn = observedOnBySource.get(sourceId);
+    if (!snapshotId || !observedOn) throw new Error("Missing current Tainan Source snapshot for removal reconciliation");
+    for (const identity of existing.filter((item) => !currentIds.has(item.stable_key))) {
+      const versions = await supabaseRest<VersionWithStatusRow[]>(
+        config,
+        `program_versions?select=version,status,canonical_content&program_id=eq.${identity.id}&order=version.desc`,
+      );
+      const published = versions.find((version) => version.status === "published");
+      if (!published || published.canonical_content.coverage === "archived") continue;
+      const canonical: Program = {
+        ...published.canonical_content,
+        coverage: "archived",
+        effectiveTo: observedOn,
+        verifiedAt: observedOn,
+        caveats: [
+          ...published.canonical_content.caveats,
+          `臺南市政府 API 自 ${observedOn} 起不再回傳此項目，已停止公開。`,
+        ],
+        evidence: [{
+          sourceId,
+          snapshotId,
+          locator: `removed[stable_key=${identity.stable_key}]`,
+          extractedValue: "Current government API response no longer contains this item.",
+          reviewedAt: observedOn,
+        }],
+      };
+      const [version] = await supabaseRest<Array<{ id: string }>>(config, "program_versions", {
+        method: "POST",
+        body: JSON.stringify({
+          program_id: identity.id,
+          version: (versions[0]?.version ?? 0) + 1,
+          status: "draft",
+          coverage: "archived",
+          title: canonical.title,
+          summary: canonical.summary,
+          benefit_type: canonical.benefitType,
+          decision_type: canonical.decisionType,
+          canonical_content: canonical,
+          rule_tree: null,
+          effective_to: observedOn,
+          application_url: canonical.applicationUrl ?? canonical.officialUrl,
+          last_verified_at: observedOn,
+        }),
+        headers: { Prefer: "return=representation" },
+      });
+      await supabaseRest(config, "field_evidence", {
+        method: "POST",
+        body: JSON.stringify({
+          program_version_id: version.id,
+          field_path: "/evidence/0",
+          source_id: sourceId,
+          snapshot_id: snapshotId,
+          locator: `removed[stable_key=${identity.stable_key}]`,
+          extracted_value: "Current government API response no longer contains this item.",
+          reviewed_at: observedOn,
+        }),
+        headers: { Prefer: "return=minimal" },
+      });
+      await supabaseRest(config, "rpc/publish_program_version", {
+        method: "POST",
+        body: JSON.stringify({
+          target_version_id: version.id,
+          reviewer: "Structured government API passthrough",
+          rationale: "Archived a descriptive item removed from the current government API response.",
+          review_action: "publish",
+        }),
+        headers: { Prefer: "return=minimal" },
+      });
+      archived += 1;
+    }
+  }
+
   let rejectedStaleDrafts = 0;
-  if (publishUpdates) {
+  if (publishUpdates || publishStructuredPassthrough) {
     const [pendingVersions, publishedVersions] = await Promise.all([
       supabaseRest<VersionStatusRow[]>(config, "program_versions?select=id,program_id,version&status=in.(draft,in_review)"),
       supabaseRest<VersionStatusRow[]>(config, "program_versions?select=id,program_id,version&status=eq.published"),
@@ -270,7 +370,7 @@ async function main() {
       rejectedStaleDrafts += 1;
     }
   }
-  console.log(JSON.stringify({ dryRun: false, published: created, drafts: drafted, rejectedStaleDrafts, unchanged, classificationUpdates: classificationUpdates.length, opportunityClassificationUpdates: opportunityClassificationUpdates.length, skipped: skipped.map((item) => item.slug) }, null, 2));
+  console.log(JSON.stringify({ dryRun: false, published: created, archived, drafts: drafted, rejectedStaleDrafts, unchanged, classificationUpdates: classificationUpdates.length, opportunityClassificationUpdates: opportunityClassificationUpdates.length, skipped: skipped.map((item) => item.slug) }, null, 2));
 }
 
 void main();

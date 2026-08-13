@@ -263,6 +263,64 @@ export function extractTaichungRows(body: string): DraftSourceItem[] {
   });
 }
 
+const tainanFields = new Set([
+  "補助流水號",
+  "補助名稱",
+  "補助對象年齡下限",
+  "補助對象年齡上限",
+  "設籍條件",
+  "居住日數是否需大於183日",
+  "身份1",
+  "身份2",
+  "收入條件每人每月上限",
+  "動產條件每人上限",
+  "不動產條件每戶上限",
+  "其他條件",
+  "應備文件",
+  "收件洽辦單位",
+  "聯絡電話",
+  "分機",
+  "詳細資訊[連結]",
+]);
+
+export function extractTainanRows(body: string): DraftSourceItem[] {
+  const parsed: unknown = JSON.parse(body.replace(/^\uFEFF/, ""));
+  const envelope = objectRecord(parsed);
+  if (!envelope || !Array.isArray(envelope.data)) throw new Error("臺南 Source format changed: expected an object with data array");
+  return envelope.data.map((value, index) => {
+    const row = objectRecord(value);
+    if (!row || typeof row["補助名稱"] !== "string" || typeof row["補助流水號"] !== "string") {
+      throw new Error(`臺南 row ${index} 缺少補助流水號或補助名稱`);
+    }
+    const title = cleanText(row["補助名稱"]);
+    const text = (key: string) => typeof row[key] === "string" ? cleanText(row[key]) : "";
+    return {
+      externalId: text("補助流水號"),
+      title,
+      raw: row,
+      canonicalDraft: {
+        title,
+        ageLowerText: text("補助對象年齡下限") || null,
+        ageUpperText: text("補助對象年齡上限") || null,
+        householdCondition: text("設籍條件") || null,
+        residenceDaysText: text("居住日數是否需大於183日") || null,
+        identityText: [text("身份1"), text("身份2")].filter(Boolean).join("、") || null,
+        incomeLimitText: text("收入條件每人每月上限") || null,
+        assetLimitText: text("動產條件每人上限") || null,
+        realEstateLimitText: text("不動產條件每戶上限") || null,
+        otherEligibilityText: text("其他條件") || null,
+        documentsText: text("應備文件") || null,
+        authority: text("收件洽辦單位") || null,
+        contactText: [text("聯絡電話"), text("分機")].filter(Boolean).join("#") || null,
+        legacyDetailUrl: text("詳細資訊[連結]") || null,
+      },
+      unknownFields: Object.fromEntries(Object.entries(row).filter(([key]) => !tainanFields.has(key))),
+      reviewStatus: "pending",
+      warnings: ["government_api_passthrough", "legacy_detail_url_not_used", "no_automatic_rule_generation"],
+    };
+  });
+}
+
 const headingSelector = "h1, h2, h3, h4";
 
 export function extractMyEGovHtml(body: string, sourceId: string): DraftSourceItem[] {
@@ -538,6 +596,11 @@ class TaichungJsonAdapter implements SourceAdapter {
   async extract(snapshot: RawSnapshot) { return extractTaichungRows(snapshot.body); }
 }
 
+class TainanJsonAdapter implements SourceAdapter {
+  fetch = fetchSnapshot;
+  async extract(snapshot: RawSnapshot) { return extractTainanRows(snapshot.body); }
+}
+
 class MyEGovHtmlAdapter implements SourceAdapter {
   fetch = fetchSnapshot;
   async extract(snapshot: RawSnapshot) { return extractMyEGovHtml(snapshot.body, snapshot.sourceId); }
@@ -591,6 +654,7 @@ export function createAdapter(source: SourceConfig): SourceAdapter {
     case "new_taipei_welfare_csv": return new NewTaipeiCsvAdapter();
     case "taipei_social_aid_csv": return new TaipeiCsvAdapter();
     case "taichung_social_aid_json": return new TaichungJsonAdapter();
+    case "tainan_social_welfare_json": return new TainanJsonAdapter();
     case "myegov_html": return new MyEGovHtmlAdapter();
     case "official_page": return new OfficialPageAdapter();
     case "activity_listing_html": return new ActivityListingHtmlAdapter();
