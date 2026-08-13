@@ -1,6 +1,7 @@
 import { programs } from "@/data/programs";
 import { reviewedOpportunities } from "@/data/opportunities";
 import { DataMethodContent } from "@/components/data-method-content";
+import { AdminRationaleField } from "@/components/admin-rationale-field";
 import { sources } from "@/data/sources";
 import { activityReportReasonLabels } from "@/lib/activity-report-shared";
 import { loadAdminReviewData, type ActivityReportRow, type EvidenceIssue, type NeedsReviewProgram, type ProgramVersionRow, type SourceDiff, type SourceItemRow } from "@/lib/admin-review";
@@ -96,11 +97,20 @@ function VersionEvidence({ version }: { version: ProgramVersionRow }) {
 }
 
 function VersionForm({ version, mode }: { version: ProgramVersionRow; mode: "review" | "rollback" }) {
+  const publishRationale = "已確認 Draft 的使用者顯示文字、Eligibility Rules 與 Evidence，內容與最新官方來源一致，同意 Publish。";
+  const rejectRationale = "已完成核對，但 Draft 的使用者顯示文字、Eligibility Rules 或 Evidence 仍需修正，因此退回。";
+  const rollbackRationale = "已確認目前 Published version 有誤，且此歷史版本的使用者顯示文字與 Evidence 仍符合官方來源，同意 Rollback。";
   return (
     <form className="review-form">
       <input type="hidden" name="versionId" value={version.id} />
       <label>Reviewer<input name="reviewer" required minLength={2} maxLength={80} defaultValue="Admin reviewer" /></label>
-      <label>Rationale<textarea name="rationale" required minLength={10} maxLength={1_000} placeholder={mode === "rollback" ? "說明為什麼需要恢復這個版本，以及 Evidence 為何仍有效。" : "記錄 Publish 或退回的判斷理由。"} /></label>
+      <AdminRationaleField
+        defaultValue={mode === "rollback" ? rollbackRationale : publishRationale}
+        presets={mode === "rollback"
+          ? [{ label: "套用 Rollback 理由", value: rollbackRationale }]
+          : [{ label: "確認 Publish", value: publishRationale }, { label: "退回修改", value: rejectRationale }]}
+        placeholder={mode === "rollback" ? "說明為什麼需要恢復這個版本，以及 Evidence 為何仍有效。" : "記錄 Publish 或退回的判斷理由。"}
+      />
       <div className="review-actions">
         {mode === "review" ? (
           <>
@@ -125,6 +135,7 @@ function SourceDiffDetails({ diff }: { diff: SourceDiff }) {
 
 function NeedsReviewCard({ review }: { review: NeedsReviewProgram }) {
   const refreshable = review.issues.filter((issue) => issue.latestSnapshot && issue.latestSnapshot.id !== issue.evidence.snapshot_id);
+  const unchangedRationale = "已比對官方來源與新舊文字，確認本次變更不影響使用者顯示的資格、Benefit、金額、期限與方案說明；更新 Evidence 至最新 Snapshot。";
   return <details className="decision-card needs-review-card">
     <summary className="needs-review-summary"><span><span className="review-state state-needs-review">needs_review</span><span><strong>{review.version.title}</strong><small>{review.version.programs.stable_key} · Published v{review.version.version}</small></span></span><b>{review.issues.length} Evidence issues</b></summary>
     <div className="needs-review-content"><p>Authority page 或 PDF 已變更。請開啟官方頁，核對這筆 Evidence 是否仍正確；Structured government API 的一般 Snapshot 更新不會出現在這裡。</p>
@@ -149,7 +160,11 @@ function NeedsReviewCard({ review }: { review: NeedsReviewProgram }) {
         })}</div>
         <div className="needs-review-decision">
           <label>Reviewer<input name="reviewer" required minLength={2} maxLength={80} defaultValue="Admin reviewer" /></label>
-          <label>Rationale<textarea name="rationale" required minLength={10} maxLength={1_000} placeholder="說明已核對的官方內容、差異是否影響資格，以及建立 Draft 的理由。" /></label>
+          <AdminRationaleField
+            defaultValue={unchangedRationale}
+            presets={[{ label: "確認不影響顯示", value: unchangedRationale }]}
+            placeholder="說明已核對的官方內容、差異是否影響資格，以及建立 Draft 的理由。"
+          />
           <button className="button button-small" disabled={review.blocked}>{review.blocked ? "Source 異常，暫停建立" : "建立 Evidence Draft"}</button>
         </div>
         <label className="canonical-confirmation"><input type="checkbox" name="canonicalUnchanged" value="true" required />我已確認這次 Source 變動不影響資格 Rule、Benefit、金額與期限；若有影響，應先更新 Canonical content，不可只更新 Evidence。</label>

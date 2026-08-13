@@ -435,6 +435,13 @@ td small { color: var(--muted); }
 .review-form label { display: grid; gap: 7px; color: var(--muted); font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
 .review-form input, .review-form select, .review-form textarea { width: 100%; padding: 10px; color: var(--ink); background: var(--paper-light); border: 1px solid var(--line); border-radius: 0; font: inherit; text-transform: none; letter-spacing: normal; }
 .review-form textarea { min-height: 68px; resize: vertical; }
+.rationale-field { display: grid; gap: 7px; min-width: 0; }
+.rationale-field-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.rationale-field-heading > label { color: var(--muted); font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.rationale-presets { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.rationale-presets button { padding: 4px 8px; color: var(--ink); background: var(--paper-light); border: 1px solid var(--line); font: inherit; font-size: .66rem; font-weight: 700; line-height: 1.2; cursor: pointer; }
+.rationale-presets button:hover, .rationale-presets button:focus-visible { color: var(--paper-light); background: var(--ink); border-color: var(--ink); }
+.rationale-field > small { color: var(--muted); font-size: .68rem; line-height: 1.4; }
 .review-actions { display: flex; gap: 8px; }
 .danger-button { color: #8d2015; border-color: var(--vermillion); background: transparent; }
 .danger-button:hover { color: white; background: var(--vermillion); }
