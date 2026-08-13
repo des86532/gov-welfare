@@ -19,6 +19,8 @@ const breastAge = evidence("mohw-screening-2025", "擴大癌症篩檢／乳癌",
 const colorectalAge = evidence("mohw-screening-2025", "擴大癌症篩檢／大腸癌", "45至74歲每2年1次；40至44歲具家族史者");
 const lungAge = evidence("mohw-screening-2025", "擴大癌症篩檢／肺癌", "具家族史或重度吸菸史之指定年齡族群每2年1次");
 const hpvAge = evidence("mohw-screening-2025", "擴大癌症篩檢／HPV", "35、45、65歲女性當年度1次");
+const mentalHealth115 = evidence("mohw-mental-health-support-115", "115年方案／服務對象與內容", "15至45歲本國籍民眾或持有健保卡的外籍人士，每人3次免費心理諮商", "2026-08-13");
+const sportsCoin115 = evidence("sports-coin-115", "115年運動幣／資格、面額與抵用範圍", "年滿16歲以上國民可登記抽籤；60萬份、每份500元，添裝備最多抵用200元", "2026-08-13");
 const oralScreening = evidence("mohw-oral-screening", "口腔癌篩檢對象與頻率", "30歲以上曾嚼檳榔或吸菸者，或18至29歲曾嚼檳榔之原住民，每2年1次", "2026-07-27");
 const wdaEmployment = evidence("mol-industrial-talent-rules", "補助要點第二點", "年滿15歲，具指定保險身分之在職勞工，並符合國籍或居留工作許可資格");
 const wdaLimit = evidence("wda-industrial-talent", "常見問答／3年10萬元", "自114年1月1日起，每3年最高補助10萬元");
@@ -294,6 +296,67 @@ export const programs: Program[] = [
     documents: ["健保卡"],
     methods: ["至健保特約醫療院所洽詢"],
     evidence: [hpvAge],
+  },
+  {
+    id: "central-mental-health-support-115",
+    slug: "mental-health-support-115",
+    title: "115年青壯世代心理健康支持方案",
+    summary: "符合年齡與身分條件者，可向合作機構預約個別心理諮商服務。",
+    category: "health",
+    tags: ["心理健康", "心理諮商", "青壯世代"],
+    benefitType: "free_service",
+    benefitSummary: "每人 3 次免費個別心理諮商。",
+    coverage: "matchable",
+    decisionType: "official_record_check",
+    jurisdiction: "中央",
+    authority: "衛生福利部",
+    officialUrl: "https://www.mohw.gov.tw/cp-16-85046-1.html",
+    applicationUrl: "https://sps.mohw.gov.tw/mhs",
+    verifiedAt: "2026-08-13",
+    effectiveFrom: "2026-01-01",
+    effectiveTo: "2026-12-31",
+    applicationWindow: { open: "2026-01-01", close: "2026-12-31", label: "115 年 1 月 1 日至 12 月 31 日，實際名額依合作機構公告" },
+    requestedFacts: ["birth_date", "nationality", "has_nhi_card"],
+    rule: { all: [
+      { field: "age", operator: "between", value: [15, 45], label: "年齡為 15–45 歲", evidence: mentalHealth115 },
+      { any: [
+        { field: "nationality", operator: "eq", value: "taiwan", label: "具有中華民國國籍", evidence: mentalHealth115 },
+        { field: "has_nhi_card", operator: "eq", value: true, label: "外籍人士持有有效健保卡", evidence: mentalHealth115 },
+      ] },
+    ] },
+    caveats: ["補助心理諮商費用，不包含掛號費等行政規費。", "須自行向尚有名額的合作機構預約；實際使用次數由機構查核。"],
+    documents: ["身分證明文件或健保卡"],
+    methods: ["至方案網站查詢尚有名額的合作機構", "直接聯繫合作機構預約"],
+    evidence: [mentalHealth115],
+  },
+  {
+    id: "central-sports-coin-115",
+    slug: "sports-coin-115",
+    title: "115年運動幣",
+    summary: "年滿 16 歲的國民可登記抽籤，中籤者取得運動消費抵用額度。",
+    category: "public_service",
+    tags: ["運動", "運動幣", "抽籤", "運動用品"],
+    benefitType: "fee_reduction",
+    benefitSummary: "中籤者 500 元；做運動、看比賽可全額抵用，添購裝備最多抵用 200 元。",
+    coverage: "matchable",
+    decisionType: "competitive_selection",
+    jurisdiction: "中央",
+    authority: "運動部",
+    officialUrl: "https://www.sports.gov.tw/CL/5288",
+    applicationUrl: "https://500.gov.tw/",
+    verifiedAt: "2026-08-13",
+    effectiveFrom: "2026-03-01",
+    effectiveTo: "2026-12-31",
+    applicationWindow: { open: "2026-01-26", close: "2026-02-08", label: "115 年登記已於 2026 年 2 月 8 日截止；中籤者可於 3 月 1 日至 12 月 31 日抵用" },
+    requestedFacts: ["birth_date", "nationality"],
+    rule: { all: [
+      { field: "age", operator: "gte", value: 16, label: "年滿 16 歲", evidence: sportsCoin115 },
+      { field: "nationality", operator: "eq", value: "taiwan", label: "具有中華民國國籍", evidence: sportsCoin115 },
+    ] },
+    caveats: ["符合登記資格不代表中籤；115 年共抽出 60 萬份。", "添購運動服裝、鞋、用品、器材或穿戴裝置的抵用上限為 200 元。"],
+    documents: [],
+    methods: ["於運動幣專區登記抽籤（115 年登記已截止）", "中籤者於合作店家抵用至 2026 年 12 月 31 日"],
+    evidence: [sportsCoin115],
   },
   {
     id: "central-oral-screening",

@@ -65,6 +65,7 @@ export const factDefinitions: FactDefinition[] = [
     core: true,
     options: [...taiwanCityOptions, { value: "none", label: "在臺無戶籍" }],
   },
+  { key: "has_nhi_card", type: "boolean", label: "目前持有有效健保卡", sensitive: true, options: yesNoUnknown, help: "青壯世代心理健康支持方案將持有健保卡的外籍人士納入服務對象。" },
   {
     key: "residence_city",
     type: "enum",

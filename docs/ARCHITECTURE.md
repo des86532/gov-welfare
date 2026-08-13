@@ -13,17 +13,17 @@ Production 現在可用，但還不是「全臺完整福利平台」。Catalog �
 
 ## Operational snapshot
 
-以下數字是 2026-08-07 Repository-reviewed data 發布後的基準，會隨 Source check 與人工 Review 改變：
+以下數字是 2026-08-13 Repository-reviewed data 發布後的基準，會隨 Source check 與人工 Review 改變：
 
 | 項目 | Production 狀態 |
 | --- | ---: |
-| Public Programs | 88 |
-| `matchable` | 58 |
+| Public Programs | 90 |
+| `matchable` | 60 |
 | `descriptive_only` | 30 |
 | `needs_review` | 0 |
-| 中央／地方分布 | 中央 38、桃園 22、新北 8、臺北 10、臺中 10 |
-| Source registry | 78 |
-| Active Sources | 72 |
+| 中央／地方分布 | 中央 40、桃園 22、新北 8、臺北 10、臺中 10 |
+| Source registry | 80 |
+| Active Sources | 74 |
 | Blocked Sources | 5 |
 | Active Source fetch failure | 0 |
 | Public activities | 6 |
@@ -196,7 +196,7 @@ Workflow 雖然每天喚醒，但 CLI 會讀取 `last_checked_at` 與 `checkEver
 | Frequency | Sources |
 | --- | ---: |
 | 每 24 小時 | 13 |
-| 每 168 小時 | 56 |
+| 每 168 小時 | 58 |
 | 每 720 小時 | 3 |
 
 若上次 check 失敗，下一次 workflow 會優先重試。手動 `workflow_dispatch` 預設加上 `--force`，檢查全部 active Sources；勾選 `retry_failed_only` 時不加 `--force`，只處理失敗或已到期 Sources。

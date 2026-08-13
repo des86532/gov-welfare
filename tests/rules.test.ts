@@ -59,6 +59,23 @@ test("Annual application window 截止後為 closed", () => {
   assert.equal(matchProgram(program, { is_renting: true, owns_home: false, household_income_eligible: true }, "2027-01-01").status, "closed");
 });
 
+test("115年心理支持涵蓋15至45歲本國籍或持健保卡外籍人士", () => {
+  const program = programs.find((item) => item.slug === "mental-health-support-115");
+  assert.ok(program);
+  assert.equal(matchProgram(program, { birth_date: "1996-08-13", nationality: "taiwan", has_nhi_card: false }, "2026-08-13").status, "review_required");
+  assert.equal(matchProgram(program, { birth_date: "1996-08-13", nationality: "foreign", has_nhi_card: true }, "2026-08-13").status, "review_required");
+  assert.equal(matchProgram(program, { birth_date: "1980-08-12", nationality: "taiwan", has_nhi_card: true }, "2026-08-13").status, "ineligible");
+  assert.equal(matchProgram(program, { birth_date: "1996-08-13", nationality: "foreign", has_nhi_card: false }, "2026-08-13").status, "ineligible");
+});
+
+test("115年運動幣保留16歲國民抽籤門檻與登記截止狀態", () => {
+  const program = programs.find((item) => item.slug === "sports-coin-115");
+  assert.ok(program);
+  assert.equal(matchProgram(program, { birth_date: "2010-01-01", nationality: "taiwan" }, "2026-01-30").status, "review_required");
+  assert.equal(matchProgram(program, { birth_date: "2010-01-01", nationality: "foreign" }, "2026-01-30").status, "ineligible");
+  assert.equal(matchProgram(program, { birth_date: "2010-01-01", nationality: "taiwan" }, "2026-08-13").status, "closed");
+});
+
 test("口腔癌篩檢支援一般風險與原住民提早篩檢兩條路徑", () => {
   const program = programs.find((item) => item.slug === "oral-cancer-screening");
   assert.ok(program);
