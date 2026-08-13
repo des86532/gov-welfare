@@ -12,7 +12,9 @@
     "sources:check": "tsx scripts/check-sources.ts",
     "sources:persist": "tsx scripts/check-sources.ts --persist",
     "data:seed": "tsx scripts/seed-reviewed-programs.ts",
-    "data:audit": "tsx scripts/audit-data.ts"
+    "data:audit": "tsx scripts/audit-data.ts",
+    "restore:drill": "tsx scripts/restore-drill.ts",
+    "restore:drill:local": "bash scripts/run-local-restore-drill.sh"
   },
   "dependencies": {
     "cheerio": "1.2.0",

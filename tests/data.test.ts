@@ -8,6 +8,7 @@ import { taipeiSourceClassifications } from "../data/taipei-source-items";
 import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
 import { taichungSourceClassifications } from "../data/taichung-source-items";
 import { buildTaoyuanReviewedPrograms, taoyuanProgramCurations } from "../data/taoyuan-programs";
+import { mapWithConcurrency } from "../lib/concurrency";
 import type { AtomicRule, RuleNode } from "../lib/domain";
 import { parseFinderSession } from "../lib/finder-session";
 import { appliesToApplicant, appliesToRegion, getProgramApplicantTypes, getProgramAvailability, paginatePrograms, PROGRAMS_PER_PAGE, sortProgramsForCatalog } from "../lib/program-filters";
@@ -18,6 +19,21 @@ function atomicRules(rule: RuleNode): AtomicRule[] {
   if ("any" in rule) return rule.any.flatMap(atomicRules);
   return [rule];
 }
+
+test("bounded concurrency 保留輸出順序且不超過上限", async () => {
+  let active = 0;
+  let maximumActive = 0;
+  const values = await mapWithConcurrency([40, 5, 20, 1, 10, 2], 3, async (delay, index) => {
+    active += 1;
+    maximumActive = Math.max(maximumActive, active);
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    active -= 1;
+    return `item-${index}`;
+  });
+
+  assert.deepEqual(values, ["item-0", "item-1", "item-2", "item-3", "item-4", "item-5"]);
+  assert.equal(maximumActive, 3);
+});
 
 test("資格初篩只恢復同分頁內的有效 Session state", () => {
   assert.deepEqual(parseFinderSession('{"step":3,"facts":{"age":25,"employed":true},"showAllFollowups":true}'), {

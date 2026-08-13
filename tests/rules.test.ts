@@ -191,6 +191,31 @@ test("長照服務涵蓋高齡、原住民、失智、身障與急性後期照�
   assert.equal(matchProgram(program, { ...base, birth_date: "1990-07-27", is_disabled: false, has_dementia: false, is_post_acute_care_case: false, is_indigenous: false }, "2026-07-27").status, "ineligible");
 });
 
+test("弱勢生活補助加發依既有補助身分主動核發", () => {
+  const program = programs.find((item) => item.slug === "weak-living-supplement-115-116");
+  assert.ok(program);
+  assert.equal(program.decisionType, "automatic");
+  assert.equal(matchProgram(program, { weak_living_supplement_status: "low_income" }, "2026-08-13").status, "eligible");
+  assert.equal(matchProgram(program, { weak_living_supplement_status: "special_circumstance_family" }, "2026-08-13").status, "eligible");
+  assert.equal(matchProgram(program, { weak_living_supplement_status: "none" }, "2026-08-13").status, "ineligible");
+});
+
+test("青年地方行動方案只作官方導流且不得顯示獲選", () => {
+  const slugs = [
+    "youth-community-action-2",
+    "ndc-youth-local-revitalization-115",
+    "youth-return-home-action-116",
+    "youth-village-culture-115",
+  ];
+  for (const slug of slugs) {
+    const program = programs.find((item) => item.slug === slug);
+    assert.ok(program, slug);
+    assert.equal(program.coverage, "descriptive_only", slug);
+    assert.equal(program.decisionType, "competitive_selection", slug);
+    assert.equal(program.rule, undefined, slug);
+  }
+});
+
 test("支援青年就業計畫保留未就學、60 日與投保紀錄查核", () => {
   const program = programs.find((item) => item.slug === "first-job-youth-support");
   assert.ok(program);

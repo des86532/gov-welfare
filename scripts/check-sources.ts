@@ -1,5 +1,6 @@
 import { createAdapter } from "../lib/adapters";
 import { sources } from "../data/sources";
+import { mapWithConcurrency } from "../lib/concurrency";
 import { isSourceDue, persistFailedCheck, persistSuccessfulCheck, syncSourceRegistry } from "../lib/ingestion";
 import { supabaseConfig, supabaseRest } from "../lib/supabase-rest";
 
@@ -24,6 +25,7 @@ const store = persist ? supabaseConfig(true) : null;
 const sourceFlag = args.indexOf("--source");
 const requestedId = sourceFlag >= 0 ? args[sourceFlag + 1] : undefined;
 const force = args.includes("--force");
+const SOURCE_CHECK_CONCURRENCY = 5;
 const activeSources = sources.filter((source) => source.status === "active" && (!requestedId || source.id === requestedId));
 
 if (requestedId && activeSources.length === 0) {
@@ -85,8 +87,11 @@ async function main() {
       return isSourceDue(source, state?.last_checked_at ?? null, new Date(), state?.last_check_error != null);
     });
   }
-  const results: CheckResult[] = [];
-  for (const source of selected) results.push(await checkSource(source.id));
+  const results = await mapWithConcurrency(
+    selected,
+    SOURCE_CHECK_CONCURRENCY,
+    (source) => checkSource(source.id),
+  );
   if (jsonOutput) {
     console.log(JSON.stringify({ checkedAt: new Date().toISOString(), dryRun: !persist, results }, null, 2));
   } else {

@@ -9,7 +9,7 @@
 
 系統有 cron job，但它是 **GitHub Actions Scheduled workflow**，不是 Vercel Cron。它每天被排程喚醒，只檢查到期的 Sources 並保存 immutable Snapshot。Structured government API row 會更新為 descriptive passthrough；Program Rules 不會自動 Publish，Authority page／PDF 的變更仍需人工 Review。
 
-Production 現在可用，但還不是「全臺完整福利平台」。Catalog 已另外支援企業申請對象與第一批企業升級方案；這些企業方案只做 `descriptive_only` 官方導流，不參與自然人資格 Matching。接下來最重要的是改善 Admin identity／Audit attribution，以及建立 Backup／restore 與 monitoring 的正式作業方式。
+Production 現在可用，但還不是「全臺完整福利平台」。Catalog 已另外支援企業申請對象與第一批企業升級方案；這些企業方案只做 `descriptive_only` 官方導流，不參與自然人資格 Matching。Backup／restore 已有 Runbook 與第一次演練紀錄；接下來最重要的是擴充地方 Coverage，並在多人營運前改善 Admin identity／Audit attribution。
 
 ## Operational snapshot
 
@@ -17,14 +17,14 @@ Production 現在可用，但還不是「全臺完整福利平台」。Catalog �
 
 | 項目 | Production 狀態 |
 | --- | ---: |
-| Public Programs | 90 |
-| `matchable` | 60 |
-| `descriptive_only` | 30 |
+| Public Programs | 95 |
+| `matchable` | 61 |
+| `descriptive_only` | 34 |
 | `needs_review` | 0 |
-| 中央／地方分布 | 中央 40、桃園 22、新北 8、臺北 10、臺中 10 |
-| Source registry | 80 |
-| Active Sources | 74 |
-| Blocked Sources | 5 |
+| 中央／地方分布 | 中央 45、桃園 22、新北 8、臺北 10、臺中 10 |
+| Source registry | 87 |
+| Active Sources | 80 |
+| Blocked Sources | 6 |
 | Active Source fetch failure | 0 |
 | Public activities | 6 |
 | Public health | `healthy` |
@@ -195,13 +195,13 @@ Workflow 雖然每天喚醒，但 CLI 會讀取 `last_checked_at` 與 `checkEver
 
 | Frequency | Sources |
 | --- | ---: |
-| 每 24 小時 | 13 |
-| 每 168 小時 | 58 |
+| 每 24 小時 | 14 |
+| 每 168 小時 | 63 |
 | 每 720 小時 | 3 |
 
 若上次 check 失敗，下一次 workflow 會優先重試。手動 `workflow_dispatch` 預設加上 `--force`，檢查全部 active Sources；勾選 `retry_failed_only` 時不加 `--force`，只處理失敗或已到期 Sources。
 
-只有手動執行 workflow 並勾選 `publish_reviewed_programs` 時，才會執行 Repository-reviewed Program import 與 `data:audit`。Activity data 由 Repository 直接提供，Crawler 結果不參與 Publish gate；使用者回報另在 Admin 處理。
+只有手動執行 workflow 並勾選 `publish_reviewed_programs` 時，才會執行 Repository-reviewed Program import；每次 Source check 成功後都會執行 read-only `data:audit`。Activity data 由 Repository 直接提供，Crawler 結果不參與 Publish gate；使用者回報另在 Admin 處理。
 
 另一個 `.github/workflows/activity-report-alert.yml` 每小時檢查一次 `activity_reports`：有未處理回報時建立或更新 `Activity reports need review` Issue，全部處理後自動關閉。Issue 只保存待處理數量與 Admin 連結，不複製使用者提交的內容。
 
@@ -210,7 +210,7 @@ Workflow 雖然每天喚醒，但 CLI 會讀取 `last_checked_at` 與 `checkEver
 ### 其他 Scheduler 限制
 
 - 沒有 Vercel Cron route 或 `vercel.json` cron 設定。
-- 沒有 Queue；Source checks 目前逐筆 sequential 執行。
+- 沒有 Queue；Source checks 使用 5 個 bounded concurrency，結果仍依 Source registry 順序輸出。
 
 ## Security 與 Privacy boundary
 
@@ -228,17 +228,17 @@ Workflow 雖然每天喚醒，但 CLI 會讀取 `last_checked_at` 與 `checkEver
 1. **把 Admin 改成 individual Auth**
    共用 Basic Auth 適合單人 MVP，但無法可靠回答「誰」做了 Publish。正式多人營運應使用 Supabase Auth 或其他 identity provider，把 Review 綁到 immutable user id，並保留 emergency access。
 
-2. **建立 Backup 與 restore runbook**
-   Repository 有 immutable versions，但沒有記錄 Supabase backup plan、retention、restore drill 與 Recovery Point Objective。需要至少完成一次可驗證的 restore exercise。
+2. **維持 Backup 與 restore drill**
+   已建立 `docs/RUNBOOK_SUPABASE_BACKUP_RESTORE.md`，並於 2026-08-13 完成第一次本機隔離 Restore exercise。後續每月重跑，且在 Raw snapshots 搬到 Storage 後補上 Bucket object backup。
 
-3. **強化 scheduled ingestion reliability**
-   GitHub schedule 是 best-effort；目前 Sources sequential 執行，遇到多個 20 秒 timeout 和 retry 時可能碰到 15 分鐘 job limit。應先做 bounded concurrency、per-Source deadline 與 run summary，再評估是否需要更可靠的 managed scheduler。
+3. **持續觀察 scheduled ingestion reliability**
+   GitHub schedule 是 best-effort；Source check 已改為 5 個 bounded concurrency 並保留輸出順序，Scheduled run 也會執行 read-only `data:audit`。後續依實際 run time 再決定是否需要 managed scheduler。
 
 ### P1 — Coverage 與 Operations
 
 1. **活動 Coverage 還很小**：目前平台維護 6 筆 Activity data；Crawler 只協助 Discovery，不會自動公開。使用者回報可修正錯誤，但新增活動仍需更新 Repository data。
 2. **地方 Coverage 只有四市 Pilot**：選縣市會顯示中央 + 該縣市，但目前其他 18 縣市幾乎只有中央 Programs，不能宣稱全臺完整。
-3. **Daily workflow 不跑完整 data audit**：scheduled run 成功只代表 ingestion 成功，不代表 Published Evidence 全部最新；應新增 read-only acceptance audit 並讓 `attention` 狀態可通知維護者。
+3. **Scheduled audit 需要觀察誤報率**：Daily workflow 已加入 read-only `data:audit`；應觀察 Authority page 正文異動是否能準確建立通知，同時避免動態連結與計數造成假警報。
 4. **Monitoring 仍不完整**：目前有 Source、Activity report 與 Production health GitHub Issue，但沒有 error tracing、latency／Database size alert。
 5. **Snapshot lifecycle 未定義**：raw HTML／JSON／PDF base64 長期放在 PostgreSQL，需制定 Storage、retention、checksum 與 legal retention policy。
 6. **Security hardening 未完成**：CI 已有 Production dependency audit，但尚無明確 CSP、rate limit 與 Admin brute-force protection。
