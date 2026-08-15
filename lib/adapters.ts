@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import * as cheerio from "cheerio";
 import type { DraftSourceItem, RawSnapshot, SourceConfig } from "@/lib/domain";
+import { normalizeNonSubstantiveSourceText } from "@/lib/source-text-normalization";
 
 export interface SourceAdapter {
   fetch(source: SourceConfig): Promise<RawSnapshot>;
@@ -22,13 +23,7 @@ export function contentHashFor(bytes: Buffer, format: SourceConfig["format"], ig
   for (const selector of ignoreSelectors) $(selector).remove();
   const content = $("main, article, #content, .content").first();
   const root = content.length ? content : $("body");
-  const text = cleanText(root.text())
-    .replace(/列印時間：?\s*\d{2,3}\/\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2}/g, "列印時間")
-    .replace(/專區瀏覽人次\s*累計\d+\s*今日\d+/g, "專區瀏覽人次")
-    .replace(/累計瀏覽人次：?[\d,]+\s*今日瀏覽人次：?[\d,]+/g, "瀏覽人次")
-    .replace(/瀏覽人數：?\s*[\d,]+\s*人?/g, "瀏覽人數")
-    .replace(/瀏覽人次：?\s*[\d,]+\s*人?/g, "瀏覽人次")
-    .replace(/您來自：\s*[0-9a-f:.]+/gi, "您來自");
+  const text = normalizeNonSubstantiveSourceText(cleanText(root.text()));
   const links = [...new Set(root.find("a[href]").map((_, element) => cleanText($(element).attr("href") ?? "")).get()
     .filter((href) => href && !href.startsWith("#") && !href.startsWith("javascript:")))]
     .sort();

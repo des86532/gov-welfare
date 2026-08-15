@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import type { Evidence, Program, RuleNode } from "@/lib/domain";
 import { evidenceNeedsReview } from "@/lib/source-freshness";
+import { normalizeNonSubstantiveSourceText } from "@/lib/source-text-normalization";
 import { supabaseConfig, supabaseRest } from "@/lib/supabase-rest";
 
 export type DatabaseSource = {
@@ -130,11 +131,7 @@ const nonReviewCanonicalFields = new Set(["links", "url", "detailUrl", "official
 
 function normalizeVisibleValue(value: unknown): unknown {
   if (typeof value === "string") {
-    return value
-      .replace(/專區瀏覽人次\s*累計[\d,]+\s*今日[\d,]+/g, "專區瀏覽人次")
-      .replace(/累計瀏覽人次：?[\d,]+\s*今日瀏覽人次：?[\d,]+/g, "瀏覽人次")
-      .replace(/(點閱次數|瀏覽人數|瀏覽人次|觀看數|下載次數)\s*[:：]?\s*[\d,]+(?:\s*(?:人|次))?/g, "$1")
-      .replace(/((?:pdf\s*)?下載)\s*[\d,]+\s*次/gi, "$1");
+    return normalizeNonSubstantiveSourceText(value);
   }
   if (Array.isArray(value)) return value.map(normalizeVisibleValue);
   if (value && typeof value === "object") {

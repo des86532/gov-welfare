@@ -8,6 +8,7 @@ import { buildTainanPassthroughPrograms, type TainanSourceItem } from "../data/t
 import { buildTaoyuanReviewedPrograms, type ReviewedTaoyuanItem } from "../data/taoyuan-programs";
 import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
 import type { Program, RuleNode } from "../lib/domain";
+import { snapshotReviewState, type SourceItemRow } from "../lib/admin-review";
 import { supabaseConfig, supabaseRest, type SupabaseConfig } from "../lib/supabase-rest";
 
 type Snapshot = { id: string; source_id: string; observed_at: string };
@@ -61,6 +62,19 @@ async function main() {
   const expectedPrograms = [...programs, ...buildTaoyuanReviewedPrograms(reviewedTaoyuanItems, "2026-07-27"), ...tainanPrograms];
   const expected = expectedPrograms.filter((program) => program.evidence.every((item) => latest.has(item.sourceId)));
   const visibleVersions = versions.filter((version) => version.coverage !== "archived");
+  const comparisonSnapshotIds = new Set<string>();
+  for (const version of visibleVersions) {
+    for (const evidence of version.field_evidence) {
+      const newest = latest.get(evidence.source_id);
+      if (automationBySource.get(evidence.source_id) !== "structured_extract" && newest && newest.id !== evidence.snapshot_id) {
+        comparisonSnapshotIds.add(evidence.snapshot_id);
+        comparisonSnapshotIds.add(newest.id);
+      }
+    }
+  }
+  const comparisonItems = comparisonSnapshotIds.size
+    ? await supabaseRest<SourceItemRow[]>(config, `source_items?select=id,source_id,snapshot_id,external_id,title,canonical_draft,unknown_fields,classification,classification_rationale,review_status&snapshot_id=in.(${[...comparisonSnapshotIds].map(encodeURIComponent).join(",")})`)
+    : [];
 
   assert.deepEqual(new Set(databaseSources.map((source) => source.id)), new Set(sources.map((source) => source.id)), "Source registry drift");
   assert.equal(databaseSources.filter((source) => source.status === "active" && source.last_check_error).length, 0, "Active Source check errors");
@@ -104,7 +118,11 @@ async function main() {
     assert.match(program.applicationUrl ?? program.officialUrl, /^https:\/\//, `${program.title}: official application URL`);
     for (const item of version.field_evidence) {
       const newest = latest.get(item.source_id);
-      assert.ok(automationBySource.get(item.source_id) === "structured_extract" || (newest && newest.id === item.snapshot_id), `${program.title}: stale ${item.source_id}`);
+      const currentOrEquivalent = newest && (
+        newest.id === item.snapshot_id
+        || snapshotReviewState(item.source_id, item.snapshot_id, newest.id, comparisonItems) === "unchanged"
+      );
+      assert.ok(automationBySource.get(item.source_id) === "structured_extract" || currentOrEquivalent, `${program.title}: stale ${item.source_id}`);
       assert.ok(item.reviewed_at, `${program.title}: unreviewed evidence ${item.field_path}`);
     }
     if (version.coverage === "matchable") {
