@@ -93,7 +93,7 @@ async function loadPrograms(): Promise<Program[]> {
   }
 }
 
-const getProgramsCached = unstable_cache(loadPrograms, ["public-programs-v1"], { revalidate: 300, tags: ["programs"] });
+const getProgramsCached = unstable_cache(loadPrograms, ["public-programs-v2"], { revalidate: 300, tags: ["programs"] });
 export const getPrograms = cache(getProgramsCached);
 
 export async function getProgramBySlug(slug: string) {
