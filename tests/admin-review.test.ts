@@ -73,6 +73,25 @@ test("Source diff 忽略連結與網頁動態計數", () => {
   assert.deepEqual(compareSnapshotItems("source-a", "old", "new", [oldItem, newItem]).map((change) => change.fields), [["canonical_draft.bodyText"]]);
 });
 
+test("青年海外圓夢 Source 忽略內嵌最新消息與其日期", () => {
+  const oldItem = item("old", "page", "青年百億海外圓夢基金計畫", "yda-overseas-dream");
+  const newItem = item("new", "page", "青年百億海外圓夢基金計畫", "yda-overseas-dream");
+  oldItem.source_id = "yda-overseas-dream";
+  newItem.source_id = "yda-overseas-dream";
+  oldItem.canonical_draft = {
+    bodyText: "計畫資格與補助內容 最新消息 115-07-09 舊新聞 #國際參與 更多 影音專區 固定影片",
+    publishedText: "115-07-09",
+  };
+  newItem.canonical_draft = {
+    bodyText: "計畫資格與補助內容 最新消息 115-08-12 新聞一 115-08-09 新聞二 #國際交流 更多 影音專區 固定影片",
+    publishedText: "115-08-12",
+  };
+  assert.deepEqual(compareSnapshotItems("yda-overseas-dream", "old", "new", [oldItem, newItem]), []);
+
+  newItem.canonical_draft.bodyText = "計畫資格改為 18 至 30 歲 最新消息 115-08-12 新聞一 更多 影音專區 固定影片";
+  assert.deepEqual(compareSnapshotItems("yda-overseas-dream", "old", "new", [oldItem, newItem]).map((change) => change.fields), [["canonical_draft.bodyText"]]);
+});
+
 test("Publish gate 要求 Program evidence 與每個 Atomic rule path", () => {
   const evidence = { sourceId: "source-a", snapshotId: "new", locator: "資格", extractedValue: "年滿 18 歲", reviewedAt: "2026-07-27" };
   const program = {

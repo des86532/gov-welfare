@@ -129,13 +129,17 @@ export type SnapshotReviewState = "unchanged" | "changed" | "missing";
 
 const nonReviewCanonicalFields = new Set(["links", "url", "detailUrl", "officialUrl", "applicationUrl"]);
 
-function normalizeVisibleValue(value: unknown): unknown {
+function normalizeVisibleValue(value: unknown, sourceId: string): unknown {
   if (typeof value === "string") {
-    return normalizeNonSubstantiveSourceText(value);
+    const normalized = normalizeNonSubstantiveSourceText(value);
+    if (sourceId === "yda-overseas-dream") {
+      return normalized.replace(/最新消息\s+(?:\d{2,3}|\d{4})-\d{2}-\d{2}[\s\S]*?更多\s+影音專區/g, "最新消息 影音專區");
+    }
+    return normalized;
   }
-  if (Array.isArray(value)) return value.map(normalizeVisibleValue);
+  if (Array.isArray(value)) return value.map((child) => normalizeVisibleValue(child, sourceId));
   if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, normalizeVisibleValue(child)]));
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, normalizeVisibleValue(child, sourceId)]));
   }
   return value;
 }
@@ -145,7 +149,8 @@ function changedFields(before: SourceItemRow, after: SourceItemRow): string[] {
   const keys = new Set([...Object.keys(before.canonical_draft), ...Object.keys(after.canonical_draft)]);
   for (const key of keys) {
     if (nonReviewCanonicalFields.has(key)) continue;
-    if (!isDeepStrictEqual(normalizeVisibleValue(before.canonical_draft[key]), normalizeVisibleValue(after.canonical_draft[key]))) {
+    if (before.source_id === "yda-overseas-dream" && key === "publishedText") continue;
+    if (!isDeepStrictEqual(normalizeVisibleValue(before.canonical_draft[key], before.source_id), normalizeVisibleValue(after.canonical_draft[key], after.source_id))) {
       fields.push(`canonical_draft.${key}`);
     }
   }

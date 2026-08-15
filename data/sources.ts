@@ -1022,6 +1022,7 @@ export const sources: SourceConfig[] = [
     adapterKey: "official_page",
     checkEveryHours: 168,
     fetchTimeoutMs: 45_000,
+    hashIgnoreSelectors: [".news", "#ContentPlaceHolder1_video_sec"],
     crawlerRequired: false,
     status: "active",
     lastVerifiedAt: "2026-07-27",
