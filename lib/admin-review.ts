@@ -128,6 +128,7 @@ export type SourceDiff = {
 export type SnapshotReviewState = "unchanged" | "changed" | "missing";
 
 const nonReviewCanonicalFields = new Set(["links", "url", "detailUrl", "officialUrl", "applicationUrl"]);
+const nonReviewVersionFields = new Set(["evidence", "verifiedAt", "officialUrl", "applicationUrl"]);
 
 function normalizeVisibleValue(value: unknown, sourceId: string): unknown {
   if (typeof value === "string") {
@@ -142,6 +143,60 @@ function normalizeVisibleValue(value: unknown, sourceId: string): unknown {
     return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, normalizeVisibleValue(child, sourceId)]));
   }
   return value;
+}
+
+function normalizeVersionValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(normalizeVersionValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value)
+      .filter(([key]) => !nonReviewVersionFields.has(key))
+      .map(([key, child]) => [key, normalizeVersionValue(child)]));
+  }
+  return value;
+}
+
+export function versionHasSubstantiveChanges(candidate: ProgramVersionRow, published?: ProgramVersionRow): boolean {
+  if (!published) return true;
+  const visibleCandidate = {
+    coverage: candidate.coverage,
+    title: candidate.title,
+    summary: candidate.summary,
+    benefitType: candidate.benefit_type,
+    decisionType: candidate.decision_type,
+    canonicalContent: normalizeVersionValue(candidate.canonical_content),
+    ruleTree: normalizeVersionValue(candidate.rule_tree),
+    effectiveFrom: candidate.effective_from,
+    effectiveTo: candidate.effective_to,
+    applicationOpen: candidate.application_open,
+    applicationClose: candidate.application_close,
+  };
+  const visiblePublished = {
+    coverage: published.coverage,
+    title: published.title,
+    summary: published.summary,
+    benefitType: published.benefit_type,
+    decisionType: published.decision_type,
+    canonicalContent: normalizeVersionValue(published.canonical_content),
+    ruleTree: normalizeVersionValue(published.rule_tree),
+    effectiveFrom: published.effective_from,
+    effectiveTo: published.effective_to,
+    applicationOpen: published.application_open,
+    applicationClose: published.application_close,
+  };
+  return !isDeepStrictEqual(visibleCandidate, visiblePublished);
+}
+
+export function pendingVersionsForReview(versions: ProgramVersionRow[], needsReviewPrograms: NeedsReviewProgram[]): ProgramVersionRow[] {
+  const publishedByProgram = new Map(versions
+    .filter((version) => version.status === "published")
+    .map((version) => [version.program_id, version]));
+  const activeEvidenceDrafts = new Set(needsReviewPrograms
+    .flatMap((review) => review.existingDraft ? [review.existingDraft.id] : []));
+  return versions.filter((version) => {
+    if (version.status !== "draft" && version.status !== "in_review") return false;
+    if (activeEvidenceDrafts.has(version.id)) return true;
+    return versionHasSubstantiveChanges(version, publishedByProgram.get(version.program_id));
+  });
 }
 
 function changedFields(before: SourceItemRow, after: SourceItemRow): string[] {
@@ -373,12 +428,13 @@ export async function loadAdminReviewData() {
     }
   }
   const sourceDiffs = buildSourceDiffs(snapshots, items);
+  const needsReviewPrograms = buildNeedsReviewPrograms(databaseSources, snapshots, versions, items);
   return {
     sources: databaseSourceById,
     snapshots,
     items,
     sourceDiffs,
-    needsReviewPrograms: buildNeedsReviewPrograms(databaseSources, snapshots, versions, items),
+    needsReviewPrograms,
     pendingItems: items.filter((item) => {
       const source = databaseSourceById.get(item.source_id);
       return source?.automation_level !== "structured_extract"
@@ -388,7 +444,7 @@ export async function loadAdminReviewData() {
         && item.canonical_draft.entityType !== "opportunity"
         && !publishedProgramSourceIds.has(item.source_id);
     }),
-    pendingVersions: versions.filter((version) => version.status === "draft" || version.status === "in_review"),
+    pendingVersions: pendingVersionsForReview(versions, needsReviewPrograms),
     rollbackCandidates: [...rollbackByProgram.values()],
     reviews,
     activityReports,

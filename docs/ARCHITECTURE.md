@@ -104,9 +104,10 @@ flowchart LR
 2. 只有公開文字不同的 Program 進入「資格來源待複核」，顯示新舊內容與官方連結；Structured API 的一般 Dataset 更新不產生待辦。
 3. Reviewer 可修正 locator／extracted value，填寫 Reviewer 與 Rationale，確認 Canonical content／Rules 未受影響後建立新 Draft。
 4. Draft 會複製完整 Program version，只把已複核 Evidence 指向最新 Snapshot；建立動作記錄為 `resolve_conflict` Audit event。
-5. Draft 仍須在「福利方案待審核」再次 Publish；PostgreSQL Publish gate 會重新驗證 Authority Evidence 與 Source state。Structured API Evidence 不參與 freshness gate。
-6. 若資格 Rule、Benefit、金額或期限真的改變，不允許只更新 Evidence，必須先更新 Canonical content 再 Publish。
-7. Publish 前的 Server Gate 使用相同可見文字 Diff；PostgreSQL RPC 保留 Evidence 完整、Reviewed 與 Source error Gate，但不再用 Snapshot ID 本身代表內容改變。
+5. 「福利方案待審核」只列出相對於 Published version 有使用者可見實質差異的 Draft；只有 Evidence Snapshot、驗證時間、點閱數或 URL-only 變更的歷史 Draft 不列入待辦。若最新 Authority Source 仍有實質文字異動，Evidence refresh Draft 會繼續保留直到 Publish 或 Reject。
+6. Draft 仍須在「福利方案待審核」再次 Publish；PostgreSQL Publish gate 會重新驗證 Authority Evidence 與 Source state。Structured API Evidence 不參與 freshness gate。
+7. 若資格 Rule、Benefit、金額或期限真的改變，不允許只更新 Evidence，必須先更新 Canonical content 再 Publish。
+8. Publish 前的 Server Gate 使用相同可見文字 Diff；PostgreSQL RPC 保留 Evidence 完整、Reviewed 與 Source error Gate，但不再用 Snapshot ID 本身代表內容改變。
 
 ## Database 保存什麼
 

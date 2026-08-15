@@ -282,12 +282,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       </section>
 
       <section className="admin-section" id="review">
-        <div className="admin-section-title"><div><p className="eyebrow">Today</p><h2>待處理工作</h2></div><span>只列出真正需要管理員決定的項目</span></div>
+        <div className="admin-section-title"><div><p className="eyebrow">Today</p><h2>待處理工作</h2></div><span>只列出會影響使用者資料正確性的項目</span></div>
         {pendingCount === 0 ? <div className="empty-review admin-all-clear"><strong>目前沒有待處理資料</strong><p>新的 Source 內容進來後，會依類型出現在這裡。</p></div> : null}
 
         {database?.needsReviewPrograms.length ? <div className="admin-task-block"><div className="admin-task-heading"><h3>資格來源待複核</h3><p>只有 Authority page／PDF 的變更會列在這裡；請開官方頁核對資格、金額與期限，再建立 Draft。</p></div><div className="decision-stack">{database.needsReviewPrograms.map((review) => <NeedsReviewCard key={review.version.id} review={review} />)}</div></div> : null}
 
-        {pendingVersionCount ? <div className="admin-task-block"><div className="admin-task-heading"><h3>福利方案待審核</h3><p>確認資格 Rules 與 Evidence 後，決定 Publish 或退回。</p></div><div className="decision-stack">{database?.pendingVersions.map((version) => (
+        {pendingVersionCount ? <div className="admin-task-block"><div className="admin-task-heading"><h3>福利方案待審核</h3><p>只列出資格、Benefit、金額、期限或公開說明有實質差異的 Draft；Snapshot、驗證時間、點閱數與 URL-only 變更會自動忽略。</p></div><div className="decision-stack">{database?.pendingVersions.map((version) => (
           <article className="decision-card" id={`pending-version-${version.id}`} key={version.id}>
             <header><div><span className="review-state state-descriptive_only">{version.status}</span><small>{version.programs.stable_key} · v{version.version}</small></div><strong>{version.coverage}</strong></header>
             <h3>{version.title}</h3><p>{version.summary}</p>

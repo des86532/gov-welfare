@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { isAdminAuthorization } from "../lib/admin-auth";
-import { buildNeedsReviewPrograms, buildSourceDiffs, compareSnapshotItems, refreshProgramEvidence, requiredEvidencePaths, snapshotReviewState, type DatabaseSource, type ProgramVersionRow, type SnapshotRow, type SourceItemRow } from "../lib/admin-review";
+import { buildNeedsReviewPrograms, buildSourceDiffs, compareSnapshotItems, pendingVersionsForReview, refreshProgramEvidence, requiredEvidencePaths, snapshotReviewState, versionHasSubstantiveChanges, type DatabaseSource, type ProgramVersionRow, type SnapshotRow, type SourceItemRow } from "../lib/admin-review";
 import type { Program } from "../lib/domain";
 
 const snapshots: SnapshotRow[] = [
@@ -134,6 +134,55 @@ test("Structured government API 的 Snapshot 更新不建立人工 Review 工作
     field_evidence: [{ id: "evidence-a", field_path: "/evidence/0", source_id: "source-a", snapshot_id: "old", locator: "API row", extracted_value: "政府 API 原始內容", reviewed_at: "2026-07-26" }],
   } as ProgramVersionRow;
   assert.deepEqual(buildNeedsReviewPrograms([source], snapshots, [published]), []);
+});
+
+test("待處理工作忽略只有 Evidence metadata 更新的歷史 Draft", () => {
+  const canonical = {
+    id: "program-a", slug: "program-a", title: "方案", summary: "資格說明", category: "social_aid",
+    tags: [], benefitType: "cash", benefitSummary: "每月 6,825 元", coverage: "matchable",
+    decisionType: "official_record_check", jurisdiction: "臺北市", authority: "臺北市政府社會局",
+    officialUrl: "https://example.gov.tw/old", applicationUrl: "https://example.gov.tw/apply-old",
+    verifiedAt: "2026-07-26", requestedFacts: ["age"], caveats: [], documents: [], methods: [],
+    evidence: [{ sourceId: "source-a", snapshotId: "old", locator: "資格", extractedValue: "18 歲以上", reviewedAt: "2026-07-26" }],
+  } as Program;
+  const published = {
+    id: "published", program_id: "program-a", version: 1, status: "published", coverage: "matchable",
+    title: "方案", summary: "資格說明", benefit_type: "cash", decision_type: "official_record_check",
+    canonical_content: canonical, rule_tree: null, application_url: canonical.applicationUrl ?? null,
+    effective_from: null, effective_to: null, application_open: null, application_close: null,
+    field_evidence: [],
+  } as unknown as ProgramVersionRow;
+  const draft = {
+    ...published,
+    id: "draft", version: 2, status: "draft",
+    canonical_content: {
+      ...canonical,
+      officialUrl: "https://example.gov.tw/new",
+      applicationUrl: "https://example.gov.tw/apply-new",
+      verifiedAt: "2026-08-15",
+      evidence: [{ sourceId: "source-a", snapshotId: "new", locator: "資格", extractedValue: "18 歲以上", reviewedAt: "2026-08-15" }],
+    },
+    application_url: "https://example.gov.tw/apply-new",
+  } as ProgramVersionRow;
+  assert.equal(versionHasSubstantiveChanges(draft, published), false);
+  assert.deepEqual(pendingVersionsForReview([draft, published], []), []);
+
+  const changedDraft = { ...draft, summary: "資格改為 20 歲以上" } as ProgramVersionRow;
+  assert.equal(versionHasSubstantiveChanges(changedDraft, published), true);
+  assert.deepEqual(pendingVersionsForReview([changedDraft, published], []).map((version) => version.id), ["draft"]);
+});
+
+test("真正的 Authority Source 文字異動仍保留 Evidence Draft", () => {
+  const published = {
+    id: "published", program_id: "program-a", version: 1, status: "published", coverage: "matchable",
+    title: "方案", summary: "資格說明", benefit_type: "cash", decision_type: "official_record_check",
+    canonical_content: {} as Program, rule_tree: null, application_url: null,
+    effective_from: null, effective_to: null, application_open: null, application_close: null,
+    field_evidence: [],
+  } as unknown as ProgramVersionRow;
+  const draft = { ...published, id: "draft", version: 2, status: "draft" } as ProgramVersionRow;
+  const needsReview = [{ version: published, issues: [], existingDraft: draft, blocked: false }];
+  assert.deepEqual(pendingVersionsForReview([draft, published], needsReview).map((version) => version.id), ["draft"]);
 });
 
 test("Evidence refresh 同步更新 Program Evidence 與 Atomic rule 且不修改舊物件", () => {
