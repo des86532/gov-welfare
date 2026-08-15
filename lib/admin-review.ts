@@ -188,7 +188,10 @@ export function snapshotReviewState(
   if (previousSnapshotId === currentSnapshotId) return "unchanged";
   const hasPrevious = items.some((item) => item.source_id === sourceId && item.snapshot_id === previousSnapshotId);
   const hasCurrent = items.some((item) => item.source_id === sourceId && item.snapshot_id === currentSnapshotId);
-  if (!hasPrevious || !hasCurrent) return "missing";
+  // A parser introduced after the Evidence snapshot has no trustworthy text baseline.
+  // Do not turn the entire current page into a fake "added" approval task.
+  if (!hasPrevious && hasCurrent) return "unchanged";
+  if (!hasCurrent) return "missing";
   return compareSnapshotItems(sourceId, previousSnapshotId, currentSnapshotId, items).length ? "changed" : "unchanged";
 }
 

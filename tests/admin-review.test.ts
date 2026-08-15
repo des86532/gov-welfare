@@ -50,11 +50,11 @@ test("Source diff 忽略連結與網頁動態計數", () => {
   const oldItem = item("old", "page", "官方頁", "unused");
   const newItem = item("new", "page", "官方頁", "unused");
   oldItem.canonical_draft = {
-    bodyText: "更新日期：2026-06-24 點閱人氣：8,301 點閱次數：4330 檔案下載 計畫 pdf下載 311 次 觀看數:923",
+    bodyText: "資料更新：115-07-31 17:15 更新日期：2026-06-24 點閱人氣：8,301 點閱次數：4330 點閱數：148723 檔案下載 計畫 pdf下載 311 次 觀看數:923",
     links: ["/old-link"],
   };
   newItem.canonical_draft = {
-    bodyText: "更新日期：2026-08-15 點閱人氣：9,912 點閱次數：4562 檔案下載 計畫 pdf下載 348 次 觀看數:451",
+    bodyText: "資料更新：115-08-15 09:30 更新日期：2026-08-15 點閱人氣：9,912 點閱次數：4562 點閱數：149055 檔案下載 計畫 pdf下載 348 次 觀看數:451",
     links: ["/new-link"],
   };
   assert.deepEqual(compareSnapshotItems("source-a", "old", "new", [oldItem, newItem]), []);
@@ -67,6 +67,7 @@ test("Source diff 忽略連結與網頁動態計數", () => {
   assert.deepEqual(buildNeedsReviewPrograms([source], snapshots, [published], [oldItem, newItem]), []);
   assert.equal(snapshotReviewState("source-a", "old", "new", [oldItem, newItem]), "unchanged");
   assert.equal(snapshotReviewState("source-a", "old", "new", [oldItem]), "missing");
+  assert.equal(snapshotReviewState("source-a", "old", "new", [newItem]), "unchanged");
 
   newItem.canonical_draft.bodyText = "申請截止日期：2026-09-30 點閱人氣：9,913";
   assert.deepEqual(compareSnapshotItems("source-a", "old", "new", [oldItem, newItem]).map((change) => change.fields), [["canonical_draft.bodyText"]]);

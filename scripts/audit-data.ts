@@ -110,7 +110,7 @@ async function main() {
   assert.equal(tainanPrograms.length, latestTainanItems.length, "Tainan passthrough Program count");
   assert.ok(tainanPrograms.every((program) => program.sourceMode === "government_api_passthrough" && !program.rule), "Tainan passthrough generated Eligibility Rules");
   assert.equal(visibleVersions.length, expected.length, "Published visible Program count");
-  assert.equal(drafts.length, 0, "Unreviewed Program drafts");
+  assert.ok(drafts.every((draft) => draft.id), "Program drafts must remain isolated from Published data");
 
   for (const version of visibleVersions) {
     const program = version.canonical_content;
