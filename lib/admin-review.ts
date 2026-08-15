@@ -335,7 +335,7 @@ export function refreshProgramEvidence(
 export async function loadAdminReviewData() {
   const config = supabaseConfig(true);
   if (!config) return null;
-  const [databaseSources, snapshots, items, versions, reviews, activityReports] = await Promise.all([
+  const [databaseSources, snapshots, recentItems, versions, reviews, activityReports] = await Promise.all([
     supabaseRest<DatabaseSource[]>(config, "sources?select=id,automation_level,status,last_checked_at,last_successful_fetch_at,last_check_error"),
     supabaseRest<SnapshotRow[]>(config, "source_snapshots?select=id,source_id,observed_at,content_hash,http_status,fetch_error&order=observed_at.desc"),
     supabaseRest<SourceItemRow[]>(config, "source_items?select=id,source_id,snapshot_id,external_id,title,canonical_draft,unknown_fields,classification,classification_rationale,review_status&order=created_at.desc"),
@@ -344,6 +344,14 @@ export async function loadAdminReviewData() {
     supabaseRest<ActivityReportRow[]>(config, "activity_reports?select=id,opportunity_slug,reason,detail,status,created_at&status=eq.open&order=created_at.desc&limit=100"),
   ]);
   const latestSnapshots = latestSnapshotsBySource(snapshots);
+  const comparisonSnapshotIds = [...new Set([
+    ...[...latestSnapshots.values()].map((snapshot) => snapshot.id),
+    ...versions.flatMap((version) => version.field_evidence.map((evidence) => evidence.snapshot_id)),
+  ])];
+  const comparisonItems = comparisonSnapshotIds.length
+    ? await supabaseRest<SourceItemRow[]>(config, `source_items?select=id,source_id,snapshot_id,external_id,title,canonical_draft,unknown_fields,classification,classification_rationale,review_status&snapshot_id=in.(${comparisonSnapshotIds.map(encodeURIComponent).join(",")})`)
+    : [];
+  const items = [...new Map([...recentItems, ...comparisonItems].map((item) => [item.id, item])).values()];
   const latestSnapshotIds = new Set([...latestSnapshots.values()].map((snapshot) => snapshot.id));
   const databaseSourceById = new Map(databaseSources.map((source) => [source.id, source]));
   const publishedPrograms = new Set(versions.filter((version) => version.status === "published").map((version) => version.program_id));
