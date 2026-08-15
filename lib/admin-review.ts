@@ -107,6 +107,8 @@ export type ActivityReportRow = {
 export type ItemChange = {
   externalId: string;
   title: string;
+  beforeTitle?: string;
+  afterTitle?: string;
   fields: string[];
   before?: Record<string, unknown>;
   after?: Record<string, unknown>;
@@ -168,14 +170,14 @@ export function compareSnapshotItems(
   const changes: ItemChange[] = [];
   for (const item of current.values()) {
     const old = previous.get(item.external_id);
-    if (!old) changes.push({ externalId: item.external_id, title: item.title, fields: ["new"], after: item.canonical_draft });
+    if (!old) changes.push({ externalId: item.external_id, title: item.title, afterTitle: item.title, fields: ["new"], after: item.canonical_draft });
     else {
       const fields = changedFields(old, item);
-      if (fields.length) changes.push({ externalId: item.external_id, title: item.title, fields, before: old.canonical_draft, after: item.canonical_draft });
+      if (fields.length) changes.push({ externalId: item.external_id, title: item.title, beforeTitle: old.title, afterTitle: item.title, fields, before: old.canonical_draft, after: item.canonical_draft });
     }
   }
   for (const item of previous.values()) {
-    if (!current.has(item.external_id)) changes.push({ externalId: item.external_id, title: item.title, fields: ["removed"], before: item.canonical_draft });
+    if (!current.has(item.external_id)) changes.push({ externalId: item.external_id, title: item.title, beforeTitle: item.title, fields: ["removed"], before: item.canonical_draft });
   }
   return changes;
 }
@@ -218,15 +220,15 @@ export function buildSourceDiffs(snapshots: SnapshotRow[], items: SourceItemRow[
     let unchanged = 0;
     for (const item of after.values()) {
       const old = before.get(item.external_id);
-      if (!old) added.push({ externalId: item.external_id, title: item.title, fields: ["new"], after: item.canonical_draft });
+      if (!old) added.push({ externalId: item.external_id, title: item.title, afterTitle: item.title, fields: ["new"], after: item.canonical_draft });
       else {
         const fields = changedFields(old, item);
-        if (fields.length) changed.push({ externalId: item.external_id, title: item.title, fields, before: old.canonical_draft, after: item.canonical_draft });
+        if (fields.length) changed.push({ externalId: item.external_id, title: item.title, beforeTitle: old.title, afterTitle: item.title, fields, before: old.canonical_draft, after: item.canonical_draft });
         else unchanged += 1;
       }
     }
     for (const item of before.values()) {
-      if (!after.has(item.external_id)) removed.push({ externalId: item.external_id, title: item.title, fields: ["removed"], before: item.canonical_draft });
+      if (!after.has(item.external_id)) removed.push({ externalId: item.external_id, title: item.title, beforeTitle: item.title, fields: ["removed"], before: item.canonical_draft });
     }
     return { sourceId, current, previous, added, removed, changed, unchanged };
   }).sort((a, b) => b.current.observed_at.localeCompare(a.current.observed_at));

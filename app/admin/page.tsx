@@ -4,7 +4,7 @@ import { DataMethodContent } from "@/components/data-method-content";
 import { AdminRationaleField } from "@/components/admin-rationale-field";
 import { sources } from "@/data/sources";
 import { activityReportReasonLabels } from "@/lib/activity-report-shared";
-import { loadAdminReviewData, type ActivityReportRow, type EvidenceIssue, type NeedsReviewProgram, type ProgramVersionRow, type SourceDiff, type SourceItemRow } from "@/lib/admin-review";
+import { loadAdminReviewData, type ActivityReportRow, type EvidenceIssue, type ItemChange, type NeedsReviewProgram, type ProgramVersionRow, type SourceDiff, type SourceItemRow } from "@/lib/admin-review";
 import { classifySourceItemAction, createNeedsReviewDraftAction, publishVersionAction, rejectVersionAction, resolveActivityReportAction, rollbackVersionAction } from "@/app/admin/actions";
 
 export const metadata = { title: "資料管理" };
@@ -22,10 +22,93 @@ function jsonPreview(value: Record<string, unknown> | undefined) {
   return text.length > 4_000 ? `${text.slice(0, 4_000)}\n… truncated` : text;
 }
 
-function changedValuePreview(value: Record<string, unknown> | undefined, fields: string[]) {
-  if (!value) return "—";
-  const keys = fields.filter((field) => field.startsWith("canonical_draft.")).map((field) => field.slice("canonical_draft.".length));
-  return jsonPreview(keys.length ? Object.fromEntries(keys.map((key) => [key, value[key]])) : value);
+const fieldLabels: Record<string, string> = {
+  title: "方案名稱",
+  bodyText: "方案說明",
+  summary: "摘要",
+  description: "方案說明",
+  eligibilityText: "申請資格",
+  benefitSummary: "補助內容",
+  applicationWindow: "申請期間",
+  documents: "申請文件",
+  methods: "申請方式",
+  contact: "聯絡資訊",
+  publishedAt: "公告日期",
+  updatedAt: "更新日期",
+  new: "新增項目",
+  removed: "移除項目",
+};
+
+function fieldKey(field: string) {
+  return field.startsWith("canonical_draft.") ? field.slice("canonical_draft.".length) : field;
+}
+
+function fieldLabel(field: string) {
+  const key = fieldKey(field);
+  return fieldLabels[key] ?? key.replace(/([a-z0-9])([A-Z])/g, "$1 $2");
+}
+
+function displayValue(value: unknown) {
+  if (value == null) return "未提供";
+  if (typeof value === "string") return value.trim() || "空白";
+  return JSON.stringify(value, null, 2);
+}
+
+function itemFieldValue(change: ItemChange, field: string, side: "before" | "after") {
+  if (field === "title") return side === "before" ? change.beforeTitle : change.afterTitle;
+  if (field === "new" || field === "removed") return side === "before" ? change.before : change.after;
+  return (side === "before" ? change.before : change.after)?.[fieldKey(field)];
+}
+
+function focusedDifference(beforeValue: unknown, afterValue: unknown) {
+  const before = displayValue(beforeValue);
+  const after = displayValue(afterValue);
+  let prefixLength = 0;
+  while (prefixLength < before.length && prefixLength < after.length && before[prefixLength] === after[prefixLength]) prefixLength += 1;
+  let suffixLength = 0;
+  while (
+    suffixLength < before.length - prefixLength
+    && suffixLength < after.length - prefixLength
+    && before[before.length - 1 - suffixLength] === after[after.length - 1 - suffixLength]
+  ) suffixLength += 1;
+  const prefix = before.slice(Math.max(0, prefixLength - 120), prefixLength);
+  const suffix = suffixLength ? before.slice(before.length - suffixLength, before.length - suffixLength + 120) : "";
+  return {
+    prefix: `${prefixLength > 120 ? "…" : ""}${prefix}`,
+    beforeChanged: before.slice(prefixLength, suffixLength ? before.length - suffixLength : undefined) || "∅",
+    afterChanged: after.slice(prefixLength, suffixLength ? after.length - suffixLength : undefined) || "∅",
+    suffix: `${suffix}${suffixLength > 120 ? "…" : ""}`,
+  };
+}
+
+function ItemChangeSummary({ change, technical = false }: { change: ItemChange; technical?: boolean }) {
+  const kind = change.fields.includes("new") ? "added" : change.fields.includes("removed") ? "removed" : "changed";
+  const kindLabel = kind === "added" ? "新增" : kind === "removed" ? "移除" : "修改";
+  const heading = <span className="change-item-heading">
+    <span className={`change-kind change-${kind}`}>{kindLabel}</span>
+    <strong>{change.title}</strong>
+    <small>{change.fields.length} 個欄位</small>
+  </span>;
+  const body = <>
+    <div className="change-fields">
+      {change.fields.map((field) => {
+        const beforeValue = itemFieldValue(change, field, "before");
+        const afterValue = itemFieldValue(change, field, "after");
+        const difference = focusedDifference(beforeValue, afterValue);
+        return <section className="change-field" key={field}>
+          <div className="change-field-name"><strong>{fieldLabel(field)}</strong><code>{field}</code></div>
+          <div className="change-value-grid">
+            <div className="change-before"><span>修改前</span><p>{difference.prefix}<del>{difference.beforeChanged}</del>{difference.suffix}</p></div>
+            <div className="change-after"><span>修改後</span><p>{difference.prefix}<ins>{difference.afterChanged}</ins>{difference.suffix}</p></div>
+          </div>
+        </section>;
+      })}
+    </div>
+    <details className="raw-change-data"><summary>查看完整 Raw data</summary><div>{change.before ? <section><strong>Before</strong><pre>{jsonPreview(change.before)}</pre></section> : null}{change.after ? <section><strong>After</strong><pre>{jsonPreview(change.after)}</pre></section> : null}</div></details>
+  </>;
+  return technical
+    ? <details className="change-item technical-change-item"><summary>{heading}</summary>{body}</details>
+    : <article className="change-item"><header>{heading}</header>{body}</article>;
 }
 
 function EvidenceSourceComparison({ issue }: { issue: EvidenceIssue }) {
@@ -33,13 +116,8 @@ function EvidenceSourceComparison({ issue }: { issue: EvidenceIssue }) {
     return <div className="evidence-no-text-diff"><strong>沒有可顯示的文字對比</strong><span>Source hash 已變更，但 Adapter 沒有產生可比較的欄位；請開啟上方官方頁人工核對。</span></div>;
   }
   return <div className="evidence-source-changes">
-    {issue.sourceChanges.map((change) => <section key={`${change.externalId}-${change.fields.join("-")}`}>
-      <header><strong>{change.title}</strong><code>{change.fields.join(" · ")}</code></header>
-      <div className="evidence-compare-grid">
-        <div><span>舊 Source 擷取</span><pre>{changedValuePreview(change.before, change.fields)}</pre></div>
-        <div><span>新 Source 擷取</span><pre>{changedValuePreview(change.after, change.fields)}</pre></div>
-      </div>
-    </section>)}
+    <div className="change-summary"><strong>偵測到 {issue.sourceChanges.reduce((count, change) => count + change.fields.length, 0)} 個使用者可見欄位變更</strong><span>只列出真正不同的內容；紅色為舊值，綠色為新值。</span></div>
+    {issue.sourceChanges.map((change) => <ItemChangeSummary key={`${change.externalId}-${change.fields.join("-")}`} change={change} />)}
   </div>;
 }
 
@@ -127,9 +205,10 @@ function SourceDiffDetails({ diff }: { diff: SourceDiff }) {
   const source = sourceById.get(diff.sourceId);
   const changes = [...diff.added, ...diff.changed, ...diff.removed];
   return <details className="diff-card">
-    <summary><span><strong>{source?.name ?? diff.sourceId}</strong><small>{dateTime(diff.current.observed_at)} · {diff.current.content_hash?.slice(0, 12)}</small></span><span className={changes.length ? "diff-count changed" : "diff-count"}>{diff.previous ? `${changes.length} changes` : "baseline"}</span></summary>
+    <summary><span><strong>{source?.name ?? diff.sourceId}</strong><small>{dateTime(diff.current.observed_at)} · {diff.current.content_hash?.slice(0, 12)}</small></span><span className={changes.length ? "diff-count changed" : "diff-count"}>{diff.previous ? `${changes.length} 筆異動` : "baseline"}</span></summary>
     <div className="diff-meta"><code>current {diff.current.id}</code>{diff.previous ? <code>previous {diff.previous.id}</code> : <span>尚無前一版 Snapshot</span>}<span>{diff.unchanged} unchanged items</span></div>
-    {changes.map((change) => <details className="item-diff" key={`${change.externalId}-${change.fields.join("-")}`}><summary><span>{change.title}</span><code>{change.fields.join(", ")}</code></summary><div>{change.before ? <section><strong>Before</strong><pre>{jsonPreview(change.before)}</pre></section> : null}{change.after ? <section><strong>After</strong><pre>{jsonPreview(change.after)}</pre></section> : null}</div></details>)}
+    {changes.length ? <div className="diff-breakdown"><span className="change-added">新增 {diff.added.length}</span><span className="change-changed">修改 {diff.changed.length}</span><span className="change-removed">移除 {diff.removed.length}</span></div> : <div className="diff-all-clear">沒有使用者可見文字變更</div>}
+    {changes.map((change) => <ItemChangeSummary technical key={`${change.externalId}-${change.fields.join("-")}`} change={change} />)}
   </details>;
 }
 
