@@ -165,13 +165,19 @@ export function todayInTaiwan(now = new Date()): string {
 export function matchProgram(program: Program, facts: ProfileFacts, asOf = todayInTaiwan()): ProgramMatch {
   const emptyEvaluation: RuleEvaluation = { truth: "unknown", reasons: [] };
   if (program.coverage === "needs_review") return { program, status: "needs_review", evaluation: emptyEvaluation };
-  if (program.coverage !== "matchable" || !program.rule) {
-    return { program, status: program.coverage === "archived" ? "closed" : "descriptive", evaluation: emptyEvaluation };
-  }
+  if (program.coverage === "archived") return { program, status: "closed", evaluation: emptyEvaluation };
 
   const window = program.applicationWindow;
-  if ((window?.open && asOf < window.open) || (window?.close && asOf > window.close)) {
+  const hasDatedApplicationWindow = Boolean(window?.open || window?.close);
+  const outsideApplicationWindow = (window?.open && asOf < window.open) || (window?.close && asOf > window.close);
+  const outsideEffectivePeriod = (program.effectiveFrom && asOf < program.effectiveFrom)
+    || (program.effectiveTo && asOf > program.effectiveTo);
+  if ((hasDatedApplicationWindow && outsideApplicationWindow)
+    || (!hasDatedApplicationWindow && outsideEffectivePeriod)) {
     return { program, status: "closed", evaluation: emptyEvaluation };
+  }
+  if (program.coverage !== "matchable" || !program.rule) {
+    return { program, status: "descriptive", evaluation: emptyEvaluation };
   }
 
   const evaluation = evaluateRule(program.rule, facts, asOf);

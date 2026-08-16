@@ -12,7 +12,7 @@ import { buildTainanPassthroughPrograms } from "../data/tainan-programs";
 import { mapWithConcurrency } from "../lib/concurrency";
 import type { AtomicRule, RuleNode } from "../lib/domain";
 import { parseFinderSession } from "../lib/finder-session";
-import { appliesToApplicant, appliesToRegion, getProgramApplicantTypes, getProgramAvailability, paginatePrograms, PROGRAMS_PER_PAGE, sortProgramsForCatalog } from "../lib/program-filters";
+import { appliesToApplicant, appliesToRegion, filterProgramsForProfileRegion, getProgramApplicantTypes, getProgramAvailability, paginatePrograms, PROGRAMS_PER_PAGE, sortProgramsForCatalog } from "../lib/program-filters";
 import { isSourceDue, shouldPersistSourceItems } from "../lib/ingestion";
 
 function atomicRules(rule: RuleNode): AtomicRule[] {
@@ -146,15 +146,25 @@ test("臺南 structured API 原文自動建立 descriptive Programs", () => {
 });
 
 test("100% Matchable atomic rules 有 Field-level evidence", () => {
-  const facts = new Set(factDefinitions.map((definition) => definition.key));
+  const facts = new Map(factDefinitions.map((definition) => [definition.key, definition]));
   for (const program of programs.filter((item) => item.coverage === "matchable")) {
     assert.ok(program.rule, program.title);
+    for (const requestedFact of program.requestedFacts) {
+      assert.ok(facts.has(requestedFact), `${program.title}: unknown requestedFact ${requestedFact}`);
+    }
     for (const rule of atomicRules(program.rule)) {
       assert.ok(rule.evidence.sourceId, `${program.title}: sourceId`);
       assert.ok(rule.evidence.snapshotId, `${program.title}: snapshotId`);
       assert.ok(rule.evidence.locator, `${program.title}: locator`);
       assert.ok(rule.evidence.reviewedAt, `${program.title}: reviewedAt`);
       assert.ok(rule.field === "age" || facts.has(rule.field), `${program.title}: missing FactDefinition ${rule.field}`);
+      assert.ok(program.requestedFacts.includes(rule.field === "age" ? "birth_date" : rule.field), `${program.title}: Rule field not requested ${rule.field}`);
+      const definition = facts.get(rule.field);
+      if (definition?.type === "enum" && ["eq", "neq", "in"].includes(rule.operator)) {
+        const allowed = new Set(definition.options?.map((option) => option.value));
+        const expected = Array.isArray(rule.value) ? rule.value : [rule.value];
+        for (const value of expected) assert.ok(typeof value === "string" && allowed.has(value), `${program.title}: invalid ${rule.field} value ${value}`);
+      }
     }
   }
 });
@@ -254,6 +264,30 @@ test("地區篩選保留中央方案並排除其他地方方案", () => {
   assert.equal(appliesToRegion(central, "桃園市"), true);
   assert.equal(appliesToRegion(taoyuan, "桃園市"), true);
   assert.equal(appliesToRegion(newTaipei, "桃園市"), false);
+});
+
+test("資格初篩依戶籍與居住地保留中央及相關地方方案", () => {
+  const scoped = filterProgramsForProfileRegion(programs, {
+    household_city: "taoyuan",
+    residence_city: "taoyuan",
+  });
+  assert.ok(scoped.some((program) => program.jurisdiction === "中央"));
+  assert.ok(scoped.some((program) => program.jurisdiction === "桃園市"));
+  assert.equal(scoped.some((program) => program.jurisdiction === "新北市"), false);
+  assert.equal(scoped.some((program) => program.jurisdiction === "臺中市"), false);
+  assert.equal(scoped.some((program) => program.slug === "new-taipei-youth-rent-115"), false);
+  assert.equal(scoped.some((program) => program.slug === "taichung-disaster-relocation-assistance"), false);
+});
+
+test("戶籍與居住地不同時保留兩地方案", () => {
+  const scoped = filterProgramsForProfileRegion(programs, {
+    household_city: "taoyuan",
+    residence_city: "new_taipei",
+  });
+  assert.ok(scoped.some((program) => program.jurisdiction === "中央"));
+  assert.ok(scoped.some((program) => program.jurisdiction === "桃園市"));
+  assert.ok(scoped.some((program) => program.jurisdiction === "新北市"));
+  assert.equal(scoped.some((program) => program.jurisdiction === "臺中市"), false);
 });
 
 test("方案分頁限制每頁筆數並修正超出範圍的頁碼", () => {

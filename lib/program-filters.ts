@@ -1,4 +1,5 @@
-import { CATEGORY_KEYS, type ApplicantType, type Program } from "@/lib/domain";
+import { taiwanCityOptions } from "@/data/facts";
+import { CATEGORY_KEYS, type ApplicantType, type ProfileFacts, type Program } from "@/lib/domain";
 
 export const PROGRAMS_PER_PAGE = 12;
 
@@ -8,8 +9,24 @@ export type ProgramAvailability = (typeof PROGRAM_AVAILABILITY_KEYS)[number];
 export const PROGRAM_SORT_KEYS = ["category", "title", "verified_desc", "deadline"] as const;
 export type ProgramSort = (typeof PROGRAM_SORT_KEYS)[number];
 
+const nationwideJurisdictions = new Set(["中央", "全臺", "中央及地方"]);
+const regionLabelByValue = new Map(taiwanCityOptions.map((region) => [region.value, region.label]));
+
 export function appliesToRegion(program: Program, regionLabel?: string) {
-  return !regionLabel || program.jurisdiction === "中央" || program.jurisdiction === regionLabel;
+  return !regionLabel || nationwideJurisdictions.has(program.jurisdiction) || program.jurisdiction === regionLabel;
+}
+
+export function getProfileRegionLabels(facts: ProfileFacts) {
+  return [...new Set([facts.household_city, facts.residence_city]
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => regionLabelByValue.get(value))
+    .filter((label): label is string => Boolean(label)))];
+}
+
+export function filterProgramsForProfileRegion(items: Program[], facts: ProfileFacts) {
+  const regionLabels = getProfileRegionLabels(facts);
+  if (regionLabels.length === 0) return items;
+  return items.filter((program) => regionLabels.some((regionLabel) => appliesToRegion(program, regionLabel)));
 }
 
 export function getProgramApplicantTypes(program: Program): ApplicantType[] {

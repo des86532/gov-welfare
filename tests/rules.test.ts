@@ -59,6 +59,20 @@ test("Annual application window 截止後為 closed", () => {
   assert.equal(matchProgram(program, { is_renting: true, owns_home: false, household_income_eligible: true }, "2027-01-01").status, "closed");
 });
 
+test("Program effective period 前後都不得顯示可能符合", () => {
+  const program = programs.find((item) => item.slug === "weak-living-supplement-115-116");
+  assert.ok(program);
+  assert.equal(matchProgram(program, { weak_living_supplement_status: "low_income" }, "2025-12-31").status, "closed");
+  assert.equal(matchProgram(program, { weak_living_supplement_status: "low_income" }, "2027-02-01").status, "closed");
+});
+
+test("Descriptive Program 截止後顯示 closed", () => {
+  const program = programs.find((item) => item.slug === "business-succession-ai-digital-transformation-115");
+  assert.ok(program);
+  assert.equal(program.coverage, "descriptive_only");
+  assert.equal(matchProgram(program, {}, "2026-08-16").status, "closed");
+});
+
 test("115年心理支持涵蓋15至45歲本國籍或持健保卡外籍人士", () => {
   const program = programs.find((item) => item.slug === "mental-health-support-115");
   assert.ok(program);

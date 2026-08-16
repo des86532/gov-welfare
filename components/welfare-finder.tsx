@@ -5,6 +5,7 @@ import Link from "next/link";
 import { factDefinitions, factDefinitionByKey } from "@/data/facts";
 import type { FactDefinition, FactValue, ProfileFacts, Program } from "@/lib/domain";
 import { parseFinderSession } from "@/lib/finder-session";
+import { filterProgramsForProfileRegion, getProfileRegionLabels } from "@/lib/program-filters";
 import { MATCH_STATUS_LABELS, collectRuleFields, matchProgram, type MatchStatus } from "@/lib/rules";
 
 const coreDefinitions = factDefinitions.filter((definition) => definition.core);
@@ -115,7 +116,9 @@ export function WelfareFinder({ programs }: { programs: Program[] }) {
     if (sessionReady) sessionStorage.setItem(SESSION_KEY, JSON.stringify({ facts, showAllFollowups, step }));
   }, [facts, sessionReady, showAllFollowups, step]);
 
-  const coreCandidatePrograms = programs.filter((program) => {
+  const profileRegionLabels = getProfileRegionLabels(facts);
+  const regionScopedPrograms = filterProgramsForProfileRegion(programs, facts);
+  const coreCandidatePrograms = regionScopedPrograms.filter((program) => {
     const status = matchProgram(program, facts).status;
     return status !== "ineligible" && status !== "closed";
   });
@@ -130,7 +133,7 @@ export function WelfareFinder({ programs }: { programs: Program[] }) {
     .filter((definition): definition is FactDefinition => Boolean(definition));
   const visibleFollowups = showAllFollowups ? followupDefinitions : followupDefinitions.slice(0, INITIAL_FOLLOWUP_COUNT);
   const hiddenFollowupCount = followupDefinitions.length - visibleFollowups.length;
-  const matches = programs
+  const matches = regionScopedPrograms
     .map((program) => matchProgram(program, facts))
     .sort((a, b) => ranking[a.status] - ranking[b.status] || a.program.title.localeCompare(b.program.title, "zh-Hant"));
   const promising = matches.filter((match) => ["eligible", "review_required", "possible"].includes(match.status));
@@ -188,7 +191,7 @@ export function WelfareFinder({ programs }: { programs: Program[] }) {
           {hiddenFollowupCount > 0 ? <div className="followup-disclosure"><span>可以直接查看結果；未回答的條件會保留為 unknown。</span><button className="button button-small button-ghost" type="button" onClick={() => setShowAllFollowups(true)}>展開另外 {hiddenFollowupCount} 題</button></div> : null}
           <div className="panel-actions">
             <button className="text-button" type="button" onClick={() => setStep(1)}>← 回上一步</button>
-            <button className="button" type="button" onClick={() => setStep(3)}>查看 {programs.length} 個方案的結果 <span aria-hidden="true">→</span></button>
+            <button className="button" type="button" onClick={() => setStep(3)}>查看 {regionScopedPrograms.length} 個方案的結果 <span aria-hidden="true">→</span></button>
           </div>
         </div>
       ) : null}
@@ -196,7 +199,7 @@ export function WelfareFinder({ programs }: { programs: Program[] }) {
       {step === 3 ? (
         <div className="results-panel" aria-live="polite">
           <div className="results-summary">
-            <div><p className="eyebrow">你的初篩結果</p><h2>{promising.length} 個方案值得先看</h2><p>這是資格初篩，不是政府核定。每張卡片都能查看 Rule 與官方 Source。</p></div>
+            <div><p className="eyebrow">你的初篩結果</p><h2>{promising.length} 個方案值得先看</h2><p>{profileRegionLabels.length > 0 ? `已依 ${profileRegionLabels.join("、")} 保留中央及相關地方方案。` : "尚未選擇地區，因此目前保留所有縣市方案。"}這是資格初篩，不是政府核定。</p></div>
             <div className="score-stamp"><strong>{promising.length}</strong><span>優先查看</span></div>
           </div>
           <div className="result-list">
