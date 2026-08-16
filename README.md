@@ -83,7 +83,7 @@ Schedule 會依每個 Source 的 `checkEveryHours` 判斷是否到期；手動�
 
 `SUPABASE_SERVICE_ROLE_KEY` 只供 Server-side ingestion 與 Admin 使用，不得放進 Client component 或公開輸出。
 
-CLI 以 Service Role 寫入 immutable `source_snapshots` 與 `source_items`：Structured government API item 可由 `--publish-structured-passthrough` 自動發布 descriptive Programs；HTML／PDF 等 Authority Source 異動才建立人工 Review 工作。初始 reviewed Programs 可由 `npm run data:seed -- --apply --publish-initial` 匯入。公開網站優先讀取 Supabase Published versions，Database 無法使用時才回到 Repository 中的 reviewed Seed。
+CLI 以 Service Role 寫入 immutable `source_snapshots`；只有 Structured government API、已人工分類的地方 Dataset，或已被 Repository-reviewed Program 引用的 Source 才會另外寫入 `source_items`。未經 curation 的 HTML 僅保留 Snapshot 作技術監測，不建立 Classification 待辦，也不可能公開。Structured government API item 可由 `--publish-structured-passthrough` 自動發布 descriptive Programs；既有 Published Program 的 HTML／PDF Authority Source 發生實質文字異動時才建立人工 Review 工作。初始 reviewed Programs 可由 `npm run data:seed -- --apply --publish-initial` 匯入。公開網站優先讀取 Supabase Published versions，Database 無法使用時才回到 Repository 中的 reviewed Seed。
 
 ## 資料與安全邊界
 

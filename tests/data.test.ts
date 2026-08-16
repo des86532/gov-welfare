@@ -13,7 +13,7 @@ import { mapWithConcurrency } from "../lib/concurrency";
 import type { AtomicRule, RuleNode } from "../lib/domain";
 import { parseFinderSession } from "../lib/finder-session";
 import { appliesToApplicant, appliesToRegion, getProgramApplicantTypes, getProgramAvailability, paginatePrograms, PROGRAMS_PER_PAGE, sortProgramsForCatalog } from "../lib/program-filters";
-import { isSourceDue } from "../lib/ingestion";
+import { isSourceDue, shouldPersistSourceItems } from "../lib/ingestion";
 
 function atomicRules(rule: RuleNode): AtomicRule[] {
   if ("all" in rule) return rule.all.flatMap(atomicRules);
@@ -300,4 +300,14 @@ test("Scheduled Source checks 遵守各 Source 的檢查頻率", () => {
   assert.equal(isSourceDue(source, "2026-07-23T00:00:00Z", now), true);
   assert.equal(isSourceDue(source, "2026-07-30T00:00:00Z", now, true), true);
   assert.equal(isSourceDue({ ...source, checkEveryHours: null }, null, now), false);
+});
+
+test("未經 Repository curation 的 HTML 不寫入 source_items", () => {
+  const candidate = sources.find((source) => source.id === "moe-humanities-overseas-talent");
+  const reviewedDocument = sources.find((source) => source.id === "moe-scholarship-115-guide");
+  const structured = sources.find((source) => source.id === "tainan-social-welfare-open-data");
+  assert.ok(candidate && reviewedDocument && structured);
+  assert.equal(shouldPersistSourceItems(candidate), false);
+  assert.equal(shouldPersistSourceItems(reviewedDocument), true);
+  assert.equal(shouldPersistSourceItems(structured), true);
 });

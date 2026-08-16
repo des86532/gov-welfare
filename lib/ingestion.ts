@@ -1,5 +1,6 @@
-import type { DraftSourceItem, RawSnapshot, SourceConfig } from "@/lib/domain";
+import type { DraftSourceItem, RawSnapshot, RuleNode, SourceConfig } from "@/lib/domain";
 import { supabaseRest, type SupabaseConfig } from "@/lib/supabase-rest";
+import { programs } from "@/data/programs";
 import { newTaipeiSourceClassifications } from "@/data/new-taipei-source-items";
 import { taipeiSourceClassifications } from "@/data/taipei-source-items";
 import { taichungSourceClassifications } from "@/data/taichung-source-items";
@@ -11,6 +12,23 @@ const classificationsBySource = new Map([
   ["taipei-social-aid-open-data", new Map(taipeiSourceClassifications.map((item) => [item.title, item]))],
   ["taichung-social-aid-open-data", new Map(taichungSourceClassifications.map((item) => [item.title, item]))],
 ]);
+
+function ruleSourceIds(rule: RuleNode): string[] {
+  if ("all" in rule) return rule.all.flatMap(ruleSourceIds);
+  if ("any" in rule) return rule.any.flatMap(ruleSourceIds);
+  return [rule.evidence.sourceId];
+}
+
+const reviewedProgramSourceIds = new Set(programs.flatMap((program) => [
+  ...program.evidence.map((item) => item.sourceId),
+  ...(program.rule ? ruleSourceIds(program.rule) : []),
+]));
+
+export function shouldPersistSourceItems(source: SourceConfig): boolean {
+  return source.automation === "structured_extract"
+    || classificationsBySource.has(source.id)
+    || reviewedProgramSourceIds.has(source.id);
+}
 
 export type PersistResult = {
   changed: boolean;
@@ -99,10 +117,11 @@ export async function persistSuccessfulCheck(
     snapshotId = created?.id;
   }
   if (!snapshotId) throw new Error(`${source.id}: snapshot insert returned no row`);
-  if (items.length > 0) {
+  const itemsToPersist = shouldPersistSourceItems(source) ? items : [];
+  if (itemsToPersist.length > 0) {
     await supabaseRest(config, "source_items?on_conflict=snapshot_id,external_id", {
       method: "POST",
-      body: JSON.stringify(items.map((item) => persistedItem(source, snapshotId, item))),
+      body: JSON.stringify(itemsToPersist.map((item) => persistedItem(source, snapshotId, item))),
       headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
     });
   }
@@ -115,7 +134,7 @@ export async function persistSuccessfulCheck(
     }),
     headers: { Prefer: "return=minimal" },
   });
-  return { changed: !existing[0], snapshotId, persistedItems: existing[0] ? 0 : items.length };
+  return { changed: !existing[0], snapshotId, persistedItems: existing[0] ? 0 : itemsToPersist.length };
 }
 
 export async function persistFailedCheck(

@@ -126,7 +126,8 @@ test("MyEGov 解析 css-tr 服務欄位並跨申辦方式去重", () => {
 });
 
 test("Official page 只抽文字 Draft，不產生 Rule", () => {
-  const item = extractOfficialPage('<html><title>公告</title><main><p>年滿 20 歲</p></main></html>', "official")[0];
+  const item = extractOfficialPage('<html><title>真正的計畫名稱</title><body><h1>教育部全球資訊網</h1><main><p>年滿 20 歲</p></main></body></html>', "official")[0];
+  assert.equal(item.title, "真正的計畫名稱");
   assert.equal(item.canonicalDraft.bodyText, "年滿 20 歲");
   assert.equal("rule" in item.canonicalDraft, false);
   assert.ok(item.warnings.includes("no_automatic_rule_generation"));

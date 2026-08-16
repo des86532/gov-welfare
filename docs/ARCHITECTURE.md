@@ -117,7 +117,7 @@ Database **不是拿來保存使用者性別、年齡或 Questionnaire answers**
 | --- | --- |
 | `sources` | Source registry、主管機關、Jurisdiction、URL、Adapter、frequency、最後檢查與錯誤狀態。 |
 | `source_snapshots` | 每次成功或失敗的 fetch 紀錄、HTTP metadata、content hash 與 raw response。 |
-| `source_items` | 從一個 JSON row、HTML page 或 document 擷取出的 Draft、unknown fields、Classification 與 Review state。 |
+| `source_items` | 只保存 Structured government API、人工分類地方 Dataset，以及 Repository-reviewed Program 所需的 Evidence diff 項目；不保存任意新發現 HTML 的 Classification 待辦。 |
 | `programs` | Program 的 stable identity、slug、主管機關、Jurisdiction 與 Primary category。 |
 | `program_versions` | Versioned canonical content、Rule tree、Coverage、申請期間與 Publish state。 |
 | `field_evidence` | 每個重要欄位及 Atomic rule 對應的 Source、Snapshot、locator、extracted value 與 Review 時間。 |
@@ -137,12 +137,13 @@ flowchart TD
   F --> H["Normalize and content hash"]
   H --> E["Source-specific Adapter extract"]
   E --> SS["Immutable source_snapshot"]
-  SS --> KIND{"structured_extract?"}
-  KIND -->|"Yes"| PASS["descriptive passthrough + official link"]
-  KIND -->|"No"| SI["Draft source_items"]
-  SI --> RV["Admin Review"]
-  RV -->|"Reject / Exclude"| KEEP["Keep history only"]
-  RV -->|"Approve"| PV["Published program_version or activity Classification"]
+  SS --> KIND{"structured or Repository-curated?"}
+  KIND -->|"Structured"| PASS["descriptive passthrough + official link"]
+  KIND -->|"Curated"| SI["Versioned source_items for Evidence diff"]
+  KIND -->|"Unconfirmed HTML"| KEEP["Snapshot monitor only"]
+  SI --> RV{"Published Program text changed?"}
+  RV -->|"No"| KEEP
+  RV -->|"Yes"| PV["Admin Review + reviewed program_version"]
   PASS --> PUB["Public website"]
   PV --> PUB
 ```
@@ -151,7 +152,7 @@ flowchart TD
 
 - Structured adapters：桃園／臺中 JSON、新北／臺北 CSV、臺南 envelope JSON、ODS。
 - MyEGov HTML adapter：解析 service sections 並去除申辦方式的重複內容。
-- Official page adapter：只擷取標題、日期、正文與 links，不自動建立正式 Rules。
+- Official page adapter：只擷取標題、日期、正文與 links，不自動建立正式 Rules；未被 Repository-reviewed Program 引用的 HTML 不寫入 `source_items`，也不產生 Admin 待辦。
 - Document monitor：PDF／document 只做 format check、download 與 content hash；異動後進 Review。
 - Unknown fields 會保留在 `unknown_fields`，不會因 canonical schema 不認得就丟失。
 - 每個 fetch 最多嘗試 3 次，單次預設 timeout 20 秒。

@@ -4,8 +4,8 @@ import { DataMethodContent } from "@/components/data-method-content";
 import { AdminRationaleField } from "@/components/admin-rationale-field";
 import { sources } from "@/data/sources";
 import { activityReportReasonLabels } from "@/lib/activity-report-shared";
-import { loadAdminReviewData, type ActivityReportRow, type EvidenceIssue, type ItemChange, type NeedsReviewProgram, type ProgramVersionRow, type SourceDiff, type SourceItemRow } from "@/lib/admin-review";
-import { classifySourceItemAction, createNeedsReviewDraftAction, publishVersionAction, rejectVersionAction, resolveActivityReportAction, rollbackVersionAction } from "@/app/admin/actions";
+import { loadAdminReviewData, type ActivityReportRow, type EvidenceIssue, type ItemChange, type NeedsReviewProgram, type ProgramVersionRow, type SourceDiff } from "@/lib/admin-review";
+import { createNeedsReviewDraftAction, publishVersionAction, rejectVersionAction, resolveActivityReportAction, rollbackVersionAction } from "@/app/admin/actions";
 
 export const metadata = { title: "資料管理" };
 export const dynamic = "force-dynamic";
@@ -119,26 +119,6 @@ function EvidenceSourceComparison({ issue }: { issue: EvidenceIssue }) {
     <div className="change-summary"><strong>偵測到 {issue.sourceChanges.reduce((count, change) => count + change.fields.length, 0)} 個使用者可見欄位變更</strong><span>只列出真正不同的內容；紅色為舊值，綠色為新值。</span></div>
     {issue.sourceChanges.map((change) => <ItemChangeSummary key={`${change.externalId}-${change.fields.join("-")}`} change={change} />)}
   </div>;
-}
-
-function officialItemUrl(item: SourceItemRow) {
-  const values = ["detailUrl", "applicationUrl", "officialUrl", "url"]
-    .map((key) => item.canonical_draft[key])
-    .filter((value): value is string => typeof value === "string" && /^https?:\/\//.test(value));
-  const source = sourceById.get(item.source_id);
-  return values[0] ?? source?.publicUrl ?? source?.url;
-}
-
-function SourceItemReviewForm({ item }: { item: SourceItemRow }) {
-  return (
-    <form className="review-form" action={classifySourceItemAction}>
-      <input type="hidden" name="sourceItemId" value={item.id} />
-      <label>處理方式<select name="classification" defaultValue={item.classification ?? "descriptive_only"}><option value="matchable">資格可做自動初篩</option><option value="descriptive_only">確認後公開官方說明</option><option value="excluded">不公開（無效／重複／過期）</option></select></label>
-      <label>Reviewer<input name="reviewer" required minLength={2} maxLength={80} defaultValue="Admin reviewer" /></label>
-      <label>Rationale<textarea name="rationale" required minLength={10} maxLength={1_000} defaultValue={item.classification_rationale ?? ""} placeholder="說明這筆資料應如何進入福利 Catalog。" /></label>
-      <button className="button button-small">儲存處理方式</button>
-    </form>
-  );
 }
 
 function ActivityReportCard({ report }: { report: ActivityReportRow }) {
@@ -261,11 +241,10 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   } catch (error) {
     console.error("Admin Supabase review data failed", error);
   }
-  const pendingProgramItems = database?.pendingItems ?? [];
   const activityReports = database?.activityReports ?? [];
   const pendingVersionCount = database?.pendingVersions.length ?? 0;
   const needsReviewCount = database?.needsReviewPrograms.filter((item) => !item.existingDraft).length ?? 0;
-  const pendingCount = activityReports.length + pendingProgramItems.length + pendingVersionCount + needsReviewCount;
+  const pendingCount = activityReports.length + pendingVersionCount + needsReviewCount;
   const blockedSourceCount = sources.filter((source) => database?.sources.get(source.id)?.last_check_error || source.status === "blocked").length;
   return (
     <div className="page-shell admin-page">
@@ -283,7 +262,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
       <section className="admin-section" id="review">
         <div className="admin-section-title"><div><p className="eyebrow">Today</p><h2>待處理工作</h2></div><span>只列出會影響使用者資料正確性的項目</span></div>
-        {pendingCount === 0 ? <div className="empty-review admin-all-clear"><strong>目前沒有待處理資料</strong><p>新的 Source 內容進來後，會依類型出現在這裡。</p></div> : null}
+        {pendingCount === 0 ? <div className="empty-review admin-all-clear"><strong>目前沒有待處理資料</strong><p>只有既有 Published Program 的實質內容異動，或使用者主動回報，才會出現在這裡。</p></div> : null}
 
         {database?.needsReviewPrograms.length ? <div className="admin-task-block"><div className="admin-task-heading"><h3>資格來源待複核</h3><p>只有 Authority page／PDF 的變更會列在這裡；請開官方頁核對資格、金額與期限，再建立 Draft。</p></div><div className="decision-stack">{database.needsReviewPrograms.map((review) => <NeedsReviewCard key={review.version.id} review={review} />)}</div></div> : null}
 
@@ -299,15 +278,6 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
         {activityReports.length ? <div className="admin-task-block"><div className="admin-task-heading"><h3>活動資料回報</h3><p>使用者指出公開活動可能有誤；請依活動 Detail 內的官方連結確認後，修正平台資料或標記資料無誤。</p></div><div className="decision-stack">{activityReports.map((report) => <ActivityReportCard key={report.id} report={report} />)}</div></div> : null}
 
-        {pendingProgramItems.length ? <div className="admin-task-block"><div className="admin-task-heading"><h3>未辨識的網頁資料</h3><p>Structured government API 不需要在這裡分類。此區只處理 HTML／人工 Source：可自動初篩、只公開官方說明，或因無效、重複、過期而不公開。</p></div><div className="source-review-grid">{pendingProgramItems.map((item) => (
-          <article className="source-review-card" key={item.id}>
-            <header><code>{item.source_id}</code><span>{item.external_id}</span></header>
-            <h3>{item.title}</h3>
-            <a className="official-review-link" href={officialItemUrl(item)} target="_blank" rel="noreferrer">開啟官方頁核對 ↗</a>
-            <details><summary>查看 Canonical draft</summary><pre>{jsonPreview(item.canonical_draft)}</pre></details>
-            <SourceItemReviewForm item={item} />
-          </article>
-        ))}</div></div> : null}
       </section>
 
       <section className="admin-section admin-advanced">

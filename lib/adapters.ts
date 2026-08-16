@@ -361,7 +361,10 @@ export function extractMyEGovHtml(body: string, sourceId: string): DraftSourceIt
 export function extractOfficialPage(body: string, sourceId: string): DraftSourceItem[] {
   const $ = cheerio.load(body);
   $("script, style, nav, footer, header, noscript").remove();
-  const title = cleanText($("h1").first().text()) || cleanText($("title").text()) || sourceId;
+  const title = cleanText($("main h1, article h1, #content h1, .content h1").first().text())
+    || cleanText($("title").first().text())
+    || cleanText($("h1").first().text())
+    || sourceId;
   const publishedText = cleanText($("time, .date, .publish-date, [class*='date']").first().text());
   const mainText = cleanText($("main, article, #content, .content").first().text() || $("body").text());
   const warnings = ["no_automatic_rule_generation", "draft_never_auto_publish"];

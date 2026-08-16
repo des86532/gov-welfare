@@ -412,15 +412,8 @@ export async function loadAdminReviewData() {
     ? await supabaseRest<SourceItemRow[]>(config, `source_items?select=id,source_id,snapshot_id,external_id,title,canonical_draft,unknown_fields,classification,classification_rationale,review_status&snapshot_id=in.(${comparisonSnapshotIds.map(encodeURIComponent).join(",")})`)
     : [];
   const items = [...new Map([...recentItems, ...comparisonItems].map((item) => [item.id, item])).values()];
-  const latestSnapshotIds = new Set([...latestSnapshots.values()].map((snapshot) => snapshot.id));
   const databaseSourceById = new Map(databaseSources.map((source) => [source.id, source]));
   const publishedPrograms = new Set(versions.filter((version) => version.status === "published").map((version) => version.program_id));
-  const publishedProgramSourceIds = new Set(versions
-    .filter((version) => version.status === "published")
-    .flatMap((version) => version.field_evidence.map((evidence) => evidence.source_id)));
-  const reviewableSources = new Set(databaseSources
-    .filter((source) => source.status === "active" && source.last_check_error == null)
-    .map((source) => source.id));
   const rollbackByProgram = new Map<string, ProgramVersionRow>();
   for (const version of versions) {
     if (version.status === "superseded" && publishedPrograms.has(version.program_id) && !rollbackByProgram.has(version.program_id)) {
@@ -435,15 +428,6 @@ export async function loadAdminReviewData() {
     items,
     sourceDiffs,
     needsReviewPrograms,
-    pendingItems: items.filter((item) => {
-      const source = databaseSourceById.get(item.source_id);
-      return source?.automation_level !== "structured_extract"
-        && reviewableSources.has(item.source_id)
-        && latestSnapshotIds.has(item.snapshot_id)
-        && item.review_status === "draft"
-        && item.canonical_draft.entityType !== "opportunity"
-        && !publishedProgramSourceIds.has(item.source_id);
-    }),
     pendingVersions: pendingVersionsForReview(versions, needsReviewPrograms),
     rollbackCandidates: [...rollbackByProgram.values()],
     reviews,
