@@ -343,6 +343,13 @@ test("Source 抓取失敗時禁止把既有項目判定為移除", () => {
   assert.equal(canReconcileSourceRemovals("taoyuan-welfare-open-data", failed), true);
 });
 
+test("臺南 Source 使用較穩定的官方 CSV download endpoint", () => {
+  const source = sources.find((item) => item.id === "tainan-social-welfare-open-data");
+  assert.ok(source);
+  assert.equal(source.format, "csv");
+  assert.match(source.url, /^https:\/\/data\.tainan\.gov\.tw\/File\/ResourceCsvDownload\//);
+});
+
 test("所有可自動擷取的官方 Source 都寫入 source_items", () => {
   const candidate = sources.find((source) => source.id === "moe-humanities-overseas-talent");
   const document = sources.find((source) => source.id === "moe-scholarship-115-guide");

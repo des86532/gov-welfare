@@ -279,10 +279,17 @@ const tainanFields = new Set([
 ]);
 
 export function extractTainanRows(body: string): DraftSourceItem[] {
-  const parsed: unknown = JSON.parse(body.replace(/^\uFEFF/, ""));
-  const envelope = objectRecord(parsed);
-  if (!envelope || !Array.isArray(envelope.data)) throw new Error("臺南 Source format changed: expected an object with data array");
-  return envelope.data.map((value, index) => {
+  const normalized = body.replace(/^\uFEFF+/, "");
+  let values: unknown[];
+  if (normalized.trimStart().startsWith("{")) {
+    const envelope = objectRecord(JSON.parse(normalized));
+    if (!envelope || !Array.isArray(envelope.data)) throw new Error("臺南 Source format changed: expected an object with data array");
+    values = envelope.data;
+  } else {
+    values = parseCsvRecords(normalized);
+  }
+  if (values.length === 0) throw new Error("臺南 Source format changed: no welfare rows");
+  return values.map((value, index) => {
     const row = objectRecord(value);
     if (!row || typeof row["補助名稱"] !== "string" || typeof row["補助流水號"] !== "string") {
       throw new Error(`臺南 row ${index} 缺少補助流水號或補助名稱`);

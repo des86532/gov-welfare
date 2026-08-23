@@ -86,7 +86,7 @@ test("臺中 JSON 保留未知欄位且長文字不自動產生 Rules", () => {
   assert.ok(item.warnings.includes("long_text_eligibility_requires_review"));
 });
 
-test("臺南 JSON envelope 轉成 descriptive passthrough 且不採用舊 Detail URL", () => {
+test("臺南 structured Source 轉成 descriptive passthrough 且不採用舊 Detail URL", () => {
   const item = extractTainanRows(JSON.stringify({ success: true, data: [{
     補助流水號: "39",
     補助名稱: "中低收入老人生活津貼",
@@ -108,6 +108,14 @@ test("臺南 JSON envelope 轉成 descriptive passthrough 且不採用舊 Detail
   assert.equal(item.unknownFields.futureField, "保留我");
   assert.ok(item.warnings.includes("government_api_passthrough"));
   assert.throws(() => extractTainanRows("[]"), /format changed/);
+});
+
+test("臺南官方 CSV 可沿用相同 descriptive passthrough mapping", () => {
+  const [item] = extractTainanRows("\uFEFF補助流水號,補助名稱,設籍條件,身份1,其他條件\n39,中低收入老人生活津貼,臺南市,中低收入戶,符合財稅標準\n");
+  assert.equal(item.externalId, "39");
+  assert.equal(item.title, "中低收入老人生活津貼");
+  assert.equal(item.canonicalDraft.householdCondition, "臺南市");
+  assert.equal(item.canonicalDraft.identityText, "中低收入戶");
 });
 
 test("MyEGov 重複申辦段落去重", () => {
