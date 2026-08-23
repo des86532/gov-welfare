@@ -149,6 +149,8 @@ export type Program = {
   documents: string[];
   methods: string[];
   evidence: Evidence[];
+  sourceExcerpt?: string;
+  sourceSyncedAt?: string;
   sourceMode?: "reviewed" | "government_api_passthrough";
 };
 

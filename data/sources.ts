@@ -85,7 +85,7 @@ export const sources: SourceConfig[] = [
     crawlerRequired: false,
     status: "active",
     lastVerifiedAt: "2026-07-27",
-    note: "2026-08-31 起擴大至國中生；與 Open Data 現行 2–12 歲文字並列 Review。",
+    note: "2026-08-31 起擴大至國中生；Open Data 現行 2–12 歲文字保留為 Source 原文。",
   },
   {
     id: "new-taipei-enterovirus-vaccine",
@@ -194,7 +194,7 @@ export const sources: SourceConfig[] = [
     crawlerRequired: false,
     status: "active",
     lastVerifiedAt: "2026-07-27",
-    note: "PDF 只監測 hash；Rules 依第 1–3 頁人工 Review。",
+    note: "PDF 只監測 hash；既有 Rules 不由 Crawler 改寫。",
   },
   {
     id: "taipei-social-aid-open-data",
@@ -227,7 +227,7 @@ export const sources: SourceConfig[] = [
     crawlerRequired: false,
     status: "active",
     lastVerifiedAt: "2026-07-27",
-    note: "PDF 只監測 hash；115 年所得、財產與扶助金額依頁面人工 Review。",
+    note: "PDF 只監測 hash；所得、財產與扶助金額以官方頁即時內容為準。",
   },
   {
     id: "taipei-low-income-support",
@@ -787,7 +787,7 @@ export const sources: SourceConfig[] = [
     crawlerRequired: false,
     status: "blocked",
     lastVerifiedAt: "2026-07-26",
-    note: "Node TLS chain 驗證失敗；保留人工驗證 Seed，不以關閉 TLS 驗證方式繞過。",
+    note: "Node TLS chain 驗證失敗；保留上一個可用 Seed，不以關閉 TLS 驗證方式繞過。",
   },
   {
     id: "mohw-screening-2025",
@@ -835,7 +835,7 @@ export const sources: SourceConfig[] = [
     crawlerRequired: false,
     status: "active",
     lastVerifiedAt: "2026-08-13",
-    note: "運動部公告頁由前端動態載入，Fetch 內容為空；改監測官方運動幣專區的抽籤與抵用狀態，資格與額度仍以 publicUrl 的運動部公告人工驗證。",
+    note: "運動部公告頁由前端動態載入，Fetch 內容為空；改監測官方運動幣專區，資格與額度以 publicUrl 即時公告為準。",
   },
   {
     id: "mohw-oral-screening",
@@ -851,7 +851,7 @@ export const sources: SourceConfig[] = [
     crawlerRequired: false,
     status: "active",
     lastVerifiedAt: "2026-07-27",
-    note: "國健署主站在 Node runner 有 TLS chain 問題；以衛福部正式頁監測既有篩檢資格，並保留人工 Review。",
+    note: "國健署主站在 Node runner 有 TLS chain 問題；以衛福部正式頁監測，失敗時保留上一版。",
   },
   {
     id: "nhi-vulnerable-premium",
@@ -884,7 +884,7 @@ export const sources: SourceConfig[] = [
     crawlerRequired: true,
     status: "blocked",
     lastVerifiedAt: "2026-07-27",
-    note: "同一表格混合中央與地方補助，逐項 Review 前不得直接產生 Rules；Node runner 目前收到 HTTP 403，保留既有 ODS Source 作變更監測。",
+    note: "同一表格混合中央與地方補助，不得由 Crawler 直接產生 Rules；Node runner 目前收到 HTTP 403，保留既有 ODS Source 作變更監測。",
   },
   {
     id: "wda-industrial-talent",
@@ -931,7 +931,7 @@ export const sources: SourceConfig[] = [
     crawlerRequired: false,
     status: "active",
     lastVerifiedAt: "2026-07-26",
-    note: "年度簡章與 PDF 需人工 Review。",
+    note: "年度簡章與 PDF 只做檔案監測，申請前請查看官方文件。",
   },
   {
     id: "moe-scholarship-115-guide",
@@ -1042,7 +1042,7 @@ export const sources: SourceConfig[] = [
     crawlerRequired: false,
     status: "active",
     lastVerifiedAt: "2026-07-27",
-    note: "年度 PDF 只做 hash；Rules 依第 1 頁人工 Review。",
+    note: "年度 PDF 只做 hash；既有 Rules 不由 Crawler 改寫。",
   },
   {
     id: "taiwanjobs-youth-employment",
@@ -1168,7 +1168,7 @@ export const sources: SourceConfig[] = [
     crawlerRequired: false,
     status: "active",
     lastVerifiedAt: "2026-07-30",
-    note: "擷取活動名稱、日期、狀態、類別與 Detail URL 為 Opportunity Draft；資格與費用仍需 Review。",
+    note: "擷取活動名稱、日期、狀態、類別與 Detail URL；資格與費用以官方 Detail page 為準。",
   },
   {
     id: "tmitrail-work-holiday-listing",
@@ -1216,7 +1216,7 @@ export const sources: SourceConfig[] = [
     crawlerRequired: false,
     status: "active",
     lastVerifiedAt: "2026-07-30",
-    note: "官方名稱為南沙研習營；屬年度甄選活動，資格與梯次需 Review，不是固定福利或保證錄取。",
+    note: "官方名稱為南沙研習營；屬年度甄選活動，不是固定福利或保證錄取。",
   },
   {
     id: "cadf-summer-air-camp-2026",
@@ -1232,7 +1232,7 @@ export const sources: SourceConfig[] = [
     crawlerRequired: false,
     status: "active",
     lastVerifiedAt: "2026-07-30",
-    note: "Foundation 主辦的年度活動；免費、食宿或交通內容需依當年度簡章 Review。",
+    note: "Foundation 主辦的年度活動；免費、食宿或交通內容以當年度官方簡章為準。",
   },
   {
     id: "spnp-activity-calendar-json",
@@ -1249,7 +1249,7 @@ export const sources: SourceConfig[] = [
     crawlerRequired: false,
     status: "active",
     lastVerifiedAt: "2026-07-30",
-    note: "官方網站的 JSON Resource；擷取最新年度活動（含 Youth Camp），費用、名額與減免條件逐筆 Review。",
+    note: "官方網站的 JSON Resource；擷取最新年度活動（含 Youth Camp），費用、名額與減免條件以官方 Detail 為準。",
   },
   {
     id: "moe-humanities-overseas-talent",
@@ -1297,7 +1297,7 @@ export const sources: SourceConfig[] = [
     crawlerRequired: false,
     status: "active",
     lastVerifiedAt: "2026-08-07",
-    note: "點數可能在公告期限前用罄，因此每日檢查官方頁；異動仍需 Repository Review 後才更新 Public Program。",
+    note: "點數可能在公告期限前用罄，因此每日檢查官方頁並自動同步擷取內容。",
   },
   {
     id: "moea-ai-tool-points-115",
@@ -1378,7 +1378,7 @@ export const sources: SourceConfig[] = [
     crawlerRequired: false,
     status: "active",
     lastVerifiedAt: "2026-08-07",
-    note: "年度主題式研發補助；供應鏈組成、補助額度與期限需依當年申請須知人工整理。",
+    note: "年度主題式研發補助；供應鏈組成、補助額度與期限不得由 Crawler 自動推測。",
   },
   {
     id: "moea-commercial-energy-115",

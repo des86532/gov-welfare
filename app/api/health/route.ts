@@ -12,13 +12,12 @@ export async function GET() {
       supabaseRest<SourceHealth[]>(config, "sources?select=id,last_check_error&status=eq.active", { cache: "no-store" }),
     ]);
     const failedSources = sources.filter((source) => source.last_check_error != null).map((source) => source.id);
-    const needsReview = programs.filter((program) => program.coverage === "needs_review").length;
     const ok = failedSources.length === 0;
     return Response.json({
       ok,
-      status: ok ? (needsReview ? "attention" : "healthy") : "degraded",
+      status: ok ? "healthy" : "degraded",
       service: "taiwan-welfare-navigator",
-      programs: { total: programs.length, needsReview },
+      programs: { total: programs.length },
       sources: { active: sources.length, failed: failedSources },
     }, { status: ok ? 200 : 503, headers: { "Cache-Control": "no-store" } });
   } catch {

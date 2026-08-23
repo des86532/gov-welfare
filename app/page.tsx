@@ -8,7 +8,7 @@ import { getPrograms } from "@/lib/program-store";
 const featuredSlugs = ["cervical-cancer-screening", "industrial-talent-investment", "youth-overseas-dream-fund", "childcare-allowance-under-2"];
 export default async function HomePage() {
   const [programs, opportunities] = await Promise.all([getPrograms(), getOpportunities()]);
-  const reviewedAt = programs.map((program) => program.verifiedAt).sort().at(-1) ?? "—";
+  const syncedAt = programs.map((program) => program.verifiedAt).sort().at(-1) ?? "—";
   const featured = featuredSlugs.map((slug) => programs.find((program) => program.slug === slug)).filter((program) => program !== undefined);
   const matchableCount = programs.filter((program) => program.coverage === "matchable").length;
   return (
@@ -25,11 +25,11 @@ export default async function HomePage() {
           <div className="ledger-ribbon">MVP DATA SCOPE</div>
           <dl>
             <div><dt>已收錄</dt><dd>{programs.length}<small>Programs</small></dd></div>
-            <div><dt>可初篩</dt><dd>{matchableCount}<small>Reviewed Rules</small></dd></div>
+            <div><dt>可初篩</dt><dd>{matchableCount}<small>Structured Rules</small></dd></div>
             <div><dt>地方範圍</dt><dd>5 市<small>桃園・新北・臺北・臺中・臺南</small></dd></div>
-            <div><dt>資料日期</dt><dd>{reviewedAt.slice(5).replace("-", ".")}<small>{reviewedAt.slice(0, 4)} Data</small></dd></div>
+            <div><dt>資料日期</dt><dd>{syncedAt.slice(5).replace("-", ".")}<small>{syncedAt.slice(0, 4)} Data</small></dd></div>
           </dl>
-          <p>Structured Open Data 可直接顯示原文；未經人工 Review 的 Rules 不會說你「符合」。</p>
+          <p>官方 Source 成功擷取後自動更新；沒有明確 Structured Rules 的方案只顯示說明與官方連結。</p>
         </div>
       </section>
 

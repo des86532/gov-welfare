@@ -1,6 +1,5 @@
-import type { DraftSourceItem, RawSnapshot, RuleNode, SourceConfig } from "@/lib/domain";
+import type { DraftSourceItem, RawSnapshot, SourceConfig } from "@/lib/domain";
 import { supabaseRest, type SupabaseConfig } from "@/lib/supabase-rest";
-import { programs } from "@/data/programs";
 import { newTaipeiSourceClassifications } from "@/data/new-taipei-source-items";
 import { taipeiSourceClassifications } from "@/data/taipei-source-items";
 import { taichungSourceClassifications } from "@/data/taichung-source-items";
@@ -13,21 +12,8 @@ const classificationsBySource = new Map([
   ["taichung-social-aid-open-data", new Map(taichungSourceClassifications.map((item) => [item.title, item]))],
 ]);
 
-function ruleSourceIds(rule: RuleNode): string[] {
-  if ("all" in rule) return rule.all.flatMap(ruleSourceIds);
-  if ("any" in rule) return rule.any.flatMap(ruleSourceIds);
-  return [rule.evidence.sourceId];
-}
-
-const reviewedProgramSourceIds = new Set(programs.flatMap((program) => [
-  ...program.evidence.map((item) => item.sourceId),
-  ...(program.rule ? ruleSourceIds(program.rule) : []),
-]));
-
 export function shouldPersistSourceItems(source: SourceConfig): boolean {
-  return source.automation === "structured_extract"
-    || classificationsBySource.has(source.id)
-    || reviewedProgramSourceIds.has(source.id);
+  return source.automation !== "manual";
 }
 
 export type PersistResult = {
@@ -72,7 +58,7 @@ export async function syncSourceRegistry(config: SupabaseConfig, sourceConfigs: 
 
 function persistedItem(source: SourceConfig, snapshotId: string, item: DraftSourceItem) {
   const curated = classificationsBySource.get(source.id)?.get(item.title);
-  const isStructuredApi = source.automation === "structured_extract";
+  const classification = curated?.classification ?? "descriptive_only";
   return {
     source_id: source.id,
     snapshot_id: snapshotId,
@@ -81,9 +67,9 @@ function persistedItem(source: SourceConfig, snapshotId: string, item: DraftSour
     raw_data: item.raw,
     canonical_draft: { ...item.canonicalDraft, extractionWarnings: item.warnings },
     unknown_fields: item.unknownFields,
-    classification: curated?.classification ?? (isStructuredApi ? "descriptive_only" : null),
-    classification_rationale: curated?.rationale ?? (isStructuredApi ? "Structured government API passthrough；保留官方連結，不自動建立資格 Rule。" : null),
-    review_status: isStructuredApi ? "published" : "draft",
+    classification,
+    classification_rationale: curated?.rationale ?? "Official Source auto-sync；保留官方連結，不自動猜測 Eligibility Rules。",
+    review_status: "published",
   };
 }
 

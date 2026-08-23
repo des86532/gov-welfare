@@ -84,7 +84,7 @@ function ResultCard({ program, status, facts }: { program: Program; status: Matc
             </li>
           ))}
         </ul>
-      ) : <p className="muted">本方案尚未完成可自動判斷的 Rules，請查看官方說明。</p>}
+      ) : <p className="muted">本方案沒有可自動判斷的 Rules，請查看官方說明。</p>}
       <div className="result-actions">
         <Link className="button button-small button-ghost" href={`/programs/${program.slug}`}>查看資格依據</Link>
         <a className="text-link" href={program.applicationUrl ?? program.officialUrl} target="_blank" rel="noreferrer">前往官方網站 ↗</a>
@@ -206,7 +206,7 @@ export function WelfareFinder({ programs }: { programs: Program[] }) {
             {promising.map((match) => <ResultCard key={match.program.id} program={match.program} status={match.status} facts={facts} />)}
           </div>
           {descriptive.length > 0 ? (
-            <section className="secondary-results"><h2>其他可能方案</h2><p>官方有此方案，但 Rules 尚未完成 Review，或本期已截止。</p><div className="result-list compact">{descriptive.map((match) => <ResultCard key={match.program.id} program={match.program} status={match.status} facts={facts} />)}</div></section>
+            <section className="secondary-results"><h2>其他官方方案</h2><p>這些方案只有官方說明、沒有可自動判斷的 Rules，或本期已截止。</p><div className="result-list compact">{descriptive.map((match) => <ResultCard key={match.program.id} program={match.program} status={match.status} facts={facts} />)}</div></section>
           ) : null}
           {ineligible.length > 0 ? (
             <details className="excluded-results"><summary>查看 {ineligible.length} 個目前有條件不符的方案</summary><div className="result-list compact">{ineligible.map((match) => <ResultCard key={match.program.id} program={match.program} status={match.status} facts={facts} />)}</div></details>

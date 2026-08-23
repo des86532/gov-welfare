@@ -98,12 +98,12 @@ async function main() {
     for (const result of results) {
       const status = result.ok ? "OK" : "ERROR";
       const persistence = persist ? (result.changed ? ` · saved ${result.persistedItems}` : " · unchanged") : "";
-      console.log(`${status.padEnd(5)} ${result.sourceId} ${result.draftItems ?? 0} drafts ${result.contentHash?.slice(0, 12) ?? "-"}${persistence}`);
+      console.log(`${status.padEnd(5)} ${result.sourceId} ${result.draftItems ?? 0} items ${result.contentHash?.slice(0, 12) ?? "-"}${persistence}`);
       if (result.error) console.log(`      ${result.error}`);
     }
     console.log(persist
-      ? "Checks persisted as immutable Snapshots and Draft items; no Published version was changed."
-      : "Dry run only: no Draft was persisted and no Published version was changed.");
+      ? "Checks persisted as immutable Snapshots and Source items; Program publishing is handled by the auto-sync step."
+      : "Dry run only: no Snapshot or Source item was persisted.");
   }
   if (results.some((result) => !result.ok)) process.exitCode = 1;
 }

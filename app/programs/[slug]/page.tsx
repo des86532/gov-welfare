@@ -14,9 +14,9 @@ export async function generateStaticParams() {
 
 const coverageLabels = {
   catalog_only: "Catalog only",
-  descriptive_only: "資格待結構化",
-  matchable: "Rules 已人工驗證",
-  needs_review: "資料異動待複核",
+  descriptive_only: "官方資料，無自動判斷",
+  matchable: "可資格初篩",
+  needs_review: "官方資料，無自動判斷",
   archived: "已封存",
 };
 
@@ -49,7 +49,7 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
   const program = await getProgramBySlug(slug);
   if (!program) notFound();
   const sources = [...new Set(program.evidence.map((item) => item.sourceId))].map((id) => sourceById.get(id)).filter((source) => source !== undefined);
-  const verificationLabel = program.sourceMode === "government_api_passthrough" ? "政府 API 擷取日期" : "最後人工驗證";
+  const verificationLabel = "最近資料同步";
 
   return (
     <div className="page-shell detail-page">
@@ -58,14 +58,15 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
         <div>
           <p className="kicker"><span>{program.jurisdiction}</span><span>{CATEGORY_LABELS[program.category]}</span></p>
           <h1>{program.title}</h1><p>{program.summary}</p>
-          <div className="tag-row">{program.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+          <div className="tag-row">{program.tags.map((tag, index) => <span key={`${tag}-${index}`}>{tag}</span>)}</div>
         </div>
         <aside className="benefit-ticket"><small>你可以得到什麼</small><strong>{program.benefitSummary}</strong><span>{coverageLabels[program.coverage]}</span></aside>
       </header>
 
       <div className="detail-layout">
         <div className="detail-main">
-          <section><p className="eyebrow">Eligibility rules</p><h2>資格依據</h2>{program.rule ? <RuleTree rule={program.rule} /> : <div className="review-callout"><strong>尚未開放自動比對</strong><p>這個方案的自然語言資格尚未完成逐條 Review，因此只提供官方說明與入口。</p></div>}</section>
+          <section><p className="eyebrow">Eligibility rules</p><h2>資格依據</h2>{program.rule ? <RuleTree rule={program.rule} /> : <div className="review-callout"><strong>未提供自動資格判斷</strong><p>這個方案只有官方說明，平台不從自然語言自行猜測 Rules；請直接開啟官方網站確認。</p></div>}</section>
+          {program.sourceExcerpt ? <section><p className="eyebrow">Official source</p><h2>官方最新擷取內容</h2><p>{program.sourceExcerpt}</p><small className="muted">擷取日期：{program.sourceSyncedAt ?? program.verifiedAt}。內容以官方網站即時頁面為準。</small></section> : null}
           {program.caveats.length > 0 ? <section><p className="eyebrow">Important notes</p><h2>判斷限制</h2><ul className="plain-list">{program.caveats.map((item) => <li key={item}>{item}</li>)}</ul></section> : null}
           <section className="two-column-section"><div><p className="eyebrow">Prepare</p><h2>可能需要的文件</h2>{program.documents.length ? <ul className="plain-list">{program.documents.map((item) => <li key={item}>{item}</li>)}</ul> : <p className="muted">由主管機關依身分資料查核。</p>}</div><div><p className="eyebrow">Apply</p><h2>受理方式</h2><ul className="plain-list">{program.methods.map((item) => <li key={item}>{item}</li>)}</ul></div></section>
           <section><p className="eyebrow">Field-level provenance</p><h2>官方 Sources</h2><div className="source-list">{sources.map((source) => <a key={source.id} href={source.publicUrl ?? source.url} target="_blank" rel="noreferrer"><span>{source.authority}</span><strong>{source.name}</strong><small>{verificationLabel}：{program.verifiedAt} · 開啟官方頁 ↗</small></a>)}</div></section>

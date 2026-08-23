@@ -4,8 +4,8 @@ export type NewTaipeiSourceClassification = {
   rationale: string;
 };
 
-// 2026-07-27 人工核對的 151 筆 Dataset inventory。這份 manifest 只決定
-// Source item 的 Review 去向，不會把自然語言資格自動轉成 Rules。
+// 2026-07-27 建立的 151 筆 Dataset inventory。這份 manifest 只決定
+// Source item 的分類，不會把自然語言資格自動轉成 Rules。
 const sourceTitles = [
   "帶狀疱疹疫苗",
   "「鮮奶幸福週-生生喝鮮乳」計畫",

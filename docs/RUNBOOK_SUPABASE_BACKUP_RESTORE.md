@@ -5,9 +5,9 @@
 ## 目標與界線
 
 - Recovery Point Objective（RPO）：24 小時。
-- Recovery Time Objective（RTO）：4 小時內恢復 Public catalog 與 Admin Review data。
+- Recovery Time Objective（RTO）：4 小時內恢復 Public catalog、Source history 與使用者回報。
 - Production restore 一律先還原到新 Supabase Project 或本機隔離 PostgreSQL；未完成驗證前不得覆寫原 Project。
-- Repository migrations 與 reviewed manifests 是 Schema／Published content 的另一份可重建來源，但不能取代 Database backup 中的 Snapshots、Drafts、Reviews 與使用者回報。
+- Repository migrations 與 Source manifests 是 Schema／Published content 的另一份可重建來源，但不能取代 Database backup 中的 Snapshots、歷史 Versions 與使用者回報。
 
 Supabase Managed Database backup 不包含 Storage objects，只保存 Storage metadata。本專案目前 Raw snapshots 仍在 `source_snapshots.raw_body`，因此 Application restore drill 會涵蓋；未來搬到 Storage 後，必須另做 Bucket object backup。
 
@@ -62,7 +62,7 @@ npm test
 curl -fsS https://<candidate-domain>/api/health
 ```
 
-6. 人工抽查一筆 `matchable`、一筆 `descriptive_only`、一筆 Program Evidence 與一筆 Admin Review history。
+6. 抽查一筆 `matchable`、一筆 `descriptive_only`、一筆 Program Evidence 與一筆 Source snapshot history。
 7. 驗證完成後才切換 Vercel Environment Variables／Domain；保留舊 Project 至事故結案。
 
 ## 2026-08-13 drill record

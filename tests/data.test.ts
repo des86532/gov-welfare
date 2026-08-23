@@ -52,7 +52,7 @@ test("桃園 26 筆 Source items 全部有分類與理由", () => {
   for (const item of taoyuanSourceClassifications) assert.ok(item.classification && item.rationale);
 });
 
-test("新北 151 筆 Source items 全部有 Review 去向", () => {
+test("新北 151 筆 Source items 全部有分類去向", () => {
   assert.equal(newTaipeiSourceClassifications.length, 151);
   assert.equal(new Set(newTaipeiSourceClassifications.map((item) => item.title)).size, 151);
   assert.equal(newTaipeiSourceClassifications.filter((item) => item.classification === "matchable").length, 6);
@@ -61,14 +61,14 @@ test("新北 151 筆 Source items 全部有 Review 去向", () => {
   for (const item of newTaipeiSourceClassifications) assert.ok(item.rationale, item.title);
 });
 
-test("臺北 10 筆 Source items 全部完成現行 Authority Review", () => {
+test("臺北 10 筆 Source items 全部有現行 Authority mapping", () => {
   assert.equal(taipeiSourceClassifications.length, 10);
   assert.equal(new Set(taipeiSourceClassifications.map((item) => item.title)).size, 10);
   assert.equal(taipeiSourceClassifications.filter((item) => item.classification === "matchable").length, 10);
   for (const item of taipeiSourceClassifications) assert.ok(item.rationale, item.title);
 });
 
-test("臺中 10 筆 Source items 全部完成現行 Authority Review", () => {
+test("臺中 10 筆 Source items 全部有現行 Authority mapping", () => {
   assert.equal(taichungSourceClassifications.length, 10);
   assert.equal(new Set(taichungSourceClassifications.map((item) => item.title)).size, 10);
   assert.equal(taichungSourceClassifications.filter((item) => item.classification === "matchable").length, 10);
@@ -336,12 +336,12 @@ test("Scheduled Source checks 遵守各 Source 的檢查頻率", () => {
   assert.equal(isSourceDue({ ...source, checkEveryHours: null }, null, now), false);
 });
 
-test("未經 Repository curation 的 HTML 不寫入 source_items", () => {
+test("所有可自動擷取的官方 Source 都寫入 source_items", () => {
   const candidate = sources.find((source) => source.id === "moe-humanities-overseas-talent");
-  const reviewedDocument = sources.find((source) => source.id === "moe-scholarship-115-guide");
+  const document = sources.find((source) => source.id === "moe-scholarship-115-guide");
   const structured = sources.find((source) => source.id === "tainan-social-welfare-open-data");
-  assert.ok(candidate && reviewedDocument && structured);
-  assert.equal(shouldPersistSourceItems(candidate), false);
-  assert.equal(shouldPersistSourceItems(reviewedDocument), true);
+  assert.ok(candidate && document && structured);
+  assert.equal(shouldPersistSourceItems(candidate), true);
+  assert.equal(shouldPersistSourceItems(document), true);
   assert.equal(shouldPersistSourceItems(structured), true);
 });

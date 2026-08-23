@@ -10,7 +10,7 @@ export function ProgramCard({ program, eyebrow, headingLevel = 3, variant = "def
     <article className={`program-card program-card-${variant}`}>
       <div className="program-card-topline">
         <span className="eyebrow">{eyebrow ?? CATEGORY_LABELS[program.category]}</span>
-        <span className={`coverage-dot coverage-${program.coverage}`}>{program.coverage === "matchable" ? "已驗證 Rules" : "資格待確認"}</span>
+        <span className={`coverage-dot coverage-${program.coverage}`}>{program.coverage === "matchable" ? "可資格初篩" : "官方資料"}</span>
       </div>
       <Heading><Link href={`/programs/${program.slug}`}>{program.title}</Link></Heading>
       <p>{program.summary}</p>

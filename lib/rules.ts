@@ -48,7 +48,7 @@ export const MATCH_STATUS_LABELS: Record<MatchStatus, string> = {
   ineligible: "目前有條件不符",
   review_required: "符合申請門檻，仍需官方審查",
   closed: "本期尚未開放／已截止",
-  needs_review: "官方資料異動，等待複核",
+  needs_review: "官方資料，請至官網確認",
   descriptive: "其他可能方案",
 };
 
@@ -164,7 +164,7 @@ export function todayInTaiwan(now = new Date()): string {
 
 export function matchProgram(program: Program, facts: ProfileFacts, asOf = todayInTaiwan()): ProgramMatch {
   const emptyEvaluation: RuleEvaluation = { truth: "unknown", reasons: [] };
-  if (program.coverage === "needs_review") return { program, status: "needs_review", evaluation: emptyEvaluation };
+  if (program.coverage === "needs_review") return { program, status: "descriptive", evaluation: emptyEvaluation };
   if (program.coverage === "archived") return { program, status: "closed", evaluation: emptyEvaluation };
 
   const window = program.applicationWindow;

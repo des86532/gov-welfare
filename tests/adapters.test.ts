@@ -60,7 +60,7 @@ test("新北 CSV 保留 cont1–cont7 不透明欄位且不產生 Rules", () => 
   assert.ok(item.warnings.includes("opaque_cont_fields_require_review"));
 });
 
-test("臺北 CSV 將舊年度文字標成 Review warning", () => {
+test("臺北 CSV 將舊年度文字標成 extraction warning", () => {
   const headers = ["序號", "補助名稱", "補助對象年齡下限", "補助對象年齡上限", "設籍條件", "居住日數是否需大於規定日數", "身份", "收入條件每人每月上限金額", "動產條件每人上限", "其他條件", "應備文件", "收件洽辦單位", "聯繫方式", "詳細資訊網址"];
   const values = ["1", "生活扶助", "109年標準表", "109年標準表", "台北市", "183日", "低收入戶", "17005", "15萬", "不動產上限", "申請表", "區公所", "電話", "https://example.gov.tw/detail"];
   const item = extractTaipeiRows(`${headers.join(",")}\n${values.join(",")}`)[0];

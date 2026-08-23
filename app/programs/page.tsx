@@ -10,9 +10,8 @@ export const metadata = { title: "方案清單" };
 type CatalogSearchParams = { applicant?: string; availability?: string; benefit?: string; category?: string; coverage?: string; page?: string; q?: string; region?: string; sort?: string; view?: string };
 
 const coverageOptions: Array<{ value: CoverageLevel; label: string }> = [
-  { value: "matchable", label: "已驗證，可資格初篩" },
-  { value: "descriptive_only", label: "方案可查，資格待確認" },
-  { value: "needs_review", label: "官方資料異動，待複核" },
+  { value: "matchable", label: "可資格初篩" },
+  { value: "descriptive_only", label: "官方資料，無自動判斷" },
 ];
 
 const availabilityLabels: Record<ProgramAvailability, string> = {
@@ -25,7 +24,7 @@ const availabilityLabels: Record<ProgramAvailability, string> = {
 const sortLabels: Record<ProgramSort, string> = {
   category: "依類別",
   title: "依標題",
-  verified_desc: "最近人工驗證",
+  verified_desc: "最近資料同步",
   deadline: "即將截止優先",
 };
 
@@ -77,7 +76,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
   return (
     <div className="page-shell catalog-page">
       <header className="page-title catalog-title">
-        <div><p className="eyebrow">Program catalog</p><h1>政府福利方案清單</h1><p>目前 Coverage 是中央 Seed programs、桃園、新北、臺北與臺中完成 Review 的 Pilot Programs，以及臺南政府 API descriptive passthrough；不宣稱涵蓋全臺所有福利。</p></div>
+        <div><p className="eyebrow">Program catalog</p><h1>政府福利方案清單</h1><p>已登錄的官方 Source 會自動同步；每筆方案附主管機關官方連結，不宣稱涵蓋全臺所有福利。</p></div>
         <span className="catalog-count"><strong>{visible.length}</strong> 個結果</span>
       </header>
       <form className="catalog-filter" method="get">

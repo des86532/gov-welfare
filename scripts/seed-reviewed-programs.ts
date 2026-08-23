@@ -32,7 +32,7 @@ type EvidenceRow = {
 
 const apply = process.argv.includes("--apply");
 const publishInitial = process.argv.includes("--publish-initial");
-const publishUpdates = process.argv.includes("--publish-reviewed-updates");
+const publishUpdates = process.argv.includes("--publish-updates");
 const publishStructuredPassthrough = process.argv.includes("--publish-structured-passthrough");
 function requiredConfig(): SupabaseConfig {
   const value = supabaseConfig(true);
@@ -42,21 +42,22 @@ function requiredConfig(): SupabaseConfig {
 
 const config = requiredConfig();
 
-function withSnapshot(evidence: Evidence, snapshots: Map<string, string>): Evidence {
+function withSnapshot(evidence: Evidence, snapshots: Map<string, string>, observedOnBySource: Map<string, string>): Evidence {
   const snapshotId = snapshots.get(evidence.sourceId);
   if (!snapshotId) throw new Error(`Missing successful snapshot for ${evidence.sourceId}`);
-  return { ...evidence, snapshotId };
+  return { ...evidence, snapshotId, reviewedAt: observedOnBySource.get(evidence.sourceId) ?? evidence.reviewedAt };
 }
 
 function mapRule(
   rule: RuleNode,
   snapshots: Map<string, string>,
+  observedOnBySource: Map<string, string>,
   rows: EvidenceRow[],
   path = "/rule",
 ): RuleNode {
-  if ("all" in rule) return { all: rule.all.map((child, index) => mapRule(child, snapshots, rows, `${path}/all/${index}`)) };
-  if ("any" in rule) return { any: rule.any.map((child, index) => mapRule(child, snapshots, rows, `${path}/any/${index}`)) };
-  const evidence = withSnapshot(rule.evidence, snapshots);
+  if ("all" in rule) return { all: rule.all.map((child, index) => mapRule(child, snapshots, observedOnBySource, rows, `${path}/all/${index}`)) };
+  if ("any" in rule) return { any: rule.any.map((child, index) => mapRule(child, snapshots, observedOnBySource, rows, `${path}/any/${index}`)) };
+  const evidence = withSnapshot(rule.evidence, snapshots, observedOnBySource);
   rows.push({
     field_path: path,
     source_id: evidence.sourceId,
@@ -68,10 +69,46 @@ function mapRule(
   return { ...rule, evidence };
 }
 
-function canonicalProgram(program: Program, snapshots: Map<string, string>) {
+function text(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string").join("\n");
+  return "";
+}
+
+function compact(value: string, limit = 1_200): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length > limit ? `${normalized.slice(0, limit - 1)}…` : normalized;
+}
+
+function sourceExcerpt(program: Program, items: TaoyuanItemRow[]): { sourceId: string; value: string } | undefined {
+  const normalizedTitle = program.title.replace(/\s+/g, "").toLocaleLowerCase("zh-Hant");
+  const sourceIds = new Set(program.evidence.map((item) => item.sourceId));
+  const candidates = items.filter((item) => sourceIds.has(item.source_id) && item.classification !== "excluded");
+  const item = candidates.find((candidate) => candidate.title.replace(/\s+/g, "").toLocaleLowerCase("zh-Hant") === normalizedTitle)
+    ?? (candidates.length === 1 ? candidates[0] : undefined);
+  if (!item) return undefined;
+  const draft = item.canonical_draft as Record<string, unknown>;
+  const value = compact([
+    text(draft.eligibilityText),
+    text(draft.summary),
+    text(draft.description),
+    text(draft.bodyText),
+    text(draft.paragraphs),
+  ].find((candidate) => candidate.trim()) ?? "");
+  return value ? { sourceId: item.source_id, value } : undefined;
+}
+
+function canonicalProgram(
+  program: Program,
+  snapshots: Map<string, string>,
+  observedOnBySource: Map<string, string>,
+  sourceItems: TaoyuanItemRow[],
+) {
   const evidenceRows: EvidenceRow[] = [];
+  const excerpt = sourceExcerpt(program, sourceItems);
   const evidence = program.evidence.map((item, index) => {
-    const mapped = withSnapshot(item, snapshots);
+    const mapped = withSnapshot(item, snapshots, observedOnBySource);
+    if (excerpt?.sourceId === mapped.sourceId) mapped.extractedValue = excerpt.value;
     evidenceRows.push({
       field_path: `/evidence/${index}`,
       source_id: mapped.sourceId,
@@ -84,8 +121,10 @@ function canonicalProgram(program: Program, snapshots: Map<string, string>) {
   });
   const canonical: Program = {
     ...program,
+    verifiedAt: [...new Set(program.evidence.map((item) => observedOnBySource.get(item.sourceId)).filter((value): value is string => Boolean(value)))].sort().at(-1) ?? program.verifiedAt,
     evidence,
-    ...(program.rule ? { rule: mapRule(program.rule, snapshots, evidenceRows) } : {}),
+    ...(excerpt ? { sourceExcerpt: excerpt.value, sourceSyncedAt: observedOnBySource.get(excerpt.sourceId) } : {}),
+    ...(program.rule ? { rule: mapRule(program.rule, snapshots, observedOnBySource, evidenceRows) } : {}),
   };
   const unique = new Map(evidenceRows.map((row) => [
     `${row.field_path}:${row.source_id}:${row.locator}`,
@@ -95,10 +134,11 @@ function canonicalProgram(program: Program, snapshots: Map<string, string>) {
 }
 
 async function main() {
-  const snapshotRows = await supabaseRest<SnapshotRow[]>(
-    config,
-    "source_snapshots?select=id,source_id,observed_at&content_hash=not.is.null&order=observed_at.desc",
-  );
+  const [snapshotRows, sourceStates] = await Promise.all([
+    supabaseRest<SnapshotRow[]>(config, "source_snapshots?select=id,source_id,observed_at&content_hash=not.is.null&order=observed_at.desc"),
+    supabaseRest<Array<{ id: string; last_check_error: unknown }>>(config, "sources?select=id,last_check_error"),
+  ]);
+  const failedSourceIds = new Set(sourceStates.filter((source) => source.last_check_error != null).map((source) => source.id));
   const snapshots = new Map<string, string>();
   const observedOnBySource = new Map<string, string>();
   for (const row of snapshotRows) {
@@ -114,12 +154,13 @@ async function main() {
     ["taichung-social-aid-open-data", taichungSourceClassifications],
   ]);
   const opportunitySourceIds = new Set(reviewedOpportunities.map((item) => item.sourceId));
+  const programSourceIds = new Set(programs.flatMap((program) => program.evidence.map((item) => item.sourceId)));
   const sourceItems: TaoyuanItemRow[] = [];
-  for (const sourceId of new Set([...manifests.keys(), ...opportunitySourceIds, "tainan-social-welfare-open-data"])) {
-    const snapshotId = snapshots.get(sourceId);
-    if (!snapshotId) continue;
+  const latestSnapshotIds = [...new Set([...manifests.keys(), ...opportunitySourceIds, ...programSourceIds, "tainan-social-welfare-open-data"]
+    .map((sourceId) => snapshots.get(sourceId)).filter((value): value is string => Boolean(value)))];
+  if (latestSnapshotIds.length) {
     sourceItems.push(...await supabaseRest<TaoyuanItemRow[]>(config,
-      `source_items?select=id,source_id,external_id,title,snapshot_id,canonical_draft,classification,review_status&source_id=eq.${sourceId}&snapshot_id=eq.${snapshotId}`));
+      `source_items?select=id,source_id,external_id,title,snapshot_id,canonical_draft,classification,review_status&snapshot_id=in.(${latestSnapshotIds.map(encodeURIComponent).join(",")})`));
   }
   const reviewedTaoyuanItems = sourceItems.filter((item) =>
     item.source_id === "taoyuan-welfare-open-data" && item.review_status === "published" && item.classification !== "excluded");
@@ -131,7 +172,7 @@ async function main() {
   const tainanPrograms = tainanItems.length > 0
     ? buildTainanPassthroughPrograms(tainanItems, observedOnBySource.get("tainan-social-welfare-open-data") ?? new Date().toISOString().slice(0, 10))
     : [];
-  const allPrograms = publishStructuredPassthrough
+  const allPrograms = publishStructuredPassthrough && !publishUpdates
     ? tainanPrograms
     : [...programs, ...reviewedPrograms, ...tainanPrograms];
   const classificationUpdates = sourceItems.flatMap((item) => {
@@ -148,7 +189,7 @@ async function main() {
       : [];
   });
 
-  const ready = allPrograms.filter((program) => program.evidence.every((item) => snapshots.has(item.sourceId)));
+  const ready = allPrograms.filter((program) => program.evidence.every((item) => snapshots.has(item.sourceId) && !failedSourceIds.has(item.sourceId)));
   const skipped = allPrograms.filter((program) => !ready.includes(program));
   if (!apply) {
     console.log(JSON.stringify({ dryRun: true, ready: ready.map((item) => item.slug), classificationUpdates: classificationUpdates.map(({ item }) => item.title), opportunityClassificationUpdates: opportunityClassificationUpdates.map(({ expected }) => expected.slug), skipped: skipped.map((item) => item.slug) }, null, 2));
@@ -156,26 +197,20 @@ async function main() {
   }
 
   for (const { item, expected } of classificationUpdates) {
-    await supabaseRest(config, "rpc/classify_source_item", {
-      method: "POST",
-      body: JSON.stringify({
-        target_item_id: item.id,
-        target_classification: expected.classification,
-        reviewer: "Repository classification manifest",
-        rationale: expected.rationale,
-      }),
+    await supabaseRest(config, `source_items?id=eq.${item.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ classification: expected.classification, classification_rationale: expected.rationale, review_status: "published" }),
       headers: { Prefer: "return=minimal" },
     });
   }
 
   for (const { item, expected } of opportunityClassificationUpdates) {
-    await supabaseRest(config, "rpc/classify_source_item", {
-      method: "POST",
+    await supabaseRest(config, `source_items?id=eq.${item.id}`, {
+      method: "PATCH",
       body: JSON.stringify({
-        target_item_id: item.id,
-        target_classification: "descriptive_only",
-        reviewer: "Repository Opportunity manifest",
-        rationale: `Reviewed ${expected.slug}: eligibility, dates, fees, location, organizer type, and government support status are curated with field-level Evidence.`,
+        classification: "descriptive_only",
+        classification_rationale: `Official Source auto-sync for ${expected.slug}; official link remains the final reference.`,
+        review_status: "published",
       }),
       headers: { Prefer: "return=minimal" },
     });
@@ -185,7 +220,10 @@ async function main() {
   let unchanged = 0;
   let drafted = 0;
   let archived = 0;
+  const failedPrograms: Array<{ slug: string; error: string }> = [];
   for (const program of ready) {
+    let createdVersionId: string | undefined;
+    try {
     const [{ id: programId }] = await supabaseRest<Array<{ id: string }>>(config, "programs?on_conflict=stable_key", {
       method: "POST",
       body: JSON.stringify({
@@ -201,13 +239,13 @@ async function main() {
       config,
       `program_versions?select=version,canonical_content&program_id=eq.${programId}&order=version.desc&limit=1`,
     );
-    const { canonical, evidenceRows } = canonicalProgram(program, snapshots);
+    const { canonical, evidenceRows } = canonicalProgram(program, snapshots, observedOnBySource, sourceItems);
     if (previous[0] && isDeepStrictEqual(previous[0].canonical_content, canonical)) {
       unchanged += 1;
       continue;
     }
     const isInitial = previous.length === 0;
-    const status = isInitial && (publishInitial || publishStructuredPassthrough) ? "published" : "draft";
+    const status = isInitial && (publishInitial || publishUpdates || publishStructuredPassthrough) ? "published" : "draft";
     const [version] = await supabaseRest<Array<{ id: string }>>(config, "program_versions", {
       method: "POST",
       body: JSON.stringify({
@@ -231,6 +269,7 @@ async function main() {
       }),
       headers: { Prefer: "return=representation" },
     });
+    createdVersionId = version.id;
     await supabaseRest(config, "field_evidence", {
       method: "POST",
       body: JSON.stringify(evidenceRows.map((row) => ({ ...row, program_version_id: version.id }))),
@@ -241,11 +280,11 @@ async function main() {
         method: "POST",
         body: JSON.stringify({
           program_version_id: version.id,
-          reviewer_name: program.sourceMode === "government_api_passthrough" ? "Structured government API passthrough" : "Initial curated Seed",
+          reviewer_name: "Official Source auto-sync",
           action: "publish",
           rationale: program.sourceMode === "government_api_passthrough"
             ? "Published descriptive government API content without generating Eligibility Rules."
-            : "Imported from the reviewed 2026-07-26 Seed manifest with snapshot-linked Field evidence.",
+            : "Automatically published from the registered official Source and Repository Rule definitions.",
         }),
         headers: { Prefer: "return=minimal" },
       });
@@ -255,10 +294,10 @@ async function main() {
         method: "POST",
         body: JSON.stringify({
           target_version_id: version.id,
-          reviewer: program.sourceMode === "government_api_passthrough" ? "Structured government API passthrough" : "Reviewed Seed maintenance",
+          reviewer: "Official Source auto-sync",
           rationale: program.sourceMode === "government_api_passthrough"
             ? "Published changed descriptive government API content without generating Eligibility Rules."
-            : "Published an explicitly reviewed Repository update with current snapshot-linked evidence.",
+            : "Automatically published the latest registered official Source snapshot while preserving explicit Eligibility Rules.",
           review_action: "publish",
         }),
         headers: { Prefer: "return=minimal" },
@@ -267,9 +306,27 @@ async function main() {
     } else {
       drafted += 1;
     }
+    } catch (error) {
+      if (createdVersionId) {
+        try {
+          await supabaseRest(config, "rpc/reject_program_version", {
+            method: "POST",
+            body: JSON.stringify({
+              target_version_id: createdVersionId,
+              reviewer: "Official Source auto-sync",
+              rationale: "Rejected an incomplete automatic sync version after publication failed.",
+            }),
+            headers: { Prefer: "return=minimal" },
+          });
+        } catch {
+          // A non-published partial version remains invisible and will be reported by the failed workflow.
+        }
+      }
+      failedPrograms.push({ slug: program.slug, error: error instanceof Error ? error.message : String(error) });
+    }
   }
 
-  if (publishStructuredPassthrough) {
+  if (publishUpdates || publishStructuredPassthrough) {
     const currentIds = new Set(ready.map((program) => program.id));
     const existing = await supabaseRest<Array<{ id: string; stable_key: string }>>(
       config,
@@ -339,7 +396,7 @@ async function main() {
         method: "POST",
         body: JSON.stringify({
           target_version_id: version.id,
-          reviewer: "Structured government API passthrough",
+          reviewer: "Official Source auto-sync",
           rationale: "Archived a descriptive item removed from the current government API response.",
           review_action: "publish",
         }),
@@ -362,15 +419,16 @@ async function main() {
         method: "POST",
         body: JSON.stringify({
           target_version_id: version.id,
-          reviewer: "Repository publish recovery",
-          rationale: "Rejected an obsolete interrupted-publish draft after a newer reviewed version was published.",
+          reviewer: "Official Source auto-sync",
+          rationale: "Rejected an obsolete interrupted-sync draft after a newer Source version was published.",
         }),
         headers: { Prefer: "return=minimal" },
       });
       rejectedStaleDrafts += 1;
     }
   }
-  console.log(JSON.stringify({ dryRun: false, published: created, archived, drafts: drafted, rejectedStaleDrafts, unchanged, classificationUpdates: classificationUpdates.length, opportunityClassificationUpdates: opportunityClassificationUpdates.length, skipped: skipped.map((item) => item.slug) }, null, 2));
+  console.log(JSON.stringify({ dryRun: false, published: created, archived, drafts: drafted, rejectedStaleDrafts, unchanged, classificationUpdates: classificationUpdates.length, opportunityClassificationUpdates: opportunityClassificationUpdates.length, skipped: skipped.map((item) => item.slug), failedPrograms }, null, 2));
+  if (failedPrograms.length > 0) process.exitCode = 1;
 }
 
 void main();

@@ -8,7 +8,6 @@ import { buildTainanPassthroughPrograms, type TainanSourceItem } from "../data/t
 import { buildTaoyuanReviewedPrograms, type ReviewedTaoyuanItem } from "../data/taoyuan-programs";
 import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
 import type { Program, RuleNode } from "../lib/domain";
-import { snapshotReviewState, type SourceItemRow } from "../lib/admin-review";
 import { supabaseConfig, supabaseRest, type SupabaseConfig } from "../lib/supabase-rest";
 
 type Snapshot = { id: string; source_id: string; observed_at: string };
@@ -33,16 +32,14 @@ function atomicPaths(rule: RuleNode, path = "/rule"): string[] {
 
 async function main() {
   const config = requiredConfig();
-  const [databaseSources, snapshots, versions, drafts] = await Promise.all([
-    supabaseRest<Array<{ id: string; automation_level: string; status: string; last_check_error: unknown }>>(config, "sources?select=id,automation_level,status,last_check_error"),
+  const [databaseSources, snapshots, versions] = await Promise.all([
+    supabaseRest<Array<{ id: string; status: string; last_check_error: unknown }>>(config, "sources?select=id,status,last_check_error"),
     supabaseRest<Snapshot[]>(config, "source_snapshots?select=id,source_id,observed_at&content_hash=not.is.null&order=observed_at.desc"),
     supabaseRest<Version[]>(config, "program_versions?select=status,coverage,canonical_content,field_evidence(field_path,source_id,snapshot_id,reviewed_at)&status=eq.published"),
-    supabaseRest<Array<{ id: string }>>(config, "program_versions?select=id&status=eq.draft"),
   ]);
 
   const latest = new Map<string, Snapshot>();
   for (const snapshot of snapshots) if (!latest.has(snapshot.source_id)) latest.set(snapshot.source_id, snapshot);
-  const automationBySource = new Map(databaseSources.map((source) => [source.id, source.automation_level]));
   const taoyuanSnapshotId = latest.get("taoyuan-welfare-open-data")?.id;
   const newTaipeiSnapshotId = latest.get("new-taipei-welfare-open-data")?.id;
   const taipeiSnapshotId = latest.get("taipei-social-aid-open-data")?.id;
@@ -62,20 +59,6 @@ async function main() {
   const expectedPrograms = [...programs, ...buildTaoyuanReviewedPrograms(reviewedTaoyuanItems, "2026-07-27"), ...tainanPrograms];
   const expected = expectedPrograms.filter((program) => program.evidence.every((item) => latest.has(item.sourceId)));
   const visibleVersions = versions.filter((version) => version.coverage !== "archived");
-  const comparisonSnapshotIds = new Set<string>();
-  for (const version of visibleVersions) {
-    for (const evidence of version.field_evidence) {
-      const newest = latest.get(evidence.source_id);
-      if (automationBySource.get(evidence.source_id) !== "structured_extract" && newest && newest.id !== evidence.snapshot_id) {
-        comparisonSnapshotIds.add(evidence.snapshot_id);
-        comparisonSnapshotIds.add(newest.id);
-      }
-    }
-  }
-  const comparisonItems = comparisonSnapshotIds.size
-    ? await supabaseRest<SourceItemRow[]>(config, `source_items?select=id,source_id,snapshot_id,external_id,title,canonical_draft,unknown_fields,classification,classification_rationale,review_status&snapshot_id=in.(${[...comparisonSnapshotIds].map(encodeURIComponent).join(",")})`)
-    : [];
-
   assert.deepEqual(new Set(databaseSources.map((source) => source.id)), new Set(sources.map((source) => source.id)), "Source registry drift");
   assert.equal(databaseSources.filter((source) => source.status === "active" && source.last_check_error).length, 0, "Active Source check errors");
   assert.equal(latestTaoyuanItems.length, 26, "Taoyuan item count");
@@ -87,10 +70,10 @@ async function main() {
   );
   assert.ok(latestNewTaipeiItems.length > 0, "Missing New Taipei items");
   assert.equal(latestNewTaipeiItems.filter((item) => item.classification === null).length, 0, "Unclassified New Taipei items");
-  assert.ok(latestNewTaipeiItems.every((item) => item.review_status === "published"), "Unreviewed New Taipei items");
+  assert.ok(latestNewTaipeiItems.every((item) => item.review_status === "published"), "Unpublished New Taipei items");
   assert.equal(latestTaipeiItems.length, 10, "Taipei item count");
   assert.equal(latestTaipeiItems.filter((item) => item.classification === null).length, 0, "Unclassified Taipei items");
-  assert.ok(latestTaipeiItems.every((item) => item.review_status === "published"), "Unreviewed Taipei items");
+  assert.ok(latestTaipeiItems.every((item) => item.review_status === "published"), "Unpublished Taipei items");
   assert.deepEqual(
     new Map(latestTaipeiItems.map((item) => [item.title, item.classification])),
     new Map(taipeiSourceClassifications.map((item) => [item.title, item.classification])),
@@ -98,7 +81,7 @@ async function main() {
   );
   assert.equal(latestTaichungItems.length, 10, "Taichung item count");
   assert.equal(latestTaichungItems.filter((item) => item.classification === null).length, 0, "Unclassified Taichung items");
-  assert.ok(latestTaichungItems.every((item) => item.review_status === "published"), "Unreviewed Taichung items");
+  assert.ok(latestTaichungItems.every((item) => item.review_status === "published"), "Unpublished Taichung items");
   assert.deepEqual(
     new Map(latestTaichungItems.map((item) => [item.title, item.classification])),
     new Map(taichungSourceClassifications.map((item) => [item.title, item.classification])),
@@ -110,20 +93,14 @@ async function main() {
   assert.equal(tainanPrograms.length, latestTainanItems.length, "Tainan passthrough Program count");
   assert.ok(tainanPrograms.every((program) => program.sourceMode === "government_api_passthrough" && !program.rule), "Tainan passthrough generated Eligibility Rules");
   assert.equal(visibleVersions.length, expected.length, "Published visible Program count");
-  assert.ok(drafts.every((draft) => draft.id), "Program drafts must remain isolated from Published data");
-
   for (const version of visibleVersions) {
     const program = version.canonical_content;
     assert.ok(program.authority && program.jurisdiction && program.benefitType && program.decisionType, `${program.title}: required fields`);
     assert.match(program.applicationUrl ?? program.officialUrl, /^https:\/\//, `${program.title}: official application URL`);
     for (const item of version.field_evidence) {
       const newest = latest.get(item.source_id);
-      const currentOrEquivalent = newest && (
-        newest.id === item.snapshot_id
-        || snapshotReviewState(item.source_id, item.snapshot_id, newest.id, comparisonItems) === "unchanged"
-      );
-      assert.ok(automationBySource.get(item.source_id) === "structured_extract" || currentOrEquivalent, `${program.title}: stale ${item.source_id}`);
-      assert.ok(item.reviewed_at, `${program.title}: unreviewed evidence ${item.field_path}`);
+      assert.equal(item.snapshot_id, newest?.id, `${program.title}: stale ${item.source_id}`);
+      assert.ok(item.reviewed_at, `${program.title}: missing Source sync timestamp ${item.field_path}`);
     }
     if (version.coverage === "matchable") {
       assert.ok(program.rule, `${program.title}: missing Rule tree`);
@@ -145,7 +122,6 @@ async function main() {
     publishedPrograms: visibleVersions.length,
     archivedPrograms: versions.filter((version) => version.coverage === "archived").length,
     matchablePrograms: visibleVersions.filter((version) => version.coverage === "matchable").length,
-    draftVersions: drafts.length,
     staleEvidence: 0,
   }, null, 2));
 }

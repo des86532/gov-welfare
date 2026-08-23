@@ -5,11 +5,6 @@ on:
     - cron: "17 1 * * *"
   workflow_dispatch:
     inputs:
-      publish_reviewed_programs:
-        description: Publish Repository-reviewed Programs and Activities after the Source check
-        required: false
-        default: false
-        type: boolean
       retry_failed_only:
         description: Retry only failed or currently due Sources instead of forcing all active Sources
         required: false
@@ -25,7 +20,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  persist-drafts:
+  sync-sources:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -35,30 +30,23 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Fetch, hash, and persist immutable Drafts
+      - name: Fetch and persist official Source snapshots
         id: source_check
         continue-on-error: true
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npx --no-install tsx scripts/check-sources.ts --persist --json ${{ github.event_name == 'workflow_dispatch' && !inputs.retry_failed_only && '--force' || '' }} > source-report.json
-      - name: Publish Repository-reviewed Program and Activity updates
-        id: publish_reviewed
-        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.publish_reviewed_programs }}
+      - name: Auto-publish latest official Source data
+        id: publish_updates
+        if: ${{ always() }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx --no-install tsx scripts/seed-reviewed-programs.ts --apply --publish-reviewed-updates
-      - name: Publish structured government API passthrough
-        id: publish_structured
-        if: ${{ always() && steps.source_check.outcome == 'success' }}
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx --no-install tsx scripts/seed-reviewed-programs.ts --apply --publish-structured-passthrough
+        run: npx --no-install tsx scripts/seed-reviewed-programs.ts --apply --publish-updates
       - name: Audit Published data acceptance
         id: data_audit
-        if: ${{ always() && steps.source_check.outcome == 'success' && steps.publish_structured.outcome == 'success' && (steps.publish_reviewed.outcome == 'success' || steps.publish_reviewed.outcome == 'skipped') }}
+        if: ${{ always() && steps.source_check.outcome == 'success' && steps.publish_updates.outcome == 'success' }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -75,12 +63,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_CHECK_OUTCOME: ${{ steps.source_check.outcome }}
-          STRUCTURED_PUBLISH_OUTCOME: ${{ steps.publish_structured.outcome }}
+          PUBLISH_OUTCOME: ${{ steps.publish_updates.outcome }}
           DATA_AUDIT_OUTCOME: ${{ steps.data_audit.outcome }}
         run: |
           title="Source monitoring failure"
           issue="$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')"
-          if [ "$SOURCE_CHECK_OUTCOME" = "failure" ] || [ "$STRUCTURED_PUBLISH_OUTCOME" = "failure" ] || [ "$DATA_AUDIT_OUTCOME" = "failure" ]; then
+          if [ "$SOURCE_CHECK_OUTCOME" = "failure" ] || [ "$PUBLISH_OUTCOME" = "failure" ] || [ "$DATA_AUDIT_OUTCOME" = "failure" ]; then
             message="Source check or Published data audit failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
             if [ -n "$issue" ]; then gh issue comment "$issue" --body "$message"; else gh issue create --title "$title" --body "$message"; fi
           elif [ -n "$issue" ]; then
@@ -88,5 +76,5 @@ jobs:
             gh issue close "$issue" --reason completed
           fi
       - name: Preserve Source check failure status
-        if: ${{ steps.source_check.outcome == 'failure' || steps.publish_structured.outcome == 'failure' || steps.data_audit.outcome == 'failure' }}
+        if: ${{ steps.source_check.outcome == 'failure' || steps.publish_updates.outcome == 'failure' || steps.data_audit.outcome == 'failure' }}
         run: exit 1
