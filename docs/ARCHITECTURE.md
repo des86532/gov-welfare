@@ -61,7 +61,7 @@ flowchart LR
 
 ### 其他監控
 
-- `.github/workflows/production-health.yml`：每 30 分鐘檢查 `/api/health`。
+- `.github/workflows/production-health.yml`：每 30 分鐘檢查網站、Supabase 與 Public Program 是否可用；單一 Source failure 由 Source workflow 負責，不誤判為整站中斷。
 - `.github/workflows/activity-report-alert.yml`：每小時檢查未處理的活動回報。
 - 通知透過 GitHub Issue；實際 Email／App notification 依 GitHub 個人設定。
 

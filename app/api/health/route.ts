@@ -12,7 +12,7 @@ export async function GET() {
       supabaseRest<SourceHealth[]>(config, "sources?select=id,last_check_error&status=eq.active", { cache: "no-store" }),
     ]);
     const failedSources = sources.filter((source) => source.last_check_error != null).map((source) => source.id);
-    const ok = failedSources.length === 0;
+    const ok = programs.length > 0;
     return Response.json({
       ok,
       status: ok ? "healthy" : "degraded",
