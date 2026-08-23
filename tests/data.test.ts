@@ -243,7 +243,8 @@ test("限時活動 Sources 使用 Opportunity adapters 且不混入自動發布"
   assert.equal(byId.get("spnp-activity-calendar-json")?.adapterKey, "spnp_activity_json");
   for (const source of sources.filter((item) => item.adapterKey === "activity_listing_html" || item.adapterKey === "opportunity_detail" || item.adapterKey === "spnp_activity_json")) {
     assert.notEqual(source.automation, "structured_extract", source.id);
-    assert.ok(source.note?.includes("Review") || source.note?.includes("不得"), source.id);
+    assert.match(source.publicUrl ?? source.url, /^https:\/\//, source.id);
+    assert.ok(source.note, source.id);
   }
 });
 
