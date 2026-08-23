@@ -22,6 +22,10 @@ export type PersistResult = {
   persistedItems: number;
 };
 
+export function canReconcileSourceRemovals(sourceId: string, failedSourceIds: ReadonlySet<string>): boolean {
+  return !failedSourceIds.has(sourceId);
+}
+
 export function isSourceDue(source: SourceConfig, lastCheckedAt: string | null, now = new Date(), lastCheckFailed = false): boolean {
   if (!source.checkEveryHours) return false;
   if (lastCheckFailed) return true;

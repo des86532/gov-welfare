@@ -13,7 +13,7 @@ import { mapWithConcurrency } from "../lib/concurrency";
 import type { AtomicRule, RuleNode } from "../lib/domain";
 import { parseFinderSession } from "../lib/finder-session";
 import { appliesToApplicant, appliesToRegion, filterProgramsForProfileRegion, getProgramApplicantTypes, getProgramAvailability, paginatePrograms, PROGRAMS_PER_PAGE, sortProgramsForCatalog } from "../lib/program-filters";
-import { isSourceDue, shouldPersistSourceItems } from "../lib/ingestion";
+import { canReconcileSourceRemovals, isSourceDue, shouldPersistSourceItems } from "../lib/ingestion";
 
 function atomicRules(rule: RuleNode): AtomicRule[] {
   if ("all" in rule) return rule.all.flatMap(atomicRules);
@@ -335,6 +335,12 @@ test("Scheduled Source checks 遵守各 Source 的檢查頻率", () => {
   assert.equal(isSourceDue(source, "2026-07-23T00:00:00Z", now), true);
   assert.equal(isSourceDue(source, "2026-07-30T00:00:00Z", now, true), true);
   assert.equal(isSourceDue({ ...source, checkEveryHours: null }, null, now), false);
+});
+
+test("Source 抓取失敗時禁止把既有項目判定為移除", () => {
+  const failed = new Set(["tainan-social-welfare-open-data"]);
+  assert.equal(canReconcileSourceRemovals("tainan-social-welfare-open-data", failed), false);
+  assert.equal(canReconcileSourceRemovals("taoyuan-welfare-open-data", failed), true);
 });
 
 test("所有可自動擷取的官方 Source 都寫入 source_items", () => {

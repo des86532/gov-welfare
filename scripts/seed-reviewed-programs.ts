@@ -8,6 +8,7 @@ import { taoyuanSourceClassifications } from "../data/taoyuan-source-items";
 import { buildTainanPassthroughPrograms, type TainanSourceItem } from "../data/tainan-programs";
 import { isDeepStrictEqual } from "node:util";
 import type { Evidence, Program, RuleNode } from "../lib/domain";
+import { canReconcileSourceRemovals } from "../lib/ingestion";
 import { supabaseConfig, supabaseRest, type SupabaseConfig } from "../lib/supabase-rest";
 
 type SnapshotRow = { id: string; source_id: string; observed_at: string };
@@ -326,7 +327,7 @@ async function main() {
     }
   }
 
-  if (publishUpdates || publishStructuredPassthrough) {
+  if ((publishUpdates || publishStructuredPassthrough) && canReconcileSourceRemovals("tainan-social-welfare-open-data", failedSourceIds)) {
     const currentIds = new Set(ready.map((program) => program.id));
     const existing = await supabaseRest<Array<{ id: string; stable_key: string }>>(
       config,
