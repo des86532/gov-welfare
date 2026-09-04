@@ -1159,7 +1159,7 @@ export const sources: SourceConfig[] = [
     name: "教育部青年發展署全年活動一覽",
     authority: "教育部青年發展署",
     jurisdiction: "中央",
-    url: "https://www.yda.gov.tw/EventListUl.aspx?uid=102&pid=56",
+    url: "https://www.yda.gov.tw/EventList.aspx?uid=101&pid=56",
     format: "html",
     roles: ["discovery", "application"],
     automation: "text_extract",
@@ -1167,7 +1167,7 @@ export const sources: SourceConfig[] = [
     checkEveryHours: 24,
     crawlerRequired: false,
     status: "active",
-    lastVerifiedAt: "2026-07-30",
+    lastVerifiedAt: "2026-09-04",
     note: "擷取活動名稱、日期、狀態、類別與 Detail URL；資格與費用以官方 Detail page 為準。",
   },
   {
