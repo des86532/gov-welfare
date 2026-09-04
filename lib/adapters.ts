@@ -406,7 +406,7 @@ type OpportunityListingDefinition = {
 const opportunityListings: Record<string, OpportunityListingDefinition> = {
   "yda-activity-listing": {
     baseUrl: "https://www.yda.gov.tw/",
-    itemSelector: ".all-event .event-box",
+    itemSelector: ".event-box, .all-event .event-box",
     titleSelector: "a.title",
     linkSelector: "a.title",
     dateSelector: "small.date",
