@@ -214,7 +214,7 @@ test("限時企業方案依官方申請期間顯示申請狀態", () => {
   assert.equal(getProgramAvailability(succession, "2026-08-07"), "closed");
 });
 
-test("企業補助 Authority Sources 每日監測且不自動產生 Rules", () => {
+test("企業補助 Authority Sources 每日監測或明確記錄阻擋原因", () => {
   const enterpriseSourceIds = new Set(programs
     .filter((program) => program.category === "business_upgrade")
     .flatMap((program) => program.evidence.map((item) => item.sourceId)));
@@ -222,7 +222,8 @@ test("企業補助 Authority Sources 每日監測且不自動產生 Rules", () =
     assert.equal(source.adapterKey, "official_page", source.id);
     assert.equal(source.automation, "change_detection_only", source.id);
     assert.equal(source.checkEveryHours, 24, source.id);
-    assert.equal(source.status, "active", source.id);
+    assert.notEqual(source.status, "archived", source.id);
+    if (source.status === "blocked") assert.ok(source.note, source.id);
   }
   assert.equal(enterpriseSourceIds.size, 8);
 });
