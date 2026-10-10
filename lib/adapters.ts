@@ -462,7 +462,7 @@ const opportunityDetails: Record<string, {
     contentSelector: ".field-name-body .field-item",
   },
   "hsinchu-smart-sandbox-2026": {
-    organizer: "新竹縣政府",
+    organizer: "新竹縣政府數位發展處",
     organizerType: "government",
     opportunityType: "innovation_competition",
     governmentSupportStatus: "official",
@@ -491,7 +491,7 @@ const opportunityDetails: Record<string, {
     opportunityType: "innovation_competition",
     governmentSupportStatus: "official",
     titleSelector: "h1",
-    contentSelector: "div.max-w-7xl",
+    contentSelector: "div.max-w-3xl",
   },
   "hsinchu-city-policy-hackathon-115": {
     organizer: "新竹市政府",
@@ -514,8 +514,8 @@ const opportunityDetails: Record<string, {
     organizerType: "government",
     opportunityType: "demo_day_forum",
     governmentSupportStatus: "official",
-    titleSelector: ".page-title",
-    contentSelector: "#main-content",
+    titleSelector: "#ContentPlaceHolder1_labTitle",
+    contentSelector: "#ContentPlaceHolder1_OnlyIEvent",
   },
   "ntpc-demo-day-2026": {
     organizer: "新北市政府青年局",
@@ -534,15 +534,15 @@ const opportunityDetails: Record<string, {
     contentSelector: ".detail",
   },
   "ncku-innovation-demo-day-2026": {
-    organizer: "國立成功大學產學創新總中心",
+    organizer: "國立成功大學",
     organizerType: "university",
     opportunityType: "demo_day_forum",
-    governmentSupportStatus: "not_applicable",
+    governmentSupportStatus: "claimed_pending_evidence",
     titleSelector: "h2.hdline",
     contentSelector: ".mpgdetail .meditor",
   },
   "haoshi-demo-day-9-2026": {
-    organizer: "好食好事基金會",
+    organizer: "好食好事",
     organizerType: "foundation",
     opportunityType: "demo_day_forum",
     governmentSupportStatus: "claimed_pending_evidence",

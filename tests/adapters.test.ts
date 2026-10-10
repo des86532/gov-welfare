@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { contentHashFor, decodeSourceText, extractMyEGovHtml, extractNewTaipeiRows, extractOfficialPage, extractOpportunityDetail, extractOpportunityListing, extractSpnpActivityRows, extractTaichungRows, extractTainanRows, extractTaipeiRows, extractTaoyuanRows, parseCsvRecords, validateSnapshotFormat } from "../lib/adapters";
+import { sources } from "../data/sources";
 import type { SourceConfig } from "../lib/domain";
 
 const monitoredPdf: SourceConfig = {
@@ -187,14 +188,14 @@ test("Demo Day 與競賽 Detail mapping 只抽取官方頁主要內容區塊", (
   const cases = [
     {
       sourceId: "moda-cloud-ai-demo-day-2026",
-      html: '<html><head><title>網站</title></head><body><nav>首頁 最新消息 聯絡我們</nav><div class="page-title">2026 AI 示範日</div><div id="main-content"><p>2026-07-24 14:00–17:30，地點為 IEAT 會議中心 1 樓演講廳，請於報名截止前完成報名。</p></div></body></html>',
+      html: '<html><head><title>網站</title></head><body><nav>首頁 最新消息 聯絡我們</nav><h1 id="ContentPlaceHolder1_labTitle">2026 AI 示範日</h1><div id="ContentPlaceHolder1_OnlyIEvent"><p>2026-10-22 09:30–12:30，地點為國立臺東大學颯德固講堂，請於報名截止前完成報名。</p></div></body></html>',
       title: "2026 AI 示範日",
-      included: "IEAT 會議中心",
+      included: "颯德固講堂",
       excluded: "最新消息",
     },
     {
       sourceId: "moenv-eco-design-2026-2027",
-      html: '<html><head><title>環境部</title></head><body><h1>2026 環境永續設計競賽</h1><div class="max-w-3xl"><p>站內選單 關於競賽 聯絡我們</p></div><div class="max-w-7xl"><p>2026/9/1 起跑，徵件截止 2027.01.15 12:00，工作坊於台南、台中與台北舉辦。</p></div></body></html>',
+      html: '<html><head><title>環境部</title></head><body><h1>2026 環境永續設計競賽</h1><div class="max-w-7xl"><p>站內選單 關於競賽 聯絡我們</p></div><div class="max-w-3xl"><p>2026/9/1 起跑，徵件截止 2027.01.15 12:00，工作坊於台南、台中與台北舉辦。</p></div></body></html>',
       title: "2026 環境永續設計競賽",
       included: "2027.01.15",
       excluded: "站內選單",
@@ -210,7 +211,22 @@ test("Demo Day 與競賽 Detail mapping 只抽取官方頁主要內容區塊", (
 
 test("Detail 找不到 mapping 或主要內容為空時拋錯而非產生空白 Opportunity", () => {
   assert.throws(() => extractOpportunityDetail("<html><body><h1>x</h1></body></html>", "unmapped-opportunity-2026"), /missing opportunity detail mapping/);
-  assert.throws(() => extractOpportunityDetail('<html><body><div class="page-title">2026 AI 示範日</div><div id="other">其他區塊的文字內容不屬於主要內容區，不應被抓取。</div></body></html>', "moda-cloud-ai-demo-day-2026"), /content extraction empty/);
+  assert.throws(() => extractOpportunityDetail('<html><body><h1 id="ContentPlaceHolder1_labTitle">2026 AI 示範日</h1><div id="other">其他區塊的文字內容不屬於主要內容區，不應被抓取。</div></body></html>', "moda-cloud-ai-demo-day-2026"), /content extraction empty/);
+});
+
+test("每個 opportunity_detail Source 都有 Detail mapping，空頁面拋出內容為空錯誤", () => {
+  const detailSources = sources.filter((source) => source.adapterKey === "opportunity_detail");
+  for (const source of detailSources) {
+    assert.throws(() => extractOpportunityDetail("<html></html>", source.id), /content extraction empty/, source.id);
+  }
+});
+
+test("NCKU 成大產學創新日 Detail 保留大學主辦與待查證補助狀態", () => {
+  const [item] = extractOpportunityDetail('<html><body><h2 class="hdline">成大產學創新日</h2><div class="mpgdetail"><div class="meditor">活動日期：2026-11-04 主辦單位：產學創新總中心，現場舉辦電梯簡報競賽及募資簡報競賽。</div></div></body></html>', "ncku-innovation-demo-day-2026");
+  assert.equal(item.title, "成大產學創新日");
+  assert.equal(item.canonicalDraft.organizerType, "university");
+  assert.equal(item.canonicalDraft.governmentSupportStatus, "claimed_pending_evidence");
+  assert.equal("rule" in item.canonicalDraft, false);
 });
 
 test("雪霸 JSON 僅擷取資料中的最新年度活動", () => {
