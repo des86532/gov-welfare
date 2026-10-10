@@ -73,3 +73,21 @@ test("匿名活動回報只接受已公開活動與允許的原因", () => {
   assert.throws(() => parseActivityReport({ opportunitySlug: slug, reason: "other", detail: "太短" }), /簡單說明/);
   assert.throws(() => parseActivityReport({ opportunitySlug: slug, reason: "expired", website: "spam" }), /未通過/);
 });
+
+test("Reviewed Opportunity 狀態依官方日期判斷：報名截止後為 closed，活動結束後為 ended", () => {
+  const hsinchu = reviewedOpportunities.find((item) => item.slug === "hsinchu-smart-sandbox-2026");
+  const modaCloud = reviewedOpportunities.find((item) => item.slug === "moda-cloud-ai-demo-day-2026");
+  assert.ok(hsinchu && modaCloud);
+  assert.equal(getOpportunityStatus(hsinchu, new Date("2026-08-01T00:00:00+08:00")), "open");
+  assert.equal(getOpportunityStatus(hsinchu, new Date("2026-10-10T00:00:00+08:00")), "closed");
+  assert.equal(getOpportunityStatus(modaCloud, new Date("2026-10-10T00:00:00+08:00")), "ended");
+});
+
+test("適用對象篩選只回傳符合對象的 Reviewed Opportunity", () => {
+  const hsinchu = reviewedOpportunities.find((item) => item.slug === "hsinchu-smart-sandbox-2026");
+  const tiboost = reviewedOpportunities.find((item) => item.slug === "tiboost-forum-2026");
+  assert.ok(hsinchu && tiboost);
+  assert.equal(opportunityMatchesAudience(hsinchu, "18 歲以上"), true);
+  assert.equal(opportunityMatchesAudience(hsinchu, "高中職學生"), false);
+  assert.equal(opportunityMatchesAudience(tiboost, "新創與企業"), true);
+});

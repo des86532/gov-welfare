@@ -183,6 +183,36 @@ test("活動 Detail 使用 Source-specific selector 且不自動產生 Eligibili
   assert.ok(item.warnings.includes("dates_fees_capacity_and_eligibility_require_review"));
 });
 
+test("Demo Day 與競賽 Detail mapping 只抽取官方頁主要內容區塊", () => {
+  const cases = [
+    {
+      sourceId: "moda-cloud-ai-demo-day-2026",
+      html: '<html><head><title>網站</title></head><body><nav>首頁 最新消息 聯絡我們</nav><div class="page-title">2026 AI 示範日</div><div id="main-content"><p>2026-07-24 14:00–17:30，地點為 IEAT 會議中心 1 樓演講廳，請於報名截止前完成報名。</p></div></body></html>',
+      title: "2026 AI 示範日",
+      included: "IEAT 會議中心",
+      excluded: "最新消息",
+    },
+    {
+      sourceId: "moenv-eco-design-2026-2027",
+      html: '<html><head><title>環境部</title></head><body><h1>2026 環境永續設計競賽</h1><div class="max-w-3xl"><p>站內選單 關於競賽 聯絡我們</p></div><div class="max-w-7xl"><p>2026/9/1 起跑，徵件截止 2027.01.15 12:00，工作坊於台南、台中與台北舉辦。</p></div></body></html>',
+      title: "2026 環境永續設計競賽",
+      included: "2027.01.15",
+      excluded: "站內選單",
+    },
+  ];
+  for (const { sourceId, html, title, included, excluded } of cases) {
+    const [item] = extractOpportunityDetail(html, sourceId);
+    assert.equal(item.title, title);
+    assert.ok(String(item.canonicalDraft.bodyText).includes(included), sourceId);
+    assert.equal(String(item.canonicalDraft.bodyText).includes(excluded), false, sourceId);
+  }
+});
+
+test("Detail 找不到 mapping 或主要內容為空時拋錯而非產生空白 Opportunity", () => {
+  assert.throws(() => extractOpportunityDetail("<html><body><h1>x</h1></body></html>", "unmapped-opportunity-2026"), /missing opportunity detail mapping/);
+  assert.throws(() => extractOpportunityDetail('<html><body><div class="page-title">2026 AI 示範日</div><div id="other">其他區塊的文字內容不屬於主要內容區，不應被抓取。</div></body></html>', "moda-cloud-ai-demo-day-2026"), /content extraction empty/);
+});
+
 test("雪霸 JSON 僅擷取資料中的最新年度活動", () => {
   const body = JSON.stringify([
     { id: 1, title: "2025 舊活動", event_start: "2025-07-01T00:00:00.000Z", event_end: "2025-07-02T00:00:00.000Z" },
