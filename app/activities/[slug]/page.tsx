@@ -5,6 +5,7 @@ import { ActivityReportForm } from "@/components/activity-report-form";
 import { opportunityStatusLabels } from "@/components/opportunity-card";
 import { sourceById } from "@/data/sources";
 import { getOpportunities, getOpportunityBySlug } from "@/lib/opportunity-store";
+import type { CuratedOpportunity } from "@/data/opportunities";
 
 export const revalidate = 300;
 
@@ -12,10 +13,12 @@ export async function generateStaticParams() {
   return (await getOpportunities()).map((item) => ({ slug: item.slug }));
 }
 
-const selectionLabels = {
+const selectionLabels: Record<CuratedOpportunity["selectionType"], string> = {
   first_come_review: "依報名順序並審查資格",
   competitive_selection: "需甄選／正備取",
   capacity_review: "名額制並由主辦單位審核",
+  registration_approval: "報名後須經主辦單位審核",
+  open_registration: "線上報名，詳細規則以主辦單位公告為準",
 };
 
 const supportLabels = {

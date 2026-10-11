@@ -73,3 +73,52 @@ test("匿名活動回報只接受已公開活動與允許的原因", () => {
   assert.throws(() => parseActivityReport({ opportunitySlug: slug, reason: "other", detail: "太短" }), /簡單說明/);
   assert.throws(() => parseActivityReport({ opportunitySlug: slug, reason: "expired", website: "spam" }), /未通過/);
 });
+
+test("Reviewed Opportunity 狀態依官方日期判斷：報名未開始為 not_open、報名截止後為 closed、活動結束後為 ended", () => {
+  const hsinchu = reviewedOpportunities.find((item) => item.slug === "hsinchu-smart-sandbox-2026");
+  const modaCloud = reviewedOpportunities.find((item) => item.slug === "moda-cloud-ai-demo-day-2026");
+  assert.ok(hsinchu && modaCloud);
+  assert.equal(getOpportunityStatus(hsinchu, new Date("2026-08-01T00:00:00+08:00")), "not_open");
+  assert.equal(getOpportunityStatus(hsinchu, new Date("2026-08-25T00:00:00+08:00")), "open");
+  assert.equal(getOpportunityStatus(hsinchu, new Date("2026-10-17T00:00:00+08:00")), "closed");
+  assert.equal(getOpportunityStatus(modaCloud, new Date("2026-10-21T00:00:00+08:00")), "closed");
+  assert.equal(getOpportunityStatus(modaCloud, new Date("2026-10-23T00:00:00+08:00")), "ended");
+});
+
+test("適用對象篩選只回傳符合對象的 Reviewed Opportunity", () => {
+  const hsinchu = reviewedOpportunities.find((item) => item.slug === "hsinchu-smart-sandbox-2026");
+  const tiboost = reviewedOpportunities.find((item) => item.slug === "tiboost-forum-final-2026");
+  assert.ok(hsinchu && tiboost);
+  assert.equal(opportunityMatchesAudience(hsinchu, "18 歲以上"), true);
+  assert.equal(opportunityMatchesAudience(hsinchu, "女性青年"), false);
+  assert.equal(opportunityMatchesAudience(tiboost, "新創與企業"), true);
+  assert.equal(opportunityMatchesAudience(tiboost, "高中職學生"), false);
+});
+
+test("非政府主辦的 Reviewed Opportunity 不得標示為政府官方支應", () => {
+  for (const item of reviewedOpportunities.filter((opportunity) => opportunity.organizerType !== "government")) {
+    assert.notEqual(item.governmentSupportStatus, "official", item.slug);
+  }
+});
+
+test("創新競賽與論壇 Demo Day 的 selectionType 分流正確", () => {
+  for (const item of reviewedOpportunities.filter((opportunity) => opportunity.category === "創新競賽")) {
+    assert.equal(item.selectionType, "competitive_selection", item.slug);
+  }
+  for (const item of reviewedOpportunities.filter((opportunity) => opportunity.category === "論壇與 Demo Day")) {
+    assert.notEqual(item.selectionType, "competitive_selection", item.slug);
+  }
+});
+
+test("新竹市黑客松與新北 Demo Day 的狀態轉換與地區篩選", () => {
+  const hackathon = reviewedOpportunities.find((item) => item.slug === "hsinchu-city-policy-hackathon-115");
+  const demoDay = reviewedOpportunities.find((item) => item.slug === "ntpc-demo-day-2026");
+  assert.ok(hackathon && demoDay);
+  assert.equal(getOpportunityStatus(hackathon, new Date("2026-10-20T12:00:00+08:00")), "open");
+  assert.equal(getOpportunityStatus(hackathon, new Date("2026-10-31T00:30:00+08:00")), "closed");
+  assert.equal(getOpportunityStatus(hackathon, new Date("2026-11-23T00:00:00+08:00")), "ended");
+  assert.equal(getOpportunityStatus(demoDay, new Date("2026-10-20T12:00:00+08:00")), "unknown");
+  assert.equal(getOpportunityStatus(demoDay, new Date("2026-11-05T15:00:00+08:00")), "ended");
+  assert.equal(opportunityMatchesRegion(hackathon, "新竹市"), true);
+  assert.equal(opportunityMatchesRegion(hackathon, "新竹縣"), false);
+});

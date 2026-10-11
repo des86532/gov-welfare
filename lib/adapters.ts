@@ -387,7 +387,7 @@ export function extractOfficialPage(body: string, sourceId: string): DraftSource
   }];
 }
 
-type OpportunitySourceKind = "government" | "foundation" | "nonprofit";
+type OpportunitySourceKind = "government" | "foundation" | "nonprofit" | "university";
 
 type OpportunityListingDefinition = {
   baseUrl: string;
@@ -460,6 +460,94 @@ const opportunityDetails: Record<string, {
     governmentSupportStatus: "not_applicable",
     titleSelector: "#page-title",
     contentSelector: ".field-name-body .field-item",
+  },
+  "hsinchu-smart-sandbox-2026": {
+    organizer: "新竹縣政府數位發展處",
+    organizerType: "government",
+    opportunityType: "innovation_competition",
+    governmentSupportStatus: "official",
+    titleSelector: "title",
+    contentSelector: "#sec-intro, #sec-schedule, #sec-faq",
+  },
+  "tiboost-forum-2026": {
+    organizer: "中華民國創業投資商業同業公會、中華民國私募股權投資商業同業公會",
+    organizerType: "nonprofit",
+    opportunityType: "demo_day_forum",
+    governmentSupportStatus: "claimed_pending_evidence",
+    titleSelector: ".fhero-title",
+    contentSelector: "#kv, #about, #agenda, #venue",
+  },
+  "moda-satellite-innovation-2026": {
+    organizer: "數位發展部數位產業署",
+    organizerType: "government",
+    opportunityType: "innovation_competition",
+    governmentSupportStatus: "official",
+    titleSelector: ".rightMain h2",
+    contentSelector: ".article1.cpArticle",
+  },
+  "moenv-eco-design-2026-2027": {
+    organizer: "環境部",
+    organizerType: "government",
+    opportunityType: "innovation_competition",
+    governmentSupportStatus: "official",
+    titleSelector: "h1",
+    contentSelector: "div.max-w-3xl",
+  },
+  "hsinchu-city-policy-hackathon-115": {
+    organizer: "新竹市政府",
+    organizerType: "government",
+    opportunityType: "innovation_competition",
+    governmentSupportStatus: "official",
+    titleSelector: "title",
+    contentSelector: ".hero-copy, .info-strip, .prizes, .about, .content-block",
+  },
+  "taipei-public-policy-proposal-2026": {
+    organizer: "臺北市政府青年局",
+    organizerType: "government",
+    opportunityType: "innovation_competition",
+    governmentSupportStatus: "official",
+    titleSelector: "title",
+    contentSelector: "article",
+  },
+  "moda-cloud-ai-demo-day-2026": {
+    organizer: "數位發展部數位產業署",
+    organizerType: "government",
+    opportunityType: "demo_day_forum",
+    governmentSupportStatus: "official",
+    titleSelector: "#ContentPlaceHolder1_labTitle",
+    contentSelector: "#ContentPlaceHolder1_OnlyIEvent",
+  },
+  "ntpc-demo-day-2026": {
+    organizer: "新北市政府青年局",
+    organizerType: "government",
+    opportunityType: "demo_day_forum",
+    governmentSupportStatus: "official",
+    titleSelector: ".d_title",
+    contentSelector: ".detail",
+  },
+  "ntpc-venturestar-final-2026": {
+    organizer: "新北市政府青年局",
+    organizerType: "government",
+    opportunityType: "demo_day_forum",
+    governmentSupportStatus: "official",
+    titleSelector: ".d_title",
+    contentSelector: ".detail",
+  },
+  "ncku-innovation-demo-day-2026": {
+    organizer: "國立成功大學",
+    organizerType: "university",
+    opportunityType: "demo_day_forum",
+    governmentSupportStatus: "claimed_pending_evidence",
+    titleSelector: "h2.hdline",
+    contentSelector: ".mpgdetail .meditor",
+  },
+  "haoshi-demo-day-9-2026": {
+    organizer: "好食好事",
+    organizerType: "foundation",
+    opportunityType: "demo_day_forum",
+    governmentSupportStatus: "claimed_pending_evidence",
+    titleSelector: "title",
+    contentSelector: ".noteblock, .whoattend-row",
   },
 };
 

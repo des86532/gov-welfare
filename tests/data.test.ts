@@ -242,6 +242,9 @@ test("限時活動 Sources 使用 Opportunity adapters 且不混入自動發布"
   assert.equal(byId.get("tmitrail-work-holiday-listing")?.adapterKey, "activity_listing_html");
   assert.equal(byId.get("mnd-nansha-study-camp-115")?.adapterKey, "opportunity_detail");
   assert.equal(byId.get("spnp-activity-calendar-json")?.adapterKey, "spnp_activity_json");
+  assert.equal(byId.get("hsinchu-smart-sandbox-2026-brief")?.adapterKey, "document_monitor");
+  assert.equal(byId.get("hsinchu-smart-sandbox-2026-brief")?.format, "pdf");
+  assert.equal(byId.get("hsinchu-smart-sandbox-2026-brief")?.automation, "change_detection_only");
   for (const source of sources.filter((item) => item.adapterKey === "activity_listing_html" || item.adapterKey === "opportunity_detail" || item.adapterKey === "spnp_activity_json")) {
     assert.notEqual(source.automation, "structured_extract", source.id);
     assert.match(source.publicUrl ?? source.url, /^https:\/\//, source.id);
