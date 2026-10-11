@@ -1264,9 +1264,9 @@ export const sources: SourceConfig[] = [
     adapterKey: "opportunity_detail",
     checkEveryHours: 24,
     crawlerRequired: false,
-    status: "active",
+    status: "blocked",
     lastVerifiedAt: "2026-10-11",
-    note: "競賽活動，非福利補助。官網時程由 data-date-after 與 JS 於 2026-10-08 切換，靜態 HTML 仍顯示 10/7；時程與獎金以簡章 PDF 與官網最新公告交叉覆核。",
+    note: "官方主機（smartsandbox.hsinchu.gov.tw）阻擋國外雲端與 GitHub Actions runner（UND_ERR_CONNECT_TIMEOUT）；保留既有 Reviewed Opportunity 與官方連結，待官方解除 IP 限制後再恢復自動監測。",
   },
   {
     id: "hsinchu-smart-sandbox-2026-brief",
@@ -1280,9 +1280,9 @@ export const sources: SourceConfig[] = [
     adapterKey: "document_monitor",
     checkEveryHours: 24,
     crawlerRequired: false,
-    status: "active",
+    status: "blocked",
     lastVerifiedAt: "2026-10-11",
-    note: "PDF 只監測 hash；獎金與時程異動需人工覆核 hsinchu-smart-sandbox-2026 Opportunity。",
+    note: "簡章 PDF 與官網同主機，GitHub Actions runner 連線逾時（UND_ERR_CONNECT_TIMEOUT）；保留檔案 Hash 與 Evidence，待官方解除 IP 限制後再恢復自動監測。",
   },
   {
     id: "tiboost-forum-2026",
